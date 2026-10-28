@@ -100,6 +100,7 @@ pub enum CellValue {
         cached_value: Option<f64>,
     },
     InlineString(String),
+    Array(Vec<Vec<CellValue>>),
 }
 
 impl CellValue {
@@ -111,6 +112,7 @@ impl CellValue {
         match self {
             Self::Number(n) => Some(*n),
             Self::Formula { cached_value, .. } => *cached_value,
+            Self::Array(arr) => arr.first().and_then(|r| r.first()).and_then(|c| c.as_f64()),
             _ => None,
         }
     }

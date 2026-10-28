@@ -7,6 +7,7 @@
 
 pub mod calc_dag;
 pub mod formula;
+pub mod functions;
 pub mod grid;
 pub mod package;
 pub mod shared_strings;
@@ -18,6 +19,7 @@ pub use calc_dag::{
     apply_ieee_snap_to_zero, evaluate_ast_node, CalculationDag, CellKey, IterativeConfig,
     IEEE_SNAP_THRESHOLD,
 };
+pub use functions::*;
 
 pub use formula::{
     compile_formula, decompile_ast, decompile_bytecode, decompile_formula, parse_formula, AstNode,

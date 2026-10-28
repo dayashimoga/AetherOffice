@@ -6,11 +6,13 @@
 
 use crate::formula::ast::{AstNode, BinaryOperator, Literal, UnaryOperator};
 use crate::formula::reference::Reference;
+use crate::functions::{dispatch_function, EvalContext};
 use crate::grid::{cell_to_coords, coords_to_cell, CellError, CellValue, CompressedSparsePageGrid};
 use ooxml_opc::error::{EngineError, Result};
 use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, Event};
 use quick_xml::reader::Reader;
 use quick_xml::writer::Writer;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::Cursor;
@@ -337,42 +339,166 @@ impl CalculationDag {
         Ok(sorted)
     }
 
-    /// Evaluates all dirty cells in topological order against a grid, applying the exact IEEE-754 snap.
+    /// Groups dirty cells into topological dependency levels (batches of mutually independent cells)
+    /// suitable for parallel evaluation across DAG levels.
+    pub fn topological_levels(&self) -> Result<Vec<Vec<CellKey>>> {
+        let mut in_degree: HashMap<CellKey, usize> = HashMap::new();
+        for &cell in &self.dirty_cells {
+            let preds_count = self
+                .predecessors
+                .get(&cell)
+                .map(|preds| {
+                    preds
+                        .iter()
+                        .filter(|p| self.dirty_cells.contains(p))
+                        .count()
+                })
+                .unwrap_or(0);
+            in_degree.insert(cell, preds_count);
+        }
+
+        let mut current_level = Vec::new();
+        for (&cell, &degree) in &in_degree {
+            if degree == 0 {
+                current_level.push(cell);
+            }
+        }
+
+        let mut levels = Vec::new();
+        let mut total_count = 0;
+
+        while !current_level.is_empty() {
+            current_level.sort();
+            total_count += current_level.len();
+            let mut next_level = Vec::new();
+
+            for &u in &current_level {
+                if let Some(deps) = self.dependents.get(&u) {
+                    for &v in deps {
+                        if self.dirty_cells.contains(&v) {
+                            if let Some(deg) = in_degree.get_mut(&v) {
+                                if *deg > 0 {
+                                    *deg -= 1;
+                                    if *deg == 0 {
+                                        next_level.push(v);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            levels.push(current_level);
+            current_level = next_level;
+        }
+
+        if total_count < self.dirty_cells.len() && !self.iter_config.enabled {
+            let cycles = self.detect_cycles();
+            if !cycles.is_empty() {
+                let first_cycle_cells: Vec<String> = cycles[0].iter().map(|c| c.to_a1()).collect();
+                return Err(EngineError::FormulaError(format!(
+                    "Circular reference detected in formula chain: {}",
+                    first_cycle_cells.join(" -> ")
+                )));
+            }
+        }
+
+        Ok(levels)
+    }
+
+    /// Evaluates all dirty cells in parallel topological levels against a grid, applying exact IEEE-754 snap.
     pub fn evaluate_dirty(&mut self, grid: &mut CompressedSparsePageGrid) -> Result<usize> {
         let cycles = self.detect_cycles();
         if !cycles.is_empty() && self.iter_config.enabled {
             return self.evaluate_with_iterations(grid, &cycles);
         }
 
-        let order = self.topological_sort()?;
+        let levels = self.topological_levels()?;
         let mut count = 0;
 
-        for cell in order {
-            if let Some(formula_str) = grid.get_formula_str(cell.row, cell.col) {
-                count += 1;
-                let formula_owned = formula_str.to_string();
-                let ast = crate::formula::parse_formula(&formula_owned)?;
-                let evaluated = evaluate_ast_node(&ast, grid, true)?;
-                match evaluated {
-                    CellValue::Number(num) => {
-                        grid.set_formula_cached_value(cell.row, cell.col, num)?;
+        for level in levels {
+            // Parallel evaluation of mutually independent cells at this DAG level via Rayon
+            let eval_results: Result<Vec<(CellKey, Option<CellValue>)>> = level
+                .par_iter()
+                .map(|&cell| {
+                    if let Some(formula_str) = grid.get_formula_str(cell.row, cell.col) {
+                        let ast = crate::formula::parse_formula(formula_str)?;
+                        let ctx = EvalContext::new(Some(grid), false);
+                        let evaluated = evaluate_ast_node_with_ctx(&ast, &ctx, true)?;
+                        Ok((cell, Some(evaluated)))
+                    } else {
+                        Ok((cell, None))
                     }
-                    CellValue::Boolean(b) => {
-                        grid.set_boolean(cell.row, cell.col, b)?;
+                })
+                .collect();
+
+            let eval_results = eval_results?;
+            for (cell, maybe_evaluated) in eval_results {
+                if let Some(evaluated) = maybe_evaluated {
+                    count += 1;
+                    match evaluated {
+                        CellValue::Number(num) => {
+                            grid.set_formula_cached_value(cell.row, cell.col, num)?;
+                        }
+                        CellValue::Boolean(b) => {
+                            grid.set_boolean(cell.row, cell.col, b)?;
+                        }
+                        CellValue::Error(e) => {
+                            grid.set_error(cell.row, cell.col, e)?;
+                        }
+                        CellValue::InlineString(s) => {
+                            grid.set_inline_string(cell.row, cell.col, &s)?;
+                        }
+                        CellValue::Array(matrix) => {
+                            if let Some(first_cell) = matrix.first().and_then(|r| r.first()) {
+                                match first_cell {
+                                    CellValue::Number(num) => {
+                                        grid.set_formula_cached_value(cell.row, cell.col, *num)?;
+                                    }
+                                    CellValue::Boolean(b) => {
+                                        grid.set_boolean(cell.row, cell.col, *b)?;
+                                    }
+                                    CellValue::Error(e) => {
+                                        grid.set_error(cell.row, cell.col, *e)?;
+                                    }
+                                    CellValue::InlineString(s) => {
+                                        grid.set_inline_string(cell.row, cell.col, s)?;
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            // Dynamic array spill into adjacent grid cells
+                            for (r_off, row) in matrix.iter().enumerate() {
+                                for (c_off, val) in row.iter().enumerate() {
+                                    if r_off == 0 && c_off == 0 {
+                                        continue;
+                                    }
+                                    let target_r = cell.row + r_off as u32;
+                                    let target_c = cell.col + c_off as u32;
+                                    match val {
+                                        CellValue::Number(n) => {
+                                            grid.set_number(target_r, target_c, *n)?;
+                                        }
+                                        CellValue::Boolean(b) => {
+                                            grid.set_boolean(target_r, target_c, *b)?;
+                                        }
+                                        CellValue::Error(e) => {
+                                            grid.set_error(target_r, target_c, *e)?;
+                                        }
+                                        CellValue::InlineString(s) => {
+                                            grid.set_inline_string(target_r, target_c, s)?;
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
                     }
-                    CellValue::Error(e) => {
-                        grid.set_error(cell.row, cell.col, e)?;
-                    }
-                    CellValue::InlineString(s) => {
-                        grid.set_inline_string(cell.row, cell.col, &s)?;
-                    }
-                    _ => {}
                 }
-            } else {
-                // Non-formula cell evaluated
                 self.dirty_cells.remove(&cell);
             }
-            self.dirty_cells.remove(&cell);
         }
 
         Ok(count)
@@ -569,6 +695,16 @@ pub fn evaluate_ast_node(
     grid: &CompressedSparsePageGrid,
     is_root: bool,
 ) -> Result<CellValue> {
+    let ctx = EvalContext::new(Some(grid), false);
+    evaluate_ast_node_with_ctx(node, &ctx, is_root)
+}
+
+/// Evaluates an AST node with evaluation context (scope bindings and grid).
+pub fn evaluate_ast_node_with_ctx(
+    node: &AstNode,
+    ctx: &EvalContext,
+    is_root: bool,
+) -> Result<CellValue> {
     match node {
         AstNode::Literal(lit) => match lit {
             Literal::Number(n) => Ok(CellValue::Number(*n)),
@@ -577,13 +713,16 @@ pub fn evaluate_ast_node(
             Literal::Error(e) => Ok(CellValue::Error(*e)),
             Literal::Empty => Ok(CellValue::Number(0.0)),
         },
-        AstNode::Reference(r) => resolve_reference_value(r, grid),
+        AstNode::Reference(r) => resolve_reference_value_with_ctx(r, ctx),
         AstNode::Parenthesized(inner) => {
             // Parenthesized expression suppresses snap-to-zero heuristic at root level
-            evaluate_ast_node(inner, grid, false)
+            evaluate_ast_node_with_ctx(inner, ctx, false)
         }
         AstNode::UnaryOp { op, expr } => {
-            let val = evaluate_ast_node(expr, grid, false)?;
+            let val = evaluate_ast_node_with_ctx(expr, ctx, false)?;
+            if let CellValue::Error(_) = val {
+                return Ok(val);
+            }
             match op {
                 UnaryOperator::Plus => Ok(val),
                 UnaryOperator::Neg => match val {
@@ -598,8 +737,14 @@ pub fn evaluate_ast_node(
             }
         }
         AstNode::BinaryOp { op, left, right } => {
-            let l_val = evaluate_ast_node(left, grid, false)?;
-            let r_val = evaluate_ast_node(right, grid, false)?;
+            let l_val = evaluate_ast_node_with_ctx(left, ctx, false)?;
+            if let CellValue::Error(_) = l_val {
+                return Ok(l_val);
+            }
+            let r_val = evaluate_ast_node_with_ctx(right, ctx, false)?;
+            if let CellValue::Error(_) = r_val {
+                return Ok(r_val);
+            }
 
             match op {
                 BinaryOperator::Add => {
@@ -685,185 +830,63 @@ pub fn evaluate_ast_node(
                 _ => Ok(l_val),
             }
         }
-        AstNode::FunctionCall { name, args } => evaluate_function(name, args, grid),
+        AstNode::FunctionCall { name, args } => {
+            dispatch_function(name, args, ctx, &|sub_node, sub_ctx| {
+                evaluate_ast_node_with_ctx(sub_node, sub_ctx, false)
+            })
+        }
         AstNode::ArrayLiteral { rows } => {
-            if let Some(first_row) = rows.first() {
-                if let Some(first_cell) = first_row.first() {
-                    return evaluate_ast_node(first_cell, grid, false);
+            let mut matrix = Vec::new();
+            for r in rows {
+                let mut row = Vec::new();
+                for cell in r {
+                    row.push(evaluate_ast_node_with_ctx(cell, ctx, false)?);
                 }
+                matrix.push(row);
             }
-            Ok(CellValue::Number(0.0))
+            Ok(CellValue::Array(matrix))
         }
     }
 }
 
-fn resolve_reference_value(r: &Reference, grid: &CompressedSparsePageGrid) -> Result<CellValue> {
+fn resolve_reference_value_with_ctx(r: &Reference, ctx: &EvalContext) -> Result<CellValue> {
     match r {
-        Reference::Cell { cell, .. } => Ok(grid.get_value(cell.row, cell.col)),
-        Reference::Spill(inner) => resolve_reference_value(inner, grid),
-        Reference::ImplicitIntersection(inner) => resolve_reference_value(inner, grid),
+        Reference::Cell { cell, .. } => {
+            if let Some(grid) = ctx.grid {
+                Ok(grid.get_value(cell.row, cell.col))
+            } else {
+                Ok(CellValue::Error(CellError::Ref))
+            }
+        }
+        Reference::Spill(inner) => resolve_reference_value_with_ctx(inner, ctx),
+        Reference::ImplicitIntersection(inner) => resolve_reference_value_with_ctx(inner, ctx),
         Reference::Range { range, .. } => {
-            // Default scalar evaluation of range takes top-left corner
-            Ok(grid.get_value(range.start.row, range.start.col))
-        }
-        Reference::Named(_) | Reference::Table(_) => Ok(CellValue::Number(0.0)),
-    }
-}
-
-fn evaluate_function(
-    name: &str,
-    args: &[AstNode],
-    grid: &CompressedSparsePageGrid,
-) -> Result<CellValue> {
-    let upper = name.to_ascii_uppercase();
-    match upper.as_str() {
-        "SUM" => {
-            let mut sum = 0.0;
-            for arg in args {
-                match arg {
-                    AstNode::Reference(Reference::Range { range, .. }) => {
-                        let r1 = range.start.row.min(range.end.row);
-                        let r2 = range.start.row.max(range.end.row);
-                        let c1 = range.start.col.min(range.end.col);
-                        let c2 = range.start.col.max(range.end.col);
-                        for r in r1..=r2 {
-                            for c in c1..=c2 {
-                                if let CellValue::Number(n) = grid.get_value(r, c) {
-                                    sum += n;
-                                }
-                            }
-                        }
+            if let Some(grid) = ctx.grid {
+                let r1 = range.start.row.min(range.end.row);
+                let r2 = range.start.row.max(range.end.row);
+                let c1 = range.start.col.min(range.end.col);
+                let c2 = range.start.col.max(range.end.col);
+                let mut matrix = Vec::new();
+                for row_idx in r1..=r2 {
+                    let mut row = Vec::new();
+                    for col_idx in c1..=c2 {
+                        row.push(grid.get_value(row_idx, col_idx));
                     }
-                    other => {
-                        let val = evaluate_ast_node(other, grid, false)?;
-                        if let Ok(n) = extract_f64(&val) {
-                            sum += n;
-                        }
-                    }
+                    matrix.push(row);
                 }
-            }
-            Ok(CellValue::Number(sum))
-        }
-        "AVERAGE" => {
-            let mut sum = 0.0;
-            let mut count = 0;
-            for arg in args {
-                match arg {
-                    AstNode::Reference(Reference::Range { range, .. }) => {
-                        let r1 = range.start.row.min(range.end.row);
-                        let r2 = range.start.row.max(range.end.row);
-                        let c1 = range.start.col.min(range.end.col);
-                        let c2 = range.start.col.max(range.end.col);
-                        for r in r1..=r2 {
-                            for c in c1..=c2 {
-                                if let CellValue::Number(n) = grid.get_value(r, c) {
-                                    sum += n;
-                                    count += 1;
-                                }
-                            }
-                        }
-                    }
-                    other => {
-                        let val = evaluate_ast_node(other, grid, false)?;
-                        if let Ok(n) = extract_f64(&val) {
-                            sum += n;
-                            count += 1;
-                        }
-                    }
-                }
-            }
-            if count == 0 {
-                Ok(CellValue::Error(CellError::Div0))
+                Ok(CellValue::Array(matrix))
             } else {
-                Ok(CellValue::Number(sum / count as f64))
+                Ok(CellValue::Error(CellError::Ref))
             }
         }
-        "MIN" => {
-            let mut min = f64::MAX;
-            for arg in args {
-                let val = evaluate_ast_node(arg, grid, false)?;
-                if let Ok(n) = extract_f64(&val) {
-                    if n < min {
-                        min = n;
-                    }
-                }
-            }
-            Ok(CellValue::Number(if min == f64::MAX { 0.0 } else { min }))
-        }
-        "MAX" => {
-            let mut max = f64::MIN;
-            for arg in args {
-                let val = evaluate_ast_node(arg, grid, false)?;
-                if let Ok(n) = extract_f64(&val) {
-                    if n > max {
-                        max = n;
-                    }
-                }
-            }
-            Ok(CellValue::Number(if max == f64::MIN { 0.0 } else { max }))
-        }
-        "COUNT" => {
-            let mut count = 0;
-            for arg in args {
-                let val = evaluate_ast_node(arg, grid, false)?;
-                if matches!(val, CellValue::Number(_)) {
-                    count += 1;
-                }
-            }
-            Ok(CellValue::Number(count as f64))
-        }
-        "ABS" => {
-            if let Some(first) = args.first() {
-                let val = evaluate_ast_node(first, grid, false)?;
-                let n = extract_f64(&val)?;
-                Ok(CellValue::Number(n.abs()))
+        Reference::Named(name) => {
+            if let Some(val) = ctx.env.get(&name.to_ascii_uppercase()) {
+                Ok(val.clone())
             } else {
-                Ok(CellValue::Error(CellError::Value))
+                Ok(CellValue::Number(0.0))
             }
         }
-        "ROUND" => {
-            if args.len() >= 2 {
-                let val = evaluate_ast_node(&args[0], grid, false)?;
-                let digits = evaluate_ast_node(&args[1], grid, false)?;
-                let n = extract_f64(&val)?;
-                let d = extract_f64(&digits)? as i32;
-                let factor = 10f64.powi(d);
-                let scaled = n * factor;
-                let eps = 1e-10;
-                let rounded = if scaled >= 0.0 {
-                    (scaled + eps).round()
-                } else {
-                    (scaled - eps).round()
-                };
-                Ok(CellValue::Number(rounded / factor))
-            } else {
-                Ok(CellValue::Error(CellError::Value))
-            }
-        }
-        "IF" => {
-            if args.is_empty() {
-                return Ok(CellValue::Error(CellError::Value));
-            }
-            let cond_val = evaluate_ast_node(&args[0], grid, false)?;
-            let is_true = match cond_val {
-                CellValue::Boolean(b) => b,
-                CellValue::Number(n) => n != 0.0,
-                _ => false,
-            };
-
-            if is_true {
-                if args.len() > 1 {
-                    evaluate_ast_node(&args[1], grid, false)
-                } else {
-                    Ok(CellValue::Boolean(true))
-                }
-            } else if args.len() > 2 {
-                evaluate_ast_node(&args[2], grid, false)
-            } else {
-                Ok(CellValue::Boolean(false))
-            }
-        }
-        _ => Ok(CellValue::Error(CellError::Name)),
+        Reference::Table(_) => Ok(CellValue::Number(0.0)),
     }
 }
 
@@ -872,11 +895,18 @@ fn extract_f64(val: &CellValue) -> Result<f64> {
         CellValue::Number(n) => Ok(*n),
         CellValue::Formula { cached_value, .. } => Ok(cached_value.unwrap_or(0.0)),
         CellValue::Boolean(b) => Ok(if *b { 1.0 } else { 0.0 }),
-        CellValue::InlineString(s) => s.parse::<f64>().map_err(|_| {
+        CellValue::InlineString(s) => s.trim().parse::<f64>().map_err(|_| {
             EngineError::FormulaError(format!("Cannot convert string '{s}' to number"))
         }),
         CellValue::Empty => Ok(0.0),
         CellValue::Error(e) => Err(EngineError::FormulaError(format!("Cell error: {e}"))),
+        CellValue::Array(arr) => {
+            if let Some(first) = arr.first().and_then(|r| r.first()) {
+                extract_f64(first)
+            } else {
+                Ok(0.0)
+            }
+        }
         _ => Ok(0.0),
     }
 }
@@ -888,6 +918,13 @@ fn extract_string(val: &CellValue) -> String {
         CellValue::Boolean(b) => if *b { "TRUE" } else { "FALSE" }.into(),
         CellValue::Error(e) => e.to_string(),
         CellValue::Empty => String::new(),
+        CellValue::Array(arr) => {
+            if let Some(first) = arr.first().and_then(|r| r.first()) {
+                extract_string(first)
+            } else {
+                String::new()
+            }
+        }
         _ => String::new(),
     }
 }

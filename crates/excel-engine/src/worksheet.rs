@@ -643,6 +643,63 @@ impl Worksheet {
                             .write_event(Event::End(BytesEnd::new("c")))
                             .map_err(EngineError::Io)?;
                     }
+                    CellValue::Array(ref arr) => {
+                        if let Some(first_cell) = arr.first().and_then(|r| r.first()) {
+                            match first_cell {
+                                CellValue::Number(n) => {
+                                    xml_writer
+                                        .write_event(Event::Start(c_tag))
+                                        .map_err(EngineError::Io)?;
+                                    xml_writer
+                                        .write_event(Event::Start(BytesStart::new("v")))
+                                        .map_err(EngineError::Io)?;
+                                    let n_str = n.to_string();
+                                    xml_writer
+                                        .write_event(Event::Text(BytesText::new(&n_str)))
+                                        .map_err(EngineError::Io)?;
+                                    xml_writer
+                                        .write_event(Event::End(BytesEnd::new("v")))
+                                        .map_err(EngineError::Io)?;
+                                    xml_writer
+                                        .write_event(Event::End(BytesEnd::new("c")))
+                                        .map_err(EngineError::Io)?;
+                                }
+                                CellValue::InlineString(ref s) => {
+                                    c_tag.push_attribute(("t", "inlineStr"));
+                                    xml_writer
+                                        .write_event(Event::Start(c_tag))
+                                        .map_err(EngineError::Io)?;
+                                    xml_writer
+                                        .write_event(Event::Start(BytesStart::new("is")))
+                                        .map_err(EngineError::Io)?;
+                                    xml_writer
+                                        .write_event(Event::Start(BytesStart::new("t")))
+                                        .map_err(EngineError::Io)?;
+                                    xml_writer
+                                        .write_event(Event::Text(BytesText::new(s)))
+                                        .map_err(EngineError::Io)?;
+                                    xml_writer
+                                        .write_event(Event::End(BytesEnd::new("t")))
+                                        .map_err(EngineError::Io)?;
+                                    xml_writer
+                                        .write_event(Event::End(BytesEnd::new("is")))
+                                        .map_err(EngineError::Io)?;
+                                    xml_writer
+                                        .write_event(Event::End(BytesEnd::new("c")))
+                                        .map_err(EngineError::Io)?;
+                                }
+                                _ => {
+                                    xml_writer
+                                        .write_event(Event::Empty(c_tag))
+                                        .map_err(EngineError::Io)?;
+                                }
+                            }
+                        } else {
+                            xml_writer
+                                .write_event(Event::Empty(c_tag))
+                                .map_err(EngineError::Io)?;
+                        }
+                    }
                 }
             }
 

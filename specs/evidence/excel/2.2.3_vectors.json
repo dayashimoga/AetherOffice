@@ -1,0 +1,413 @@
+{
+  "subphase": "2.2.3",
+  "title": "Parallel Evaluation of Core & Financial/Lookup Functions",
+  "total_vectors": 58,
+  "vectors": [
+    {
+      "id": "fin_pmt_01",
+      "formula": "=PMT(0.08 / 12, 10, 10000)",
+      "category": "financial",
+      "expected_result": -1037.0320893591544,
+      "description": "Standard monthly mortgage loan payment at 8% annual interest over 10 months"
+    },
+    {
+      "id": "fin_pmt_02",
+      "formula": "=PMT(0, 10, 10000)",
+      "category": "financial",
+      "expected_result": -1000.0,
+      "description": "Zero interest rate payment equals negative principal divided by period count"
+    },
+    {
+      "id": "fin_ipmt_01",
+      "formula": "=IPMT(0.08 / 12, 1, 10, 10000)",
+      "category": "financial",
+      "expected_result": -66.66666666666667,
+      "description": "First period interest payment on loan"
+    },
+    {
+      "id": "fin_ppmt_01",
+      "formula": "=PPMT(0.08 / 12, 1, 10, 10000)",
+      "category": "financial",
+      "expected_result": -970.3654226924878,
+      "description": "First period principal payment on loan (PMT - IPMT)"
+    },
+    {
+      "id": "fin_npv_01",
+      "formula": "=NPV(0.1, 100, 200, 300)",
+      "category": "financial",
+      "expected_result": 481.5927873779112,
+      "description": "Net present value discounted at 10% for periods 1, 2, and 3"
+    },
+    {
+      "id": "fin_irr_01",
+      "formula": "=IRR({-10000, 3000, 4200, 6800})",
+      "category": "financial",
+      "expected_result": 0.163354746,
+      "description": "Internal rate of return convergence via Newton-Raphson"
+    },
+    {
+      "id": "date_1900_01",
+      "formula": "=DATE(1900, 1, 1)",
+      "category": "datetime",
+      "expected_result": 1.0,
+      "description": "Excel Day 1 serial under 1900 date system"
+    },
+    {
+      "id": "date_1900_59",
+      "formula": "=DATE(1900, 2, 28)",
+      "category": "datetime",
+      "expected_result": 59.0,
+      "description": "Day before 1900 leap bug serial"
+    },
+    {
+      "id": "date_1900_leap_60",
+      "formula": "=DATE(1900, 2, 29)",
+      "category": "datetime",
+      "expected_result": 60.0,
+      "description": "Excel intentional Lotus 1-2-3 1900 leap-year bug serial 60"
+    },
+    {
+      "id": "date_1900_61",
+      "formula": "=DATE(1900, 3, 1)",
+      "category": "datetime",
+      "expected_result": 61.0,
+      "description": "Day after 1900 leap bug serial"
+    },
+    {
+      "id": "date_2026_01",
+      "formula": "=DATE(2026, 1, 1)",
+      "category": "datetime",
+      "expected_result": 46023.0,
+      "description": "Excel serial date for 2026-01-01"
+    },
+    {
+      "id": "date_year_01",
+      "formula": "=YEAR(46023)",
+      "category": "datetime",
+      "expected_result": 2026.0,
+      "description": "YEAR extraction from serial"
+    },
+    {
+      "id": "date_month_01",
+      "formula": "=MONTH(46023)",
+      "category": "datetime",
+      "expected_result": 1.0,
+      "description": "MONTH extraction from serial"
+    },
+    {
+      "id": "date_day_01",
+      "formula": "=DAY(46023)",
+      "category": "datetime",
+      "expected_result": 1.0,
+      "description": "DAY extraction from serial"
+    },
+    {
+      "id": "date_edate_01",
+      "formula": "=EDATE(46023, 3)",
+      "category": "datetime",
+      "expected_result": 46113.0,
+      "description": "EDATE advances date by 3 months to 2026-04-01"
+    },
+    {
+      "id": "date_edate_02",
+      "formula": "=EDATE(46023, -12)",
+      "category": "datetime",
+      "expected_result": 45658.0,
+      "description": "EDATE steps back date by 12 months to 2025-01-01"
+    },
+    {
+      "id": "date_eomonth_01",
+      "formula": "=EOMONTH(46023, 0)",
+      "category": "datetime",
+      "expected_result": 46053.0,
+      "description": "EOMONTH returns end of current month (2026-01-31)"
+    },
+    {
+      "id": "date_eomonth_02",
+      "formula": "=EOMONTH(46023, 1)",
+      "category": "datetime",
+      "expected_result": 46081.0,
+      "description": "EOMONTH returns end of next month (2026-02-28)"
+    },
+    {
+      "id": "date_workday_01",
+      "formula": "=WORKDAY.INTL(46023, 5, 1)",
+      "category": "datetime",
+      "expected_result": 46030.0,
+      "description": "WORKDAY.INTL advances 5 working days skipping weekend (Sat, Sun)"
+    },
+    {
+      "id": "date_networkdays_01",
+      "formula": "=NETWORKDAYS.INTL(46023, 46032, 1)",
+      "category": "datetime",
+      "expected_result": 7.0,
+      "description": "NETWORKDAYS.INTL calculates working days between Jan 1 and Jan 10"
+    },
+    {
+      "id": "stat_sumifs_01",
+      "formula": "=SUMIFS({10, 20, 30, 40}, {\"A\", \"B\", \"A\", \"B\"}, \"A\")",
+      "category": "math_stat",
+      "expected_result": 40.0,
+      "description": "SUMIFS single string condition"
+    },
+    {
+      "id": "stat_sumifs_02",
+      "formula": "=SUMIFS({10, 20, 30, 40}, {1, 2, 3, 4}, \">=2\", {1, 2, 3, 4}, \"<=3\")",
+      "category": "math_stat",
+      "expected_result": 50.0,
+      "description": "SUMIFS multiple numeric range conditions"
+    },
+    {
+      "id": "stat_countifs_01",
+      "formula": "=COUNTIFS({\"A\", \"B\", \"A\", \"B\"}, \"A\")",
+      "category": "math_stat",
+      "expected_result": 2.0,
+      "description": "COUNTIFS single string condition"
+    },
+    {
+      "id": "stat_countifs_02",
+      "formula": "=COUNTIFS({10, 20, 30, 40}, \">=25\")",
+      "category": "math_stat",
+      "expected_result": 2.0,
+      "description": "COUNTIFS numeric comparison condition"
+    },
+    {
+      "id": "stat_averageifs_01",
+      "formula": "=AVERAGEIFS({10, 20, 30, 40}, {\"A\", \"B\", \"A\", \"B\"}, \"A\")",
+      "category": "math_stat",
+      "expected_result": 20.0,
+      "description": "AVERAGEIFS matching elements"
+    },
+    {
+      "id": "stat_subtotal_sum",
+      "formula": "=SUBTOTAL(9, {10, 20, 30, 40})",
+      "category": "math_stat",
+      "expected_result": 100.0,
+      "description": "SUBTOTAL op 9 (SUM)"
+    },
+    {
+      "id": "stat_subtotal_avg",
+      "formula": "=SUBTOTAL(1, {10, 20, 30, 40})",
+      "category": "math_stat",
+      "expected_result": 25.0,
+      "description": "SUBTOTAL op 1 (AVERAGE)"
+    },
+    {
+      "id": "stat_subtotal_max",
+      "formula": "=SUBTOTAL(4, {10, 20, 30, 40})",
+      "category": "math_stat",
+      "expected_result": 40.0,
+      "description": "SUBTOTAL op 4 (MAX)"
+    },
+    {
+      "id": "stat_subtotal_min",
+      "formula": "=SUBTOTAL(5, {10, 20, 30, 40})",
+      "category": "math_stat",
+      "expected_result": 10.0,
+      "description": "SUBTOTAL op 5 (MIN)"
+    },
+    {
+      "id": "stat_aggregate_max",
+      "formula": "=AGGREGATE(4, 6, {10, 20, 40})",
+      "category": "math_stat",
+      "expected_result": 40.0,
+      "description": "AGGREGATE op 4 (MAX) option 6 (ignore errors)"
+    },
+    {
+      "id": "stat_aggregate_large",
+      "formula": "=AGGREGATE(14, 6, {10, 50, 30, 40}, 2)",
+      "category": "math_stat",
+      "expected_result": 40.0,
+      "description": "AGGREGATE op 14 (LARGE k=2)"
+    },
+    {
+      "id": "stat_aggregate_small",
+      "formula": "=AGGREGATE(15, 6, {10, 50, 30, 40}, 2)",
+      "category": "math_stat",
+      "expected_result": 30.0,
+      "description": "AGGREGATE op 15 (SMALL k=2)"
+    },
+    {
+      "id": "stat_round_01",
+      "formula": "=ROUND(2.15, 1)",
+      "category": "math_stat",
+      "expected_result": 2.2,
+      "description": "ROUND with exact 1e-10 epsilon half-up"
+    },
+    {
+      "id": "stat_round_02",
+      "formula": "=ROUND(2.14, 1)",
+      "category": "math_stat",
+      "expected_result": 2.1,
+      "description": "ROUND half-down"
+    },
+    {
+      "id": "stat_roundup_01",
+      "formula": "=ROUNDUP(2.11, 1)",
+      "category": "math_stat",
+      "expected_result": 2.2,
+      "description": "ROUNDUP away from zero"
+    },
+    {
+      "id": "stat_rounddown_01",
+      "formula": "=ROUNDDOWN(2.19, 1)",
+      "category": "math_stat",
+      "expected_result": 2.1,
+      "description": "ROUNDDOWN toward zero"
+    },
+    {
+      "id": "stat_mround_01",
+      "formula": "=MROUND(10, 3)",
+      "category": "math_stat",
+      "expected_result": 9.0,
+      "description": "MROUND rounds to nearest multiple"
+    },
+    {
+      "id": "stat_mround_02",
+      "formula": "=MROUND(11, 3)",
+      "category": "math_stat",
+      "expected_result": 12.0,
+      "description": "MROUND rounds up to nearest multiple"
+    },
+    {
+      "id": "stat_stdevs_01",
+      "formula": "=STDEV.S({2, 4, 4, 4, 5, 5, 7, 9})",
+      "category": "math_stat",
+      "expected_result": 2.138089935299395,
+      "description": "STDEV.S sample standard deviation"
+    },
+    {
+      "id": "stat_percentile_01",
+      "formula": "=PERCENTILE.INC({1, 2, 3, 4, 5}, 0.5)",
+      "category": "math_stat",
+      "expected_result": 3.0,
+      "description": "PERCENTILE.INC median (50th percentile)"
+    },
+    {
+      "id": "stat_percentile_02",
+      "formula": "=PERCENTILE.INC({1, 2, 3, 4, 5}, 0.25)",
+      "category": "math_stat",
+      "expected_result": 2.0,
+      "description": "PERCENTILE.INC 25th percentile"
+    },
+    {
+      "id": "lookup_xlookup_01",
+      "formula": "=XLOOKUP(\"B\", {\"A\", \"B\", \"C\"}, {10, 20, 30})",
+      "category": "lookup",
+      "expected_result": 20.0,
+      "description": "XLOOKUP exact match"
+    },
+    {
+      "id": "lookup_xlookup_notfound",
+      "formula": "=XLOOKUP(\"D\", {\"A\", \"B\", \"C\"}, {10, 20, 30}, \"NOT_FOUND\")",
+      "category": "lookup",
+      "expected_result": "NOT_FOUND",
+      "description": "XLOOKUP if_not_found fallback"
+    },
+    {
+      "id": "lookup_xmatch_01",
+      "formula": "=XMATCH(\"B\", {\"A\", \"B\", \"C\"})",
+      "category": "lookup",
+      "expected_result": 2.0,
+      "description": "XMATCH returns 1-based index"
+    },
+    {
+      "id": "lookup_vlookup_01",
+      "formula": "=VLOOKUP(\"B\", {\"A\", 10; \"B\", 20; \"C\", 30}, 2, FALSE)",
+      "category": "lookup",
+      "expected_result": 20.0,
+      "description": "VLOOKUP column 2 exact match"
+    },
+    {
+      "id": "lookup_hlookup_01",
+      "formula": "=HLOOKUP(\"B\", {\"A\", \"B\", \"C\"; 10, 20, 30}, 2, FALSE)",
+      "category": "lookup",
+      "expected_result": 20.0,
+      "description": "HLOOKUP row 2 exact match"
+    },
+    {
+      "id": "lookup_index_01",
+      "formula": "=INDEX({10, 20; 30, 40}, 2, 1)",
+      "category": "lookup",
+      "expected_result": 30.0,
+      "description": "INDEX 2D matrix element retrieval"
+    },
+    {
+      "id": "lookup_match_01",
+      "formula": "=MATCH(20, {10, 20, 30}, 0)",
+      "category": "lookup",
+      "expected_result": 2.0,
+      "description": "MATCH exact match index"
+    },
+    {
+      "id": "lambda_let_01",
+      "formula": "=_xlfn.LET(x, 10, y, 20, x + y)",
+      "category": "lambda",
+      "expected_result": 30.0,
+      "description": "LET scoping with additions"
+    },
+    {
+      "id": "lambda_let_02",
+      "formula": "=_xlfn.LET(a, 5, b, a * 2, b + 10)",
+      "category": "lambda",
+      "expected_result": 20.0,
+      "description": "LET chained dependent variables"
+    },
+    {
+      "id": "lambda_reduce_01",
+      "formula": "=_xlfn.REDUCE(0, {1, 2, 3, 4}, LAMBDA(acc, x, acc + x))",
+      "category": "lambda",
+      "expected_result": 10.0,
+      "description": "REDUCE cumulative summation"
+    },
+    {
+      "id": "dynamic_filter_01",
+      "formula": "=FILTER({1, 10; 2, 20; 3, 30}, {1; 0; 1})",
+      "category": "lookup",
+      "expected_result": [[1.0, 10.0], [3.0, 30.0]],
+      "description": "FILTER returns matching rows"
+    },
+    {
+      "id": "dynamic_unique_01",
+      "formula": "=UNIQUE({1; 2; 2; 3; 1})",
+      "category": "lookup",
+      "expected_result": [[1.0], [2.0], [3.0]],
+      "description": "UNIQUE returns deduplicated rows"
+    },
+    {
+      "id": "dynamic_sort_01",
+      "formula": "=SORT({3; 1; 2})",
+      "category": "lookup",
+      "expected_result": [[1.0], [2.0], [3.0]],
+      "description": "SORT sorts rows ascending"
+    },
+    {
+      "id": "dynamic_map_01",
+      "formula": "=_xlfn.MAP({1, 2, 3}, LAMBDA(x, x * 10))",
+      "category": "lambda",
+      "expected_result": [[10.0, 20.0, 30.0]],
+      "description": "MAP applies lambda to each cell"
+    },
+    {
+      "id": "dynamic_scan_01",
+      "formula": "=_xlfn.SCAN(0, {1, 2, 3}, LAMBDA(acc, x, acc + x))",
+      "category": "lambda",
+      "expected_result": [[1.0, 3.0, 6.0]],
+      "description": "SCAN returns running accumulation matrix"
+    },
+    {
+      "id": "logic_and_01",
+      "formula": "=AND(TRUE, 10 > 5, 20 = 20)",
+      "category": "logical",
+      "expected_result": true,
+      "description": "AND multi-argument boolean"
+    },
+    {
+      "id": "logic_or_01",
+      "formula": "=OR(FALSE, 10 < 5, 20 = 20)",
+      "category": "logical",
+      "expected_result": true,
+      "description": "OR multi-argument boolean"
+    }
+  ]
+}

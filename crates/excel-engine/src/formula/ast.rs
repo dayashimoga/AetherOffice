@@ -1,7 +1,7 @@
 //! ECMA-376 Formula Abstract Syntax Tree (AST).
 //! Strictly conforms to GEC-v1.0 (Zero Panics, #[forbid(unsafe_code)]).
 
-use crate::formula::reference::Reference;
+pub use crate::formula::reference::Reference;
 use crate::grid::CellError;
 use serde::{Deserialize, Serialize};
 use std::fmt;
