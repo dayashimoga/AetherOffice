@@ -88,9 +88,9 @@
                           "title":  "REA Calc Chain DAG \u0026 IEEE-754 Snap-to-Zero Parity",
                           "crate":  "excel-engine",
                           "rea_required":  true,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-2/subphase-2.2.2.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-28T16:21:34Z"
                       },
                       {
                           "id":  "2.2.3",
