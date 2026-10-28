@@ -2,7 +2,13 @@
 //! ooxml-opc - ECMA-376 / Clean-Room Engine Module
 
 pub mod error;
+pub mod fixtures;
+
 pub use error::{EngineError, Result};
+pub use fixtures::{
+    create_synthetic_docx, create_synthetic_pptx, create_synthetic_xlsx, inspect_opc_package,
+    read_part_content, SyntheticPackageManifest,
+};
 
 pub fn health_check() -> bool {
     true

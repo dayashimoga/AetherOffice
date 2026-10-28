@@ -1,0 +1,48 @@
+{
+  "app": "ppt",
+  "description": "ECMA-376 Part 1 PresentationML structural and geometric layout vectors",
+  "presentation": {
+    "slide_width_emu": 12192000,
+    "slide_height_emu": 6858000,
+    "slides": [
+      {
+        "slide_number": 1,
+        "layout": "TitleSlide",
+        "shapes": [
+          {
+            "name": "Title",
+            "type": "TextBox",
+            "text": "OpenOfficeRS Unified Engine"
+          },
+          {
+            "name": "Subtitle",
+            "type": "TextBox",
+            "text": "Next-Generation ECMA-376 Productivity Suite"
+          }
+        ]
+      },
+      {
+        "slide_number": 2,
+        "layout": "Blank",
+        "shapes": [
+          {
+            "name": "ArchitectureBox",
+            "type": "Rectangle",
+            "left": 100,
+            "top": 100,
+            "width": 300,
+            "height": 200
+          },
+          {
+            "name": "CoreOval",
+            "type": "Ellipse",
+            "left": 450,
+            "top": 100,
+            "width": 200,
+            "height": 200
+          }
+        ]
+      }
+    ]
+  }
+}

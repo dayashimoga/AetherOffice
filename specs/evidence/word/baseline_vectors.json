@@ -1,0 +1,54 @@
+{
+  "app": "word",
+  "description": "ECMA-376 Part 1 WordprocessingML layout and structural vectors",
+  "document": {
+    "title": "OpenOfficeRS Baseline Document",
+    "sections": [
+      {
+        "section_index": 1,
+        "page_width_twips": 12240,
+        "page_height_twips": 15840,
+        "margins": {
+          "top": 1440,
+          "bottom": 1440,
+          "left": 1440,
+          "right": 1440
+        },
+        "paragraphs": [
+          {
+            "id": "p1",
+            "style": "Heading1",
+            "text": "OpenOfficeRS Architecture Specification"
+          },
+          {
+            "id": "p2",
+            "style": "Normal",
+            "text": "This is a clean-room Rust engine conforming strictly to ECMA-376."
+          },
+          {
+            "id": "p3",
+            "style": "Normal",
+            "text": "Formatted text run with bold and italic properties."
+          }
+        ],
+        "tables": [
+          {
+            "id": "t1",
+            "rows": 2,
+            "cols": 2,
+            "cells": [
+              [
+                "Feature",
+                "Target SLA"
+              ],
+              [
+                "Typing Latency",
+                "< 1.0 ms"
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
