@@ -524,7 +524,7 @@ if ($Complete -ne "") {
     $item.completed_at = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     $tracker | ConvertTo-Json -Depth 5 | Set-Content -Path $trackerPath -Encoding UTF8
 
-    $doneCount = ($tracker.subphases | Where-Object { $_.status -eq "COMPLETED" }).Count
+    $doneCount = @($tracker.subphases | Where-Object { $_.status -eq "COMPLETED" }).Count
     $pct = [math]::Round(($doneCount / $tracker.total_subphases) * 100, 1)
     Write-Host "=== Subphase $Complete ($($item.title)) marked COMPLETED! Overall Progress: $doneCount/$($tracker.total_subphases) ($pct%) ===" -ForegroundColor Green
     exit 0
@@ -567,7 +567,7 @@ if ($Next) {
 }
 
 # Default or -Status: Display Full Progress Dashboard
-$doneCount = ($tracker.subphases | Where-Object { $_.status -eq "COMPLETED" }).Count
+$doneCount = @($tracker.subphases | Where-Object { $_.status -eq "COMPLETED" }).Count
 $pct = [math]::Round(($doneCount / $tracker.total_subphases) * 100, 1)
 Write-Host "=====================================================================================" -ForegroundColor Cyan
 Write-Host " OpenOfficeRS Multi-Stage Execution Tracker | Progress: $doneCount / $($tracker.total_subphases) ($pct%)" -ForegroundColor Cyan
