@@ -18,17 +18,20 @@ pub const PAGE_SIZE: usize = 64;
 /// Total number of cells within a single 64x64 page chunk (4,096 cells).
 pub const CELLS_PER_PAGE: usize = PAGE_SIZE * PAGE_SIZE;
 
-/// Standard ECMA-376 cell error types (Part 1 §18.18.29 ST_CellErrorType).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Standard ECMA-376 and Dynamic Array cell error types (Part 1 §18.18.29 ST_CellErrorType).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[repr(u8)]
 pub enum CellError {
-    Null,
-    Div0,
-    Value,
-    Ref,
-    Name,
-    Num,
-    NA,
-    GettingData,
+    Null = 0,
+    Div0 = 1,
+    Value = 2,
+    Ref = 3,
+    Name = 4,
+    Num = 5,
+    NA = 6,
+    GettingData = 7,
+    Spill = 8,
+    Calc = 9,
 }
 
 impl CellError {
@@ -42,6 +45,8 @@ impl CellError {
             Self::Num => "#NUM!",
             Self::NA => "#N/A",
             Self::GettingData => "#GETTING_DATA",
+            Self::Spill => "#SPILL!",
+            Self::Calc => "#CALC!",
         }
     }
 
@@ -55,6 +60,8 @@ impl CellError {
             "#NUM!" => Some(Self::Num),
             "#N/A" => Some(Self::NA),
             "#GETTING_DATA" => Some(Self::GettingData),
+            "#SPILL!" => Some(Self::Spill),
+            "#CALC!" => Some(Self::Calc),
             _ => None,
         }
     }
@@ -355,6 +362,8 @@ pub struct CompressedSparsePageGrid {
     pages: BTreeMap<(u16, u8), PageChunk>,
     /// Pool of formula strings indexed by formula ID
     formulas: Vec<String>,
+    /// Pool of compiled formula bytecode programs indexed by formula ID
+    compiled_formulas: Vec<Option<crate::formula::BytecodeProgram>>,
     /// Pool of inline strings indexed by inline ID
     inline_strings: Vec<String>,
 }
@@ -457,6 +466,8 @@ impl CompressedSparsePageGrid {
                     5 => CellError::Num,
                     6 => CellError::NA,
                     7 => CellError::GettingData,
+                    8 => CellError::Spill,
+                    9 => CellError::Calc,
                     _ => CellError::Null,
                 };
                 CellValue::Error(err)
@@ -522,7 +533,7 @@ impl CompressedSparsePageGrid {
         Ok(())
     }
 
-    /// Sets formula expression and cached value at `(row, col)`.
+    /// Sets formula expression and cached value at `(row, col)`, compiling to bytecode.
     pub fn set_formula(
         &mut self,
         row: u32,
@@ -531,13 +542,69 @@ impl CompressedSparsePageGrid {
         cached_val: Option<f64>,
     ) -> Result<()> {
         Self::check_bounds(row, col)?;
+        let compiled = crate::formula::compile_formula(formula).ok();
         self.formulas.push(formula.to_string());
+        self.compiled_formulas.push(compiled);
         let fid = (self.formulas.len() - 1) as u32;
 
         let page_key = ((row / 64) as u16, (col / 64) as u8);
         let chunk = self.pages.entry(page_key).or_default();
         chunk.set_formula((row % 64) as usize, (col % 64) as usize, fid, cached_val);
         Ok(())
+    }
+
+    /// Sets pre-compiled formula bytecode and raw expression at `(row, col)`.
+    pub fn set_formula_with_bytecode(
+        &mut self,
+        row: u32,
+        col: u32,
+        formula: &str,
+        bytecode: crate::formula::BytecodeProgram,
+        cached_val: Option<f64>,
+    ) -> Result<()> {
+        Self::check_bounds(row, col)?;
+        self.formulas.push(formula.to_string());
+        self.compiled_formulas.push(Some(bytecode));
+        let fid = (self.formulas.len() - 1) as u32;
+
+        let page_key = ((row / 64) as u16, (col / 64) as u8);
+        let chunk = self.pages.entry(page_key).or_default();
+        chunk.set_formula((row % 64) as usize, (col % 64) as usize, fid, cached_val);
+        Ok(())
+    }
+
+    /// Retrieves compiled formula bytecode for cell at `(row, col)`.
+    pub fn get_formula_bytecode(
+        &self,
+        row: u32,
+        col: u32,
+    ) -> Option<&crate::formula::BytecodeProgram> {
+        if Self::check_bounds(row, col).is_err() {
+            return None;
+        }
+        let page_key = ((row / 64) as u16, (col / 64) as u8);
+        let chunk = self.pages.get(&page_key)?;
+        let idx = (row % 64) as usize * 64 + (col % 64) as usize;
+        if chunk.kinds[idx] != CellKind::Formula {
+            return None;
+        }
+        let fid = chunk.formula_ids.as_ref()?.get(idx).copied()? as usize;
+        self.compiled_formulas.get(fid).and_then(|c| c.as_ref())
+    }
+
+    /// Retrieves raw formula string for cell at `(row, col)`.
+    pub fn get_formula_str(&self, row: u32, col: u32) -> Option<&str> {
+        if Self::check_bounds(row, col).is_err() {
+            return None;
+        }
+        let page_key = ((row / 64) as u16, (col / 64) as u8);
+        let chunk = self.pages.get(&page_key)?;
+        let idx = (row % 64) as usize * 64 + (col % 64) as usize;
+        if chunk.kinds[idx] != CellKind::Formula {
+            return None;
+        }
+        let fid = chunk.formula_ids.as_ref()?.get(idx).copied()? as usize;
+        self.formulas.get(fid).map(|s| s.as_str())
     }
 
     /// Sets inline string value at `(row, col)`.
@@ -576,8 +643,17 @@ impl CompressedSparsePageGrid {
     pub fn estimated_memory_bytes(&self) -> usize {
         let chunk_mem: usize = self.pages.values().map(|p| p.memory_bytes()).sum();
         let formulas_mem: usize = self.formulas.iter().map(|f| f.len()).sum();
+        let compiled_mem: usize = self
+            .compiled_formulas
+            .iter()
+            .map(|c| {
+                c.as_ref()
+                    .map(|p| p.instructions.len() * std::mem::size_of::<crate::formula::OpCode>())
+                    .unwrap_or(0)
+            })
+            .sum();
         let inline_mem: usize = self.inline_strings.iter().map(|s| s.len()).sum();
-        chunk_mem + formulas_mem + inline_mem + std::mem::size_of::<Self>()
+        chunk_mem + formulas_mem + compiled_mem + inline_mem + std::mem::size_of::<Self>()
     }
 
     /// Calculates minimum and maximum row and column indices populated in the grid.

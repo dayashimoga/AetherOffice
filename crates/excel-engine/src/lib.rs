@@ -5,12 +5,19 @@
 //! Strictly conforms to GEC-v1.0 (Zero Contamination, Zero-Loss Round-Trip Fidelity,
 //! SLAs, and Zero Panics).
 
+pub mod formula;
 pub mod grid;
 pub mod package;
 pub mod shared_strings;
 pub mod styles;
 pub mod workbook;
 pub mod worksheet;
+
+pub use formula::{
+    compile_formula, decompile_ast, decompile_bytecode, decompile_formula, parse_formula, AstNode,
+    BinaryOperator, BytecodeProgram, CellAddress, Lexer, Literal, OpCode, Parser, RangeAddress,
+    Reference, SheetRef, Span, Spanned, StructuredTableRef, TableSection, Token, UnaryOperator,
+};
 
 pub use grid::{
     cell_to_coords, col_to_name, coords_to_cell, name_to_col, parse_range, CellError, CellKind,
