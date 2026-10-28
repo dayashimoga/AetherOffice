@@ -1,14 +1,20 @@
 #![forbid(unsafe_code)]
 //! ooxml-opc - ECMA-376 / Clean-Room Engine Module
 
+pub mod content_types;
 pub mod error;
 pub mod fixtures;
+pub mod package;
+pub mod relationships;
 
+pub use content_types::{ContentTypes, CONTENT_TYPES_NS, RELATIONSHIPS_TYPE, XML_DEFAULT_TYPE};
 pub use error::{EngineError, Result};
 pub use fixtures::{
     create_synthetic_docx, create_synthetic_pptx, create_synthetic_xlsx, inspect_opc_package,
     read_part_content, SyntheticPackageManifest,
 };
+pub use package::PackageReader;
+pub use relationships::{Relationship, Relationships, TargetMode, RELATIONSHIPS_NS};
 
 pub fn health_check() -> bool {
     true

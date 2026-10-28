@@ -1,0 +1,194 @@
+{
+  "subphase": "1.2.1",
+  "description": "ECMA-376 Part 2 Open Packaging Conventions (OPC) Edge-Case Test Vectors",
+  "total_vectors": 26,
+  "vectors": [
+    {
+      "id": "ct_01_override_priority",
+      "type": "content_type",
+      "input_part": "/word/document.xml",
+      "defaults": {"xml": "application/xml"},
+      "overrides": {"/word/document.xml": "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"},
+      "expected_content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
+    },
+    {
+      "id": "ct_02_default_fallback",
+      "type": "content_type",
+      "input_part": "/word/styles.xml",
+      "defaults": {"xml": "application/xml"},
+      "overrides": {},
+      "expected_content_type": "application/xml"
+    },
+    {
+      "id": "ct_03_extension_case_insensitivity",
+      "type": "content_type",
+      "input_part": "/word/media/image1.PNG",
+      "defaults": {"png": "image/png"},
+      "overrides": {},
+      "expected_content_type": "image/png"
+    },
+    {
+      "id": "ct_04_part_name_without_leading_slash",
+      "type": "content_type",
+      "input_part": "word/document.xml",
+      "defaults": {},
+      "overrides": {"/word/document.xml": "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"},
+      "expected_content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
+    },
+    {
+      "id": "ct_05_unknown_extension_returns_none",
+      "type": "content_type",
+      "input_part": "/word/unknown.bin",
+      "defaults": {"xml": "application/xml"},
+      "overrides": {},
+      "expected_content_type": null
+    },
+    {
+      "id": "ct_06_multiple_overrides_correct_match",
+      "type": "content_type",
+      "input_part": "/xl/workbook.xml",
+      "defaults": {"xml": "application/xml"},
+      "overrides": {
+        "/word/document.xml": "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml",
+        "/xl/workbook.xml": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"
+      },
+      "expected_content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"
+    },
+    {
+      "id": "ct_07_relationships_default_mime",
+      "type": "content_type",
+      "input_part": "/_rels/.rels",
+      "defaults": {"rels": "application/vnd.openxmlformats-package.relationships+xml"},
+      "overrides": {},
+      "expected_content_type": "application/vnd.openxmlformats-package.relationships+xml"
+    },
+    {
+      "id": "ct_08_multi_dot_part_name",
+      "type": "content_type",
+      "input_part": "/word/settings.backup.xml",
+      "defaults": {"xml": "application/xml"},
+      "overrides": {},
+      "expected_content_type": "application/xml"
+    },
+    {
+      "id": "rel_01_root_relative_target",
+      "type": "relationship",
+      "source_part": null,
+      "rel": {"id": "rId1", "type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument", "target": "word/document.xml", "target_mode": "Internal"},
+      "expected_target": "word/document.xml"
+    },
+    {
+      "id": "rel_02_part_sibling_target",
+      "type": "relationship",
+      "source_part": "word/document.xml",
+      "rel": {"id": "rId2", "type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles", "target": "styles.xml", "target_mode": "Internal"},
+      "expected_target": "word/styles.xml"
+    },
+    {
+      "id": "rel_03_part_nested_media_target",
+      "type": "relationship",
+      "source_part": "word/document.xml",
+      "rel": {"id": "rId3", "type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image", "target": "media/image1.png", "target_mode": "Internal"},
+      "expected_target": "word/media/image1.png"
+    },
+    {
+      "id": "rel_04_parent_traversal_target",
+      "type": "relationship",
+      "source_part": "word/document.xml",
+      "rel": {"id": "rId4", "type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml", "target": "../customXml/item1.xml", "target_mode": "Internal"},
+      "expected_target": "customXml/item1.xml"
+    },
+    {
+      "id": "rel_05_multi_parent_traversal_target",
+      "type": "relationship",
+      "source_part": "ppt/slides/slide1.xml",
+      "rel": {"id": "rId5", "type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme", "target": "../theme/theme1.xml", "target_mode": "Internal"},
+      "expected_target": "ppt/theme/theme1.xml"
+    },
+    {
+      "id": "rel_06_absolute_internal_target",
+      "type": "relationship",
+      "source_part": "word/document.xml",
+      "rel": {"id": "rId6", "type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/package", "target": "/docProps/core.xml", "target_mode": "Internal"},
+      "expected_target": "docProps/core.xml"
+    },
+    {
+      "id": "rel_07_external_web_target",
+      "type": "relationship",
+      "source_part": "word/document.xml",
+      "rel": {"id": "rId7", "type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", "target": "https://rust-lang.org", "target_mode": "External"},
+      "expected_target": "https://rust-lang.org"
+    },
+    {
+      "id": "rel_08_external_mailto_target",
+      "type": "relationship",
+      "source_part": "word/document.xml",
+      "rel": {"id": "rId8", "type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", "target": "mailto:dev@openofficers.org", "target_mode": "External"},
+      "expected_target": "mailto:dev@openofficers.org"
+    },
+    {
+      "id": "rel_09_rels_path_for_root",
+      "type": "rels_naming",
+      "source_part": null,
+      "expected_rels_part": "_rels/.rels"
+    },
+    {
+      "id": "rel_10_rels_path_for_word_doc",
+      "type": "rels_naming",
+      "source_part": "word/document.xml",
+      "expected_rels_part": "word/_rels/document.xml.rels"
+    },
+    {
+      "id": "rel_11_rels_path_for_nested_sheet",
+      "type": "rels_naming",
+      "source_part": "xl/worksheets/sheet1.xml",
+      "expected_rels_part": "xl/worksheets/_rels/sheet1.xml.rels"
+    },
+    {
+      "id": "rel_12_dot_slash_redundant_target",
+      "type": "relationship",
+      "source_part": "word/document.xml",
+      "rel": {"id": "rId12", "type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable", "target": "./fontTable.xml", "target_mode": "Internal"},
+      "expected_target": "word/fontTable.xml"
+    },
+    {
+      "id": "rel_13_target_mode_omitted_defaults_to_internal",
+      "type": "target_mode",
+      "raw_attr": null,
+      "expected_mode": "Internal"
+    },
+    {
+      "id": "rel_14_target_mode_explicit_external",
+      "type": "target_mode",
+      "raw_attr": "External",
+      "expected_mode": "External"
+    },
+    {
+      "id": "rel_15_target_mode_case_insensitive_external",
+      "type": "target_mode",
+      "raw_attr": "external",
+      "expected_mode": "External"
+    },
+    {
+      "id": "pkg_01_part_lookup_leading_slash",
+      "type": "package_lookup",
+      "stored_part": "word/document.xml",
+      "query_part": "/word/document.xml",
+      "expected_found": true
+    },
+    {
+      "id": "pkg_02_part_lookup_without_slash",
+      "type": "package_lookup",
+      "stored_part": "word/document.xml",
+      "query_part": "word/document.xml",
+      "expected_found": true
+    },
+    {
+      "id": "pkg_03_nonexistent_part_lookup",
+      "type": "package_lookup",
+      "stored_part": "word/document.xml",
+      "query_part": "word/nonexistent.xml",
+      "expected_found": false
+    }
+  ]
+}

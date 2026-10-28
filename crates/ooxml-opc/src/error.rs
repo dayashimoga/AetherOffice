@@ -15,6 +15,9 @@ pub enum EngineError {
     #[error("XML parsing error: {0}")]
     Xml(#[from] quick_xml::Error),
 
+    #[error("XML attribute error: {0}")]
+    XmlAttr(#[from] quick_xml::events::attributes::AttrError),
+
     #[error("JSON serialization error: {0}")]
     Json(#[from] serde_json::Error),
 
