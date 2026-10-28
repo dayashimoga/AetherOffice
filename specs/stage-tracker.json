@@ -77,9 +77,9 @@
                           "title":  "Pratt Formula Parser, 3D Ranges \u0026 Dynamic Array Spill AST",
                           "crate":  "excel-engine",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-2/subphase-2.2.1.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-28T16:06:08Z"
                       },
                       {
                           "id":  "2.2.2",
