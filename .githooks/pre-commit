@@ -1,0 +1,2 @@
+﻿#!/bin/sh
+pwsh -NoProfile -ExecutionPolicy Bypass -File tools/verify-contract.ps1 || powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify-contract.ps1

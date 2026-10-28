@@ -1,0 +1,13 @@
+[package]
+name = "render-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ooxml-opc.workspace = true
+quick-xml.workspace = true
+zip.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rayon.workspace = true
+thiserror.workspace = true

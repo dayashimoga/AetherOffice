@@ -1,0 +1,250 @@
+﻿{
+    "project":  "OpenOfficeRS",
+    "contract":  "GEC-v1.0",
+    "total_stages":  5,
+    "total_subphases":  22,
+    "subphases":  [
+                      {
+                          "id":  "1.1.1",
+                          "stage":  1,
+                          "phase":  "1.1",
+                          "title":  "Workspace, GitHub Repo \u0026 CI/CD Initialization",
+                          "crate":  "ooxml-opc",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-1/subphase-1.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "1.1.2",
+                          "stage":  1,
+                          "phase":  "1.1",
+                          "title":  "COM Ground-Truth Differential Harness",
+                          "crate":  "ooxml-opc",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-1/subphase-1.1.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "1.2.1",
+                          "stage":  1,
+                          "phase":  "1.2",
+                          "title":  "Streaming ZIP \u0026 [Content_Types].xml / .rels Parser",
+                          "crate":  "ooxml-opc",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-1/subphase-1.2.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "1.2.2",
+                          "stage":  1,
+                          "phase":  "1.2",
+                          "title":  "UnparsedPartStore \u0026 Zero-Loss Round-Trip Engine",
+                          "crate":  "ooxml-opc",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-1/subphase-1.2.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "2.1.1",
+                          "stage":  2,
+                          "phase":  "2.1",
+                          "title":  "SharedStringTable, Styles \u0026 Parallel Workbook Parser",
+                          "crate":  "excel-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-2/subphase-2.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "2.1.2",
+                          "stage":  2,
+                          "phase":  "2.1",
+                          "title":  "Compressed Sparse Page Grid (CSPG) Storage Engine",
+                          "crate":  "excel-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-2/subphase-2.1.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "2.2.1",
+                          "stage":  2,
+                          "phase":  "2.2",
+                          "title":  "Pratt Formula Parser, 3D Ranges \u0026 Dynamic Array Spill AST",
+                          "crate":  "excel-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-2/subphase-2.2.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "2.2.2",
+                          "stage":  2,
+                          "phase":  "2.2",
+                          "title":  "REA Calc Chain DAG \u0026 IEEE-754 Snap-to-Zero Parity",
+                          "crate":  "excel-engine",
+                          "rea_required":  true,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-2/subphase-2.2.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "2.2.3",
+                          "stage":  2,
+                          "phase":  "2.2",
+                          "title":  "Parallel Evaluation of Core \u0026 Financial/Lookup Functions",
+                          "crate":  "excel-engine",
+                          "rea_required":  true,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-2/subphase-2.2.3.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "3.1.1",
+                          "stage":  3,
+                          "phase":  "3.1",
+                          "title":  "WordprocessingML Piece-Tree Rope DOM \u0026 Sub-Document Parser",
+                          "crate":  "word-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-3/subphase-3.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "3.1.2",
+                          "stage":  3,
+                          "phase":  "3.1",
+                          "title":  "ECMA-376 Style Cascade, Numbering Lists \u0026 Section Geometry",
+                          "crate":  "word-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-3/subphase-3.1.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "3.2.1",
+                          "stage":  3,
+                          "phase":  "3.2",
+                          "title":  "REA Line-Breaking Knuth-Plass/Greedy Hybrid \u0026 Pagination Solver",
+                          "crate":  "word-engine",
+                          "rea_required":  true,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-3/subphase-3.2.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "3.2.2",
+                          "stage":  3,
+                          "phase":  "3.2",
+                          "title":  "REA Table Auto-Fit Widths, Row Splitting \u0026 Floating Wrap Polygons",
+                          "crate":  "word-engine",
+                          "rea_required":  true,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-3/subphase-3.2.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "4.1.1",
+                          "stage":  4,
+                          "phase":  "4.1",
+                          "title":  "SlideMaster -\u003e SlideLayout -\u003e Slide 3-Tier Inheritance Resolver",
+                          "crate":  "ppt-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-4/subphase-4.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "4.1.2",
+                          "stage":  4,
+                          "phase":  "4.1",
+                          "title":  "DrawingML 187 Preset Geometries \u0026 Guide Formula Compiler",
+                          "crate":  "ppt-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-4/subphase-4.1.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "4.2.1",
+                          "stage":  4,
+                          "phase":  "4.2",
+                          "title":  "SMIL Animation Timing Tree (p:timing) State Machine",
+                          "crate":  "ppt-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-4/subphase-4.2.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "4.2.2",
+                          "stage":  4,
+                          "phase":  "4.2",
+                          "title":  "REA Morph Transition Vertex Solver \u0026 SmartArt Layout Engine",
+                          "crate":  "ppt-engine",
+                          "rea_required":  true,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-4/subphase-4.2.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "5.1.1",
+                          "stage":  5,
+                          "phase":  "5.1",
+                          "title":  "Unified 120fps WebGPU / Cosmic-Text Render Core",
+                          "crate":  "render-core",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-5/subphase-5.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "5.1.2",
+                          "stage":  5,
+                          "phase":  "5.1",
+                          "title":  "Interactive Hit-Testing, Selection Handles \u0026 Undo/Redo Command Bus",
+                          "crate":  "render-core",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-5/subphase-5.1.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "5.2.1",
+                          "stage":  5,
+                          "phase":  "5.2",
+                          "title":  "Tauri v2 Desktop \u0026 Laptop Shell (Ribbon, Multi-Tab, Formula Bar)",
+                          "crate":  "render-core",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-5/subphase-5.2.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "5.2.2",
+                          "stage":  5,
+                          "phase":  "5.2",
+                          "title":  "Adaptive Tablet \u0026 Mobile UI (Touch Drawers, Stylus Ink, Reflow Mode)",
+                          "crate":  "render-core",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-5/subphase-5.2.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "5.3.1",
+                          "stage":  5,
+                          "phase":  "5.3",
+                          "title":  "End-to-End 5-Platform Release Audit \u0026 GitHub Artifact Publication",
+                          "crate":  "render-core",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-5/subphase-5.3.1.md",
+                          "completed_at":  null
+                      }
+                  ]
+}

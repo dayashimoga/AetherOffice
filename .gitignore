@@ -1,0 +1,10 @@
+﻿/target
+/node_modules
+/dist
+/.rea-stage
+*.pdb
+*.idb
+*.i64
+*.gpr
+.DS_Store
+Thumbs.db
