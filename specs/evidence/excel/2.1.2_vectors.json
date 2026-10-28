@@ -1,0 +1,237 @@
+{
+  "subphase": "2.1.2",
+  "app": "excel",
+  "description": "ECMA-376 Part 1 SpreadsheetML Compressed Sparse Page Grid (CSPG) & Worksheet Test Vectors",
+  "total_vectors": 26,
+  "vectors": [
+    {
+      "id": "coord_01_single_letter_cols",
+      "category": "coordinates",
+      "description": "Single letter column index conversions (A to Z)",
+      "checks": [
+        {"name": "A", "col": 0},
+        {"name": "B", "col": 1},
+        {"name": "M", "col": 12},
+        {"name": "Z", "col": 25}
+      ]
+    },
+    {
+      "id": "coord_02_double_letter_cols",
+      "category": "coordinates",
+      "description": "Double letter column index conversions (AA to ZZ)",
+      "checks": [
+        {"name": "AA", "col": 26},
+        {"name": "AZ", "col": 51},
+        {"name": "BA", "col": 52},
+        {"name": "ZZ", "col": 701}
+      ]
+    },
+    {
+      "id": "coord_03_triple_letter_max",
+      "category": "coordinates",
+      "description": "Triple letter column index conversions up to maximum column XFD (16383)",
+      "checks": [
+        {"name": "AAA", "col": 702},
+        {"name": "XFD", "col": 16383}
+      ]
+    },
+    {
+      "id": "coord_04_origin_cell",
+      "category": "coordinates",
+      "description": "Origin cell A1 to (0, 0) and vice versa",
+      "cell_ref": "A1",
+      "expected_row": 0,
+      "expected_col": 0
+    },
+    {
+      "id": "coord_05_max_bounds_cell",
+      "category": "coordinates",
+      "description": "Maximum bounds cell XFD1048576 to (1048575, 16383)",
+      "cell_ref": "XFD1048576",
+      "expected_row": 1048575,
+      "expected_col": 16383
+    },
+    {
+      "id": "coord_06_absolute_dollar_signs",
+      "category": "coordinates",
+      "description": "Coordinate parsing ignores formula dollar signs ($A$1, $XFD$1048576)",
+      "checks": [
+        {"ref": "$A$1", "row": 0, "col": 0},
+        {"ref": "A$1", "row": 0, "col": 0},
+        {"ref": "$A1", "row": 0, "col": 0},
+        {"ref": "$XFD$1048576", "row": 1048575, "col": 16383}
+      ]
+    },
+    {
+      "id": "coord_07_invalid_col_name",
+      "category": "coordinates",
+      "description": "Out-of-bounds or non-alphabetic column names return SchemaValidation error",
+      "invalid_refs": ["XFE1", "AAAA1", "1A", "123", "A-1"]
+    },
+    {
+      "id": "coord_08_invalid_row_bounds",
+      "category": "coordinates",
+      "description": "Row numbers <= 0 or > 1048576 return SchemaValidation error",
+      "invalid_refs": ["A0", "A1048577", "B9999999"]
+    },
+    {
+      "id": "coord_09_parse_range_single",
+      "category": "coordinates",
+      "description": "Parse single-cell range reference B5",
+      "range_ref": "B5",
+      "expected_start": [4, 1],
+      "expected_end": [4, 1]
+    },
+    {
+      "id": "coord_10_parse_range_rect",
+      "category": "coordinates",
+      "description": "Parse rectangular range reference A1:C10",
+      "range_ref": "A1:C10",
+      "expected_start": [0, 0],
+      "expected_end": [9, 2]
+    },
+    {
+      "id": "grid_01_set_and_get_numbers",
+      "category": "grid",
+      "description": "Set and retrieve floating-point numeric cells",
+      "cells": [
+        {"row": 0, "col": 0, "val": 42.5},
+        {"row": 10, "col": 5, "val": -123.456},
+        {"row": 100, "col": 20, "val": 1.25e-10}
+      ]
+    },
+    {
+      "id": "grid_02_set_and_get_shared_strings",
+      "category": "grid",
+      "description": "Set and retrieve shared string table IDs",
+      "cells": [
+        {"row": 0, "col": 0, "string_id": 0},
+        {"row": 1, "col": 0, "string_id": 142}
+      ]
+    },
+    {
+      "id": "grid_03_set_and_get_booleans",
+      "category": "grid",
+      "description": "Set and retrieve boolean cell values",
+      "cells": [
+        {"row": 0, "col": 1, "val": true},
+        {"row": 0, "col": 2, "val": false}
+      ]
+    },
+    {
+      "id": "grid_04_set_and_get_errors",
+      "category": "grid",
+      "description": "Set and retrieve standard ECMA-376 cell errors",
+      "cells": [
+        {"row": 0, "col": 0, "err": "#DIV/0!"},
+        {"row": 0, "col": 1, "err": "#N/A"},
+        {"row": 0, "col": 2, "err": "#VALUE!"},
+        {"row": 0, "col": 3, "err": "#REF!"}
+      ]
+    },
+    {
+      "id": "grid_05_set_and_get_formulas",
+      "category": "grid",
+      "description": "Set and retrieve formula strings with cached evaluation values",
+      "cells": [
+        {"row": 1, "col": 2, "formula": "A2+B2", "cached_val": 142.0},
+        {"row": 5, "col": 5, "formula": "SUM(A1:D1)", "cached_val": 250.0}
+      ]
+    },
+    {
+      "id": "grid_06_set_and_get_styles",
+      "category": "grid",
+      "description": "Set and retrieve cell formatting style indices (xfId)",
+      "cells": [
+        {"row": 0, "col": 0, "style_id": 1},
+        {"row": 10, "col": 10, "style_id": 5}
+      ]
+    },
+    {
+      "id": "grid_07_clear_cell",
+      "category": "grid",
+      "description": "Clear populated cell and verify 1-cycle occupancy bit reset",
+      "test_row": 5,
+      "test_col": 8
+    },
+    {
+      "id": "grid_08_chunk_boundary_crossings",
+      "category": "grid",
+      "description": "Populate cells across 64x64 page boundaries ((63,63), (64,64), (127,127))",
+      "cells": [
+        {"row": 63, "col": 63, "expected_page": [0, 0]},
+        {"row": 64, "col": 64, "expected_page": [1, 1]},
+        {"row": 127, "col": 127, "expected_page": [1, 1]},
+        {"row": 128, "col": 128, "expected_page": [2, 2]}
+      ]
+    },
+    {
+      "id": "grid_09_four_corners_max_grid",
+      "category": "grid",
+      "description": "Populate all 4 extreme corners of the 1,048,576 x 16,384 sheet without OOM",
+      "corners": [
+        {"ref": "A1", "row": 0, "col": 0, "page": [0, 0]},
+        {"ref": "XFD1", "row": 0, "col": 16383, "page": [0, 255]},
+        {"ref": "A1048576", "row": 1048575, "col": 0, "page": [16383, 0]},
+        {"ref": "XFD1048576", "row": 1048575, "col": 16383, "page": [16383, 255]}
+      ],
+      "expected_pages_count": 4
+    },
+    {
+      "id": "grid_10_bounding_box_and_dim",
+      "category": "grid",
+      "description": "Calculate minimum bounding box and dimension reference string",
+      "populated_cells": ["B2", "D10", "A5", "C8"],
+      "expected_dimension": "A2:D10"
+    },
+    {
+      "id": "grid_11_simd_sum_row_and_range",
+      "category": "grid",
+      "description": "SIMD row and range sum across 100 contiguous cells (1..100)",
+      "row": 0,
+      "col_start": 0,
+      "col_end": 99,
+      "expected_sum": 5050.0
+    },
+    {
+      "id": "ws_01_parse_real_baseline_sheet1",
+      "category": "worksheet",
+      "description": "Parse real sheet1.xml from specs/evidence/excel/baseline.xlsx",
+      "fixture_path": "specs/evidence/excel/baseline.xlsx",
+      "expected_dimension": "A1:C2",
+      "expected_cell_count": 4,
+      "expected_c2_formula": "A2+B2"
+    },
+    {
+      "id": "ws_02_worksheet_streaming_roundtrip",
+      "category": "worksheet",
+      "description": "Deterministic round-trip serialization of worksheet XML",
+      "input_xml": "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><dimension ref=\"A1:B2\"/><sheetData><row r=\"1\"><c r=\"A1\"><v>10</v></c><c r=\"B1\"><v>20</v></c></row><row r=\"2\"><c r=\"A2\"><v>30</v></c><c r=\"B2\"><v>40</v></c></row></sheetData></worksheet>",
+      "expected_cells_count": 4,
+      "expected_sum": 100.0
+    },
+    {
+      "id": "ws_03_sheet_views_and_format",
+      "category": "worksheet",
+      "description": "Preserve sheetViews, sheetFormatPr, and pageMargins",
+      "input_xml": "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><dimension ref=\"A1\"/><sheetViews><sheetView tabSelected=\"1\" workbookViewId=\"0\" zoomScale=\"150\"/></sheetViews><sheetFormatPr defaultRowHeight=\"18.0\" customHeight=\"1\"/><sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row></sheetData><pageMargins left=\"0.5\" right=\"0.5\" top=\"0.8\" bottom=\"0.8\" header=\"0.2\" footer=\"0.2\"/></worksheet>",
+      "expected_zoom": 150,
+      "expected_row_height": 18.0,
+      "expected_left_margin": 0.5
+    },
+    {
+      "id": "ws_04_unmodeled_nodes_preservation",
+      "category": "worksheet",
+      "description": "Preserve unmodeled child elements (e.g., autoFilter, drawing) via RawXmlNodeBuffer",
+      "input_xml": "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><dimension ref=\"A1\"/><sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row></sheetData><autoFilter ref=\"A1:D10\"/></worksheet>",
+      "expected_unmodeled_contains": "autoFilter"
+    },
+    {
+      "id": "sla_01_memory_1m_cells",
+      "category": "sla",
+      "description": "GEC-v1.0 Article III: 1,000,000 populated Excel cells memory footprint must be < 180MB RSS",
+      "cell_count": 1000000,
+      "max_allowed_mb": 180
+    }
+  ]
+}
