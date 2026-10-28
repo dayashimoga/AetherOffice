@@ -5,6 +5,7 @@
 //! Strictly conforms to GEC-v1.0 (Zero Contamination, Zero-Loss Round-Trip Fidelity,
 //! SLAs, and Zero Panics).
 
+pub mod calc_dag;
 pub mod formula;
 pub mod grid;
 pub mod package;
@@ -12,6 +13,11 @@ pub mod shared_strings;
 pub mod styles;
 pub mod workbook;
 pub mod worksheet;
+
+pub use calc_dag::{
+    apply_ieee_snap_to_zero, evaluate_ast_node, CalculationDag, CellKey, IterativeConfig,
+    IEEE_SNAP_THRESHOLD,
+};
 
 pub use formula::{
     compile_formula, decompile_ast, decompile_bytecode, decompile_formula, parse_formula, AstNode,

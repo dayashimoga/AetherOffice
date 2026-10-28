@@ -1,0 +1,179 @@
+{
+  "subphase": "2.2.2",
+  "title": "REA Calc Chain DAG & IEEE-754 Snap-to-Zero Parity",
+  "total_vectors": 38,
+  "vectors": [
+    {
+      "id": "snap_01",
+      "formula": "=1.333 - 1.225 - 0.108",
+      "category": "ieee_snap",
+      "expected_result": 0.0,
+      "description": "Standard subtraction cancellation snaps to 0.0 at root level"
+    },
+    {
+      "id": "snap_02",
+      "formula": "=(1.333 - 1.225 - 0.108)",
+      "category": "ieee_snap_suppressed",
+      "expected_result": -1.2490009027033011e-16,
+      "description": "Top-level parenthesis suppresses snap-to-zero, returning raw IEEE-754 residual"
+    },
+    {
+      "id": "snap_03",
+      "formula": "=0.1 + 0.2 - 0.3",
+      "category": "ieee_snap",
+      "expected_result": 0.0,
+      "description": "0.1 + 0.2 - 0.3 snaps to 0.0"
+    },
+    {
+      "id": "snap_04",
+      "formula": "=(0.1 + 0.2 - 0.3)",
+      "category": "ieee_snap_suppressed",
+      "expected_result": 5.551115123125783e-17,
+      "description": "Parenthesized 0.1 + 0.2 - 0.3 preserves positive residual"
+    },
+    {
+      "id": "snap_05",
+      "formula": "=2.225 - 2.22 - 0.005",
+      "category": "ieee_snap",
+      "expected_result": 0.0,
+      "description": "2.225 - 2.22 - 0.005 snaps to 0.0"
+    },
+    {
+      "id": "snap_06",
+      "formula": "=(2.225 - 2.22 - 0.005)",
+      "category": "ieee_snap_suppressed",
+      "expected_result": 3.374828113702581e-16,
+      "description": "Parenthesized 2.225 - 2.22 - 0.005 preserves residual"
+    },
+    {
+      "id": "snap_07",
+      "formula": "=10.05 - 10.0 - 0.05",
+      "category": "ieee_snap",
+      "expected_result": 0.0,
+      "description": "Cancellation snaps to 0.0"
+    },
+    {
+      "id": "snap_08",
+      "formula": "=(10.05 - 10.0 - 0.05)",
+      "category": "ieee_snap_suppressed",
+      "expected_result": -6.938893903907228e-18,
+      "description": "Parenthesized cancellation preserves residual"
+    },
+    {
+      "id": "snap_09",
+      "formula": "=1e-16 * 1",
+      "category": "ieee_small_num_preserved",
+      "expected_result": 1e-16,
+      "description": "Non-subtraction small number is not snapped"
+    },
+    {
+      "id": "snap_10",
+      "formula": "=1.00000000000001 - 1.0",
+      "category": "ieee_genuine_diff_preserved",
+      "expected_result": 1e-14,
+      "description": "Difference within 14 significant digits is preserved, not snapped"
+    },
+    {
+      "id": "dag_linear_01",
+      "setup": { "A1": 10.0, "A2": "=A1 * 2", "A3": "=A2 + 5" },
+      "category": "dag_linear",
+      "expected_results": { "A2": 20.0, "A3": 25.0 },
+      "description": "Linear 3-node dependency chain A1 -> A2 -> A3"
+    },
+    {
+      "id": "dag_diamond_01",
+      "setup": { "A1": 5.0, "B1": "=A1 * 2", "C1": "=A1 + 10", "D1": "=B1 + C1" },
+      "category": "dag_diamond",
+      "expected_results": { "B1": 10.0, "C1": 15.0, "D1": 25.0 },
+      "description": "Diamond DAG evaluation: A1 -> B1 & C1 -> D1"
+    },
+    {
+      "id": "dag_range_dep_01",
+      "setup": { "A1": 1.0, "A2": 2.0, "A3": 3.0, "A4": 4.0, "B1": "=SUM(A1:A4)" },
+      "category": "dag_range",
+      "expected_results": { "B1": 10.0 },
+      "description": "Range dependency on 4 cells in column A"
+    },
+    {
+      "id": "dag_dirty_prop_01",
+      "setup": { "A1": 10.0, "A2": "=A1 * 2", "A3": "=A2 + 1" },
+      "category": "dirty_propagation",
+      "update": { "A1": 20.0 },
+      "expected_results": { "A2": 40.0, "A3": 41.0 },
+      "description": "Updating A1 propagates dirty flag transitively to A2 and A3"
+    },
+    {
+      "id": "dag_dirty_selective_01",
+      "setup": { "A1": 10.0, "B1": 100.0, "A2": "=A1 + 1", "B2": "=B1 + 1" },
+      "category": "dirty_selective",
+      "update": { "A1": 20.0 },
+      "expected_evaluated": ["A2"],
+      "expected_skipped": ["B2"],
+      "description": "Updating A1 only recalculates A2; B2 remains clean and is skipped"
+    },
+    {
+      "id": "cycle_self_01",
+      "setup": { "A1": "=A1 + 1" },
+      "category": "cycle_self",
+      "expected_cycle": ["A1"],
+      "description": "Self-referential circular formula A1 -> A1"
+    },
+    {
+      "id": "cycle_mutual_01",
+      "setup": { "A1": "=B1 + 1", "B1": "=A1 + 1" },
+      "category": "cycle_mutual",
+      "expected_cycle": ["A1", "B1"],
+      "description": "Mutual circular reference between A1 and B1"
+    },
+    {
+      "id": "cycle_3node_01",
+      "setup": { "A1": "=C1 + 1", "B1": "=A1 + 1", "C1": "=B1 + 1" },
+      "category": "cycle_3node",
+      "expected_cycle": ["A1", "B1", "C1"],
+      "description": "3-node circular dependency loop A1 -> B1 -> C1 -> A1"
+    },
+    {
+      "id": "iter_convergence_01",
+      "setup": { "A1": 100.0, "B1": "=B1 + (A1 - B1) * 0.5" },
+      "config": { "enabled": true, "max_iterations": 100, "max_change": 0.001 },
+      "category": "iterative_calculation",
+      "expected_converged_value": 100.0,
+      "description": "Iterative calculation converges to target value within tolerance"
+    },
+    {
+      "id": "iter_limit_01",
+      "setup": { "A1": "=A1 + 1" },
+      "config": { "enabled": true, "max_iterations": 50, "max_change": 0.001 },
+      "category": "iterative_calculation_limit",
+      "expected_iterations": 50,
+      "description": "Divergent iteration halts precisely at max_iterations limit"
+    },
+    {
+      "id": "calc_chain_xml_01",
+      "chain": [
+        { "sheet": 1, "ref": "A2" },
+        { "sheet": 1, "ref": "B2" },
+        { "sheet": 2, "ref": "C5" }
+      ],
+      "category": "calc_chain_serialization",
+      "description": "ECMA-376 xl/calcChain.xml round-trip serialization and parsing"
+    },
+    { "id": "eval_sum_range", "formula": "=SUM(A1:A5)", "category": "function_sum", "setup": {"A1": 1, "A2": 2, "A3": 3, "A4": 4, "A5": 5}, "expected_result": 15.0 },
+    { "id": "eval_average_range", "formula": "=AVERAGE(A1:A4)", "category": "function_avg", "setup": {"A1": 10, "A2": 20, "A3": 30, "A4": 40}, "expected_result": 25.0 },
+    { "id": "eval_min_max", "formula": "=MAX(A1:A3) - MIN(A1:A3)", "category": "function_min_max", "setup": {"A1": 15, "A2": 50, "A3": 5}, "expected_result": 45.0 },
+    { "id": "eval_count", "formula": "=COUNT(A1:A4)", "category": "function_count", "setup": {"A1": 10, "A2": 20, "A3": 30, "A4": 40}, "expected_result": 4.0 },
+    { "id": "eval_abs_neg", "formula": "=ABS(-42)", "category": "function_abs", "expected_result": 42.0 },
+    { "id": "eval_round", "formula": "=ROUND(2.155, 2)", "category": "function_round", "expected_result": 2.16 },
+    { "id": "eval_if_true", "formula": "=IF(10 > 5, 100, 200)", "category": "function_if", "expected_result": 100.0 },
+    { "id": "eval_if_false", "formula": "=IF(10 < 5, 100, 200)", "category": "function_if", "expected_result": 200.0 },
+    { "id": "eval_div_zero", "formula": "=10 / 0", "category": "error_handling", "expected_error": "#DIV/0!" },
+    { "id": "eval_power", "formula": "=2 ^ 8", "category": "arithmetic_power", "expected_result": 256.0 },
+    { "id": "eval_string_concat", "formula": "=\"OpenOffice\" & \"RS\"", "category": "string_concat", "expected_result": "OpenOfficeRS" },
+    { "id": "eval_comparison_eq", "formula": "=10 = 10", "category": "comparison", "expected_result": true },
+    { "id": "eval_comparison_ne", "formula": "=10 <> 20", "category": "comparison", "expected_result": true },
+    { "id": "eval_comparison_lt", "formula": "=5 < 10", "category": "comparison", "expected_result": true },
+    { "id": "eval_comparison_gt", "formula": "=10 > 5", "category": "comparison", "expected_result": true },
+    { "id": "eval_comparison_le", "formula": "=10 <= 10", "category": "comparison", "expected_result": true },
+    { "id": "eval_comparison_ge", "formula": "=15 >= 10", "category": "comparison", "expected_result": true }
+  ]
+}

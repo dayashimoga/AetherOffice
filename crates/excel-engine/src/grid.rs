@@ -573,6 +573,38 @@ impl CompressedSparsePageGrid {
         Ok(())
     }
 
+    /// Updates the cached numeric value of a formula cell without changing its formula kind.
+    pub fn set_formula_cached_value(&mut self, row: u32, col: u32, val: f64) -> Result<()> {
+        Self::check_bounds(row, col)?;
+        let page_key = ((row / 64) as u16, (col / 64) as u8);
+        if let Some(chunk) = self.pages.get_mut(&page_key) {
+            let idx = (row % 64) as usize * 64 + (col % 64) as usize;
+            if chunk.kinds[idx] == CellKind::Formula {
+                if chunk.values.is_none() {
+                    chunk.values = Some(Box::new([0.0f64; CELLS_PER_PAGE]));
+                }
+                if let Some(ref mut v) = chunk.values {
+                    v[idx] = val;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Gets the cached numeric value of a formula cell if present.
+    pub fn get_formula_cached_value(&self, row: u32, col: u32) -> Option<f64> {
+        if Self::check_bounds(row, col).is_err() {
+            return None;
+        }
+        let page_key = ((row / 64) as u16, (col / 64) as u8);
+        let chunk = self.pages.get(&page_key)?;
+        let idx = (row % 64) as usize * 64 + (col % 64) as usize;
+        if chunk.kinds[idx] != CellKind::Formula {
+            return None;
+        }
+        chunk.values.as_ref().map(|v| v[idx])
+    }
+
     /// Retrieves compiled formula bytecode for cell at `(row, col)`.
     pub fn get_formula_bytecode(
         &self,
