@@ -33,9 +33,9 @@
                           "title":  "Streaming ZIP \u0026 [Content_Types].xml / .rels Parser",
                           "crate":  "ooxml-opc",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-1/subphase-1.2.1.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-28T15:10:27Z"
                       },
                       {
                           "id":  "1.2.2",
