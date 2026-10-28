@@ -1,0 +1,241 @@
+{
+  "subphase": "2.1.1",
+  "app": "excel",
+  "description": "ECMA-376 Part 1 SpreadsheetML Workbook, SharedStringTable, Styles & Parallel Engine Test Vectors",
+  "total_vectors": 26,
+  "vectors": [
+    {
+      "id": "wb_01_sheets_parsing",
+      "category": "workbook",
+      "description": "Parse worksheet references with sheetId, r:id, and name",
+      "input_xml": "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets><sheet name=\"Sheet1\" sheetId=\"1\" r:id=\"rId1\"/><sheet name=\"Summary\" sheetId=\"2\" r:id=\"rId2\"/></sheets></workbook>",
+      "expected_sheet_count": 2,
+      "expected_sheets": [
+        {"name": "Sheet1", "sheet_id": 1, "rel_id": "rId1", "state": "visible"},
+        {"name": "Summary", "sheet_id": 2, "rel_id": "rId2", "state": "visible"}
+      ]
+    },
+    {
+      "id": "wb_02_sheet_state_hidden",
+      "category": "workbook",
+      "description": "Parse worksheet with hidden state",
+      "input_xml": "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheets><sheet name=\"HiddenSheet\" sheetId=\"3\" r:id=\"rId3\" state=\"hidden\"/></sheets></workbook>",
+      "expected_state": "hidden"
+    },
+    {
+      "id": "wb_03_sheet_state_very_hidden",
+      "category": "workbook",
+      "description": "Parse worksheet with veryHidden state",
+      "input_xml": "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheets><sheet name=\"SecretData\" sheetId=\"4\" r:id=\"rId4\" state=\"veryHidden\"/></sheets></workbook>",
+      "expected_state": "veryHidden"
+    },
+    {
+      "id": "wb_04_defined_names_global",
+      "category": "workbook",
+      "description": "Parse workbook-level global defined names",
+      "input_xml": "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><definedNames><definedName name=\"TaxRate\">0.0825</definedName><definedName name=\"TotalSales\">Sheet1!$D$10</definedName></definedNames></workbook>",
+      "expected_count": 2,
+      "expected_names": [
+        {"name": "TaxRate", "value": "0.0825", "local_sheet_id": null, "hidden": false},
+        {"name": "TotalSales", "value": "Sheet1!$D$10", "local_sheet_id": null, "hidden": false}
+      ]
+    },
+    {
+      "id": "wb_05_defined_names_local",
+      "category": "workbook",
+      "description": "Parse sheet-scoped local defined name with hidden flag and comment",
+      "input_xml": "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><definedNames><definedName name=\"_xlnm.Print_Area\" localSheetId=\"0\" hidden=\"1\" comment=\"Print Area\">Sheet1!$A$1:$F$50</definedName></definedNames></workbook>",
+      "expected_name": "_xlnm.Print_Area",
+      "expected_value": "Sheet1!$A$1:$F$50",
+      "expected_local_sheet_id": 0,
+      "expected_hidden": true
+    },
+    {
+      "id": "wb_06_date1904_flag_false",
+      "category": "workbook",
+      "description": "Workbook with default 1900 date system (date1904 is absent or 0)",
+      "input_xml": "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><workbookPr defaultThemeVersion=\"202300\"/></workbook>",
+      "expected_date1904": false
+    },
+    {
+      "id": "wb_07_date1904_flag_true",
+      "category": "workbook",
+      "description": "Workbook with 1904 date system enabled (date1904=\"1\")",
+      "input_xml": "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><workbookPr date1904=\"1\" defaultThemeVersion=\"202300\"/></workbook>",
+      "expected_date1904": true
+    },
+    {
+      "id": "wb_08_calc_pr",
+      "category": "workbook",
+      "description": "Calculation properties parsing",
+      "input_xml": "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><calcPr calcId=\"191029\" calcMode=\"manual\" fullCalcOnLoad=\"1\" refMode=\"R1C1\" iterate=\"1\" iterateCount=\"100\" iterateDelta=\"0.001\"/></workbook>",
+      "expected_calc_id": 191029,
+      "expected_calc_mode": "manual",
+      "expected_full_calc": true,
+      "expected_ref_mode": "R1C1",
+      "expected_iterate": true,
+      "expected_iterate_count": 100
+    },
+    {
+      "id": "wb_09_book_views",
+      "category": "workbook",
+      "description": "Workbook view window coordinates and dimensions",
+      "input_xml": "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><bookViews><workbookView xWindow=\"100\" yWindow=\"200\" windowWidth=\"18000\" windowHeight=\"12000\" activeTab=\"1\"/></bookViews></workbook>",
+      "expected_x": 100,
+      "expected_y": 200,
+      "expected_w": 18000,
+      "expected_h": 12000,
+      "expected_active_tab": 1
+    },
+    {
+      "id": "wb_10_ext_lst_preservation",
+      "category": "workbook",
+      "description": "Extension list preservation via RawXmlNodeBuffer",
+      "input_xml": "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><extLst><ext uri=\"{140A7094-0E35-4892-8432-C4D2E57EDEB5}\" xmlns:x15=\"http://schemas.microsoft.com/office/spreadsheetml/2010/11/main\"><x15:workbookPr chartTrackingRefBase=\"1\"/></ext></extLst></workbook>",
+      "expected_has_ext": true,
+      "expected_contains_uri": "{140A7094-0E35-4892-8432-C4D2E57EDEB5}"
+    },
+    {
+      "id": "wb_11_roundtrip_xml",
+      "category": "workbook",
+      "description": "Deterministic round-trip serialization of workbook",
+      "input_xml": "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets><sheet name=\"Data\" sheetId=\"1\" r:id=\"rId1\"/></sheets><calcPr calcId=\"12345\"/></workbook>",
+      "expected_valid_xml": true
+    },
+    {
+      "id": "sst_01_plain_string",
+      "category": "shared_strings",
+      "description": "Parse simple plain text shared string",
+      "input_xml": "<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" count=\"1\" uniqueCount=\"1\"><si><t>Hello World</t></si></sst>",
+      "expected_count": 1,
+      "expected_text": "Hello World"
+    },
+    {
+      "id": "sst_02_xml_preserve_space",
+      "category": "shared_strings",
+      "description": "Shared string with xml:space=preserve",
+      "input_xml": "<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" count=\"1\" uniqueCount=\"1\"><si><t xml:space=\"preserve\">   Padded Text   </t></si></sst>",
+      "expected_text": "   Padded Text   "
+    },
+    {
+      "id": "sst_03_xml_entities",
+      "category": "shared_strings",
+      "description": "Shared string unescaping XML entities (&amp;, &lt;, &gt;, &quot;, &apos;)",
+      "input_xml": "<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" count=\"1\" uniqueCount=\"1\"><si><t>Tom &amp; Jerry &lt;&gt; &quot;Fun&quot; &apos;100%&apos;</t></si></sst>",
+      "expected_text": "Tom & Jerry <> \"Fun\" '100%'"
+    },
+    {
+      "id": "sst_04_rich_text_bold_italic",
+      "category": "shared_strings",
+      "description": "Formatted rich text with bold and italic runs",
+      "input_xml": "<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" count=\"1\" uniqueCount=\"1\"><si><r><rPr><b/></rPr><t>Bold</t></r><r><t> </t></r><r><rPr><i/></rPr><t>Italic</t></r></si></sst>",
+      "expected_combined_text": "Bold Italic",
+      "expected_runs_count": 3
+    },
+    {
+      "id": "sst_05_rich_text_colors_fonts",
+      "category": "shared_strings",
+      "description": "Rich text runs with custom font size, name, and color",
+      "input_xml": "<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" count=\"1\" uniqueCount=\"1\"><si><r><rPr><rFont val=\"Arial\"/><sz val=\"14\"/><color rgb=\"FFFF0000\"/></rPr><t>Red Alert</t></r></si></sst>",
+      "expected_font_name": "Arial",
+      "expected_font_size": 14,
+      "expected_color": "FFFF0000"
+    },
+    {
+      "id": "sst_06_deduplication",
+      "category": "shared_strings",
+      "description": "String table interning deduplicates repeated values",
+      "test_strings": ["Alpha", "Beta", "Alpha", "Gamma", "Beta", "Alpha"],
+      "expected_unique_count": 3,
+      "expected_total_count": 6
+    },
+    {
+      "id": "sst_07_empty_string",
+      "category": "shared_strings",
+      "description": "Shared string item containing an empty text node",
+      "input_xml": "<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" count=\"1\" uniqueCount=\"1\"><si><t/></si></sst>",
+      "expected_text": ""
+    },
+    {
+      "id": "sst_08_sla_1m_strings",
+      "category": "shared_strings",
+      "description": "Parse 1,000,000 shared strings under 120 ms SLA",
+      "target_count": 1000000,
+      "sla_limit_ms": 120
+    },
+    {
+      "id": "style_01_builtin_num_fmts",
+      "category": "styles",
+      "description": "Resolve ECMA-376 built-in number format codes (0..49)",
+      "checks": [
+        {"id": 0, "expected": "General"},
+        {"id": 1, "expected": "0"},
+        {"id": 2, "expected": "0.00"},
+        {"id": 9, "expected": "0%"},
+        {"id": 14, "expected": "mm-dd-yy"},
+        {"id": 49, "expected": "@"}
+      ]
+    },
+    {
+      "id": "style_02_custom_num_fmt",
+      "category": "styles",
+      "description": "Parse custom number format codes with ID >= 164",
+      "input_xml": "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><numFmts count=\"1\"><numFmt numFmtId=\"164\" formatCode=\"YYYY-MM-DD\\ HH:MM:SS\"/></numFmts></styleSheet>",
+      "expected_id": 164,
+      "expected_code": "YYYY-MM-DD\\ HH:MM:SS"
+    },
+    {
+      "id": "style_03_fonts",
+      "category": "styles",
+      "description": "Parse font definitions with name, size, bold, italic, underline, strike, color",
+      "input_xml": "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><fonts count=\"1\"><font><sz val=\"12\"/><name val=\"Aptos Narrow\"/><b/><i/><u/><strike/><color rgb=\"FF002060\"/></font></fonts></styleSheet>",
+      "expected_font_name": "Aptos Narrow",
+      "expected_size": 12.0,
+      "expected_bold": true,
+      "expected_italic": true,
+      "expected_underline": true,
+      "expected_strike": true,
+      "expected_rgb": "FF002060"
+    },
+    {
+      "id": "style_04_fills",
+      "category": "styles",
+      "description": "Parse pattern fills (none, gray125, solid with fgColor)",
+      "input_xml": "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><fills count=\"3\"><fill><patternFill patternType=\"none\"/></fill><fill><patternFill patternType=\"gray125\"/></fill><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFFFFF00\"/></patternFill></fill></fills></styleSheet>",
+      "expected_fill_count": 3,
+      "expected_third_pattern": "solid",
+      "expected_third_fg_rgb": "FFFFFF00"
+    },
+    {
+      "id": "style_05_borders",
+      "category": "styles",
+      "description": "Parse border edges with line styles and colors",
+      "input_xml": "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><borders count=\"1\"><border><left style=\"thin\"><color rgb=\"FF808080\"/></left><right style=\"medium\"><color rgb=\"FF000000\"/></right><top style=\"double\"/><bottom style=\"thick\"/><diagonal/></border></borders></styleSheet>",
+      "expected_left_style": "thin",
+      "expected_right_style": "medium",
+      "expected_top_style": "double",
+      "expected_bottom_style": "thick"
+    },
+    {
+      "id": "style_06_cell_xfs_alignment",
+      "category": "styles",
+      "description": "Parse cell XFs with alignments and apply flags",
+      "input_xml": "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><cellXfs count=\"1\"><xf numFmtId=\"164\" fontId=\"0\" fillId=\"2\" borderId=\"1\" applyAlignment=\"1\"><alignment horizontal=\"center\" vertical=\"center\" wrapText=\"1\" shrinkToFit=\"1\" indent=\"2\"/></xf></cellXfs></styleSheet>",
+      "expected_num_fmt_id": 164,
+      "expected_horizontal": "center",
+      "expected_vertical": "center",
+      "expected_wrap_text": true,
+      "expected_shrink_to_fit": true,
+      "expected_indent": 2
+    },
+    {
+      "id": "pkg_01_parallel_load",
+      "category": "package",
+      "description": "Parallel multi-threaded load of real baseline.xlsx package",
+      "fixture_path": "specs/evidence/excel/baseline.xlsx",
+      "expected_sheets_count": 1,
+      "expected_sst_count": 1,
+      "expected_styles_present": true
+    }
+  ]
+}
