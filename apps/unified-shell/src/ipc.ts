@@ -52,6 +52,11 @@ export type UiActionEvent =
   | { type: "Redo" }
   | { type: "MarkSaved" };
 
+export interface BootConfig {
+  app_mode: "hub" | "writer" | "calc" | "slides" | "pdf";
+  initial_file?: string | null;
+}
+
 // Fallback when running outside Tauri desktop container (e.g. Vite dev preview)
 const hasTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -62,6 +67,14 @@ async function invokeTauri<T>(cmd: string, args?: Record<string, unknown>): Prom
   } else {
     console.log(`[IPC Mock] invoke('${cmd}')`, args);
     // Mock response for browser preview
+    if (cmd === "get_boot_config") {
+      const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      const mode = (params?.get("mode") as "hub" | "writer" | "calc" | "slides" | "pdf") || "writer";
+      return {
+        app_mode: mode,
+        initial_file: params?.get("file") || null,
+      } as unknown as T;
+    }
     if (cmd === "create_session") {
       const type = (args?.doc_type as DocumentType) || "Word";
       return {
@@ -76,6 +89,8 @@ async function invokeTauri<T>(cmd: string, args?: Record<string, unknown>): Prom
 }
 
 export const IPC = {
+  getBootConfig: (): Promise<BootConfig> =>
+    invokeTauri("get_boot_config"),
   createSession: (docType: DocumentType, title: string): Promise<SessionSummary> =>
     invokeTauri("create_session", { doc_type: docType, title }),
 

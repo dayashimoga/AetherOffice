@@ -17,3 +17,27 @@ render-core = { path = "../../../crates/render-core" }
 
 [build-dependencies]
 tauri-build = { version = "2.1", features = [] }
+
+[[bin]]
+name = "unified-shell-tauri"
+path = "src/main.rs"
+
+[[bin]]
+name = "aether-hub"
+path = "src/bin/aether-hub.rs"
+
+[[bin]]
+name = "aether-writer"
+path = "src/bin/aether-writer.rs"
+
+[[bin]]
+name = "aether-calc"
+path = "src/bin/aether-calc.rs"
+
+[[bin]]
+name = "aether-slides"
+path = "src/bin/aether-slides.rs"
+
+[[bin]]
+name = "aether-pdf"
+path = "src/bin/aether-pdf.rs"

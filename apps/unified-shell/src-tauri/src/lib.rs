@@ -261,6 +261,70 @@ pub fn get_release_matrix() -> ReleaseMatrix {
     ReleaseMatrix::default()
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct BootConfig {
+    pub app_mode: String,
+    pub initial_file: Option<String>,
+}
+
+pub fn get_boot_config() -> BootConfig {
+    let env_mode = match std::env::var("AETHER_APP_MODE") {
+        Ok(m) if !m.trim().is_empty() => m.trim().to_ascii_lowercase(),
+        _ => "hub".to_string(),
+    };
+
+    let mut final_mode = env_mode;
+    let mut initial_file: Option<String> = None;
+
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    for arg in args {
+        if arg == "--writer" || arg == "-w" {
+            final_mode = "writer".to_string();
+        } else if arg == "--calc" || arg == "-c" {
+            final_mode = "calc".to_string();
+        } else if arg == "--slides" || arg == "-s" {
+            final_mode = "slides".to_string();
+        } else if arg == "--pdf" || arg == "-p" {
+            final_mode = "pdf".to_string();
+        } else if arg == "--hub" {
+            final_mode = "hub".to_string();
+        } else if !arg.starts_with('-') && initial_file.is_none() {
+            initial_file = Some(arg);
+        }
+    }
+
+    if let Some(ref path) = initial_file {
+        if final_mode == "hub" {
+            let lower = path.to_ascii_lowercase();
+            if lower.ends_with(".docx") || lower.ends_with(".doc") {
+                final_mode = "writer".to_string();
+            } else if lower.ends_with(".xlsx") || lower.ends_with(".xls") {
+                final_mode = "calc".to_string();
+            } else if lower.ends_with(".pptx") || lower.ends_with(".ppt") {
+                final_mode = "slides".to_string();
+            } else if lower.ends_with(".pdf") {
+                final_mode = "pdf".to_string();
+            }
+        }
+    }
+
+    BootConfig {
+        app_mode: final_mode,
+        initial_file,
+    }
+}
+
+#[cfg(not(test))]
+pub fn run() {
+    if let Err(e) = tauri::Builder::default().run(tauri::generate_context!()) {
+        eprintln!("Error while running AetherOffice: {e}");
+        std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+pub fn run() {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -412,5 +476,26 @@ mod tests {
         assert!(matrix.targets.len() >= 8);
         assert!(matrix.validate_full_coverage().is_ok());
         assert!(matrix.validate_triplets().is_ok());
+    }
+
+    #[test]
+    fn test_boot_config_resolution() {
+        std::env::set_var("AETHER_APP_MODE", "writer");
+        let cfg = get_boot_config();
+        assert_eq!(cfg.app_mode, "writer");
+
+        std::env::set_var("AETHER_APP_MODE", "calc");
+        let cfg2 = get_boot_config();
+        assert_eq!(cfg2.app_mode, "calc");
+
+        std::env::set_var("AETHER_APP_MODE", "slides");
+        let cfg3 = get_boot_config();
+        assert_eq!(cfg3.app_mode, "slides");
+
+        std::env::set_var("AETHER_APP_MODE", "pdf");
+        let cfg4 = get_boot_config();
+        assert_eq!(cfg4.app_mode, "pdf");
+
+        std::env::remove_var("AETHER_APP_MODE");
     }
 }

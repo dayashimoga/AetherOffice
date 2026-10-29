@@ -1,8 +1,8 @@
 ﻿{
     "project":  "OpenOfficeRS",
-    "contract":  "GEC-v1.0",
-    "total_stages":  7,
-    "total_subphases":  33,
+    "contract":  "GEC-v2.0",
+    "total_stages":  13,
+    "total_subphases":  52,
     "subphases":  [
                       {
                           "id":  "1.1.1",
@@ -366,6 +366,215 @@
                           "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-7/subphase-7.1.2.md",
                           "completed_at":  "2026-10-29T11:07:02Z"
+                      },
+                      {
+                          "id":  "8.1.1",
+                          "stage":  8,
+                          "phase":  "8.1",
+                          "title":  "5-Executable Build Wiring \u0026 App-Mode Boot Router",
+                          "crate":  "render-core",
+                          "rea_required":  false,
+                          "status":  "COMPLETED",
+                          "prompt_file":  ".agents/stages/stage-8/subphase-8.1.1.md",
+                          "completed_at":  "2026-10-29T12:14:37Z"
+                      },
+                      {
+                          "id":  "8.1.2",
+                          "stage":  8,
+                          "phase":  "8.1",
+                          "title":  "AetherHub Main Suite Launcher \u0026 OS Process Spawner",
+                          "crate":  "render-core",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-8/subphase-8.1.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "8.2.1",
+                          "stage":  8,
+                          "phase":  "8.2",
+                          "title":  "Native File Open, Save, Save-As \u0026 Backstage File Menu",
+                          "crate":  "ooxml-opc",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-8/subphase-8.2.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "8.2.2",
+                          "stage":  8,
+                          "phase":  "8.2",
+                          "title":  "Strict Per-App Contextual Ribbon Router \u0026 Mobile Bar Cleanup",
+                          "crate":  "render-core",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-8/subphase-8.2.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "9.1.1",
+                          "stage":  9,
+                          "phase":  "9.1",
+                          "title":  "Interactive Paginated Word Canvas, Real Caret \u0026 Keyboard Typing",
+                          "crate":  "word-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-9/subphase-9.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "9.1.2",
+                          "stage":  9,
+                          "phase":  "9.1",
+                          "title":  "Multi-Page Creation, Page Breaks, Headers/Footers \u0026 Zoom/Ruler",
+                          "crate":  "word-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-9/subphase-9.1.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "9.2.1",
+                          "stage":  9,
+                          "phase":  "9.2",
+                          "title":  "Writer Home \u0026 Layout Ribbons: Rich Run Formatting, Lists \u0026 Styles",
+                          "crate":  "word-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-9/subphase-9.2.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "9.2.2",
+                          "stage":  9,
+                          "phase":  "9.2",
+                          "title":  "Writer Insert, Review \u0026 View Ribbons: Tables, Images, Find/Replace \u0026 Word Count",
+                          "crate":  "word-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-9/subphase-9.2.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "10.1.1",
+                          "stage":  10,
+                          "phase":  "10.1",
+                          "title":  "Editable Spreadsheet Grid, In-Cell Input, Multi-Sheet Tabs \u0026 Column Resizing",
+                          "crate":  "excel-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-10/subphase-10.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "10.1.2",
+                          "stage":  10,
+                          "phase":  "10.1",
+                          "title":  "Range Selection, Fill Handle Auto-Series \u0026 Clipboard Cut/Copy/Paste",
+                          "crate":  "excel-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-10/subphase-10.1.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "10.2.1",
+                          "stage":  10,
+                          "phase":  "10.2",
+                          "title":  "Calc Home, Formulas \u0026 Data Ribbons: Number Formats, Function Wizard \u0026 Sort/Filter",
+                          "crate":  "excel-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-10/subphase-10.2.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "10.2.2",
+                          "stage":  10,
+                          "phase":  "10.2",
+                          "title":  "Calc Insert \u0026 View Ribbons: Live Charts (Bar, Line, Pie), Conditional Formatting \u0026 Freeze Panes",
+                          "crate":  "excel-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-10/subphase-10.2.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "11.1.1",
+                          "stage":  11,
+                          "phase":  "11.1",
+                          "title":  "Interactive Slide Canvas: Drag, 8-Point Resize, Rotate \u0026 In-Place Text Editing",
+                          "crate":  "ppt-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-11/subphase-11.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "11.1.2",
+                          "stage":  11,
+                          "phase":  "11.1",
+                          "title":  "Slides Home, Insert \u0026 Design Ribbons: Shapes, Images, Tables, Themes \u0026 Backgrounds",
+                          "crate":  "ppt-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-11/subphase-11.1.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "11.2.1",
+                          "stage":  11,
+                          "phase":  "11.2",
+                          "title":  "Slides Transitions, Animations \u0026 Fullscreen Slide Show (F5) Engine",
+                          "crate":  "ppt-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-11/subphase-11.2.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "12.1.1",
+                          "stage":  12,
+                          "phase":  "12.1",
+                          "title":  "Standalone PDF Studio Workspace, Multi-Page Renderer \u0026 Page Organizer",
+                          "crate":  "pdf-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-12/subphase-12.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "12.1.2",
+                          "stage":  12,
+                          "phase":  "12.1",
+                          "title":  "PDF In-Place Text/Image Editor, Annotations, Redaction \u0026 AcroForms Filler",
+                          "crate":  "pdf-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-12/subphase-12.1.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "13.1.1",
+                          "stage":  13,
+                          "phase":  "13.1",
+                          "title":  "Comprehensive Automated E2E UI Test Suite Across All 5 Apps",
+                          "crate":  "render-core",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-13/subphase-13.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "13.1.2",
+                          "stage":  13,
+                          "phase":  "13.1",
+                          "title":  "Final 5-Binary Release Build \u0026 GitHub Actions Multi-Platform Verification",
+                          "crate":  "render-core",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-13/subphase-13.1.2.md",
+                          "completed_at":  null
                       }
                   ]
 }

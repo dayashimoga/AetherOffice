@@ -10,7 +10,7 @@ import { StylusInkLayer } from "./components/StylusInkLayer";
 import { MobileReflowReader } from "./components/MobileReflowReader";
 import { RowCardInspector } from "./components/RowCardInspector";
 import { LaserPointer } from "./components/LaserPointer";
-import { IPC, DocumentType } from "./ipc";
+import { IPC, DocumentType, BootConfig } from "./ipc";
 
 import { WriterCanvas } from "./components/viewports/WriterCanvas";
 import { CalcGridCanvas } from "./components/viewports/CalcGridCanvas";
@@ -22,7 +22,7 @@ import { calcState } from "./state/calcState";
 import { slidesState } from "./state/slidesState";
 import { pdfState } from "./state/pdfState";
 
-class UnifiedShellApp {
+export class UnifiedShellApp {
   private tabBar!: TabBar;
   private ribbon!: Ribbon;
   private formulaBar!: FormulaBar;
@@ -42,11 +42,11 @@ class UnifiedShellApp {
   private slideStageCanvas?: SlideStageCanvas;
   private pdfViewerCanvas?: PdfViewerCanvas;
 
-  constructor() {
-    this.init();
+  constructor(autoBoot = true) {
+    this.init(autoBoot);
   }
 
-  private init() {
+  public init(autoBoot = true) {
     // 1. Initialize Tab Bar
     this.tabBar = new TabBar("tab-bar-container");
     this.tabBar.setCallbacks({
@@ -116,28 +116,100 @@ class UnifiedShellApp {
       onAltKeytip: (code) => this.handleAltKeytip(code),
     });
 
-    // Default Document Tabs
-    this.tabBar.addTab({
-      id: "tab-1",
-      docType: "Word",
-      title: "Document 1",
-      isDirty: false,
-    });
-    this.tabBar.addTab({
-      id: "tab-2",
-      docType: "Excel",
-      title: "Financials.xlsx",
-      isDirty: true,
-    });
-    this.tabBar.addTab({
-      id: "tab-3",
-      docType: "PowerPoint",
-      title: "Pitch.pptx",
-      isDirty: false,
-    });
+    if (autoBoot) {
+      void this.initBoot();
+    }
+  }
 
-    // Switch to first tab
-    this.tabBar.switchTab("tab-1");
+  public async initBoot() {
+    try {
+      const bootConfig = await IPC.getBootConfig();
+      this.applyBootConfig(bootConfig);
+    } catch {
+      this.applyBootConfig({ app_mode: "writer" });
+    }
+  }
+
+  public applyBootConfig(bootConfig: BootConfig) {
+    const mode = bootConfig.app_mode || "writer";
+    const initialFile = bootConfig.initial_file;
+
+    switch (mode) {
+      case "writer": {
+        const title = initialFile
+          ? initialFile.split(/[/\\]/).pop() || "Untitled 1.docx"
+          : "Untitled 1.docx";
+        this.tabBar.addTab({
+          id: "tab-writer-1",
+          docType: "Word",
+          title,
+          isDirty: false,
+        });
+        this.tabBar.switchTab("tab-writer-1");
+        break;
+      }
+      case "calc": {
+        const title = initialFile
+          ? initialFile.split(/[/\\]/).pop() || "Book1.xlsx"
+          : "Book1.xlsx";
+        this.tabBar.addTab({
+          id: "tab-calc-1",
+          docType: "Excel",
+          title,
+          isDirty: false,
+        });
+        this.tabBar.switchTab("tab-calc-1");
+        break;
+      }
+      case "slides": {
+        const title = initialFile
+          ? initialFile.split(/[/\\]/).pop() || "Presentation1.pptx"
+          : "Presentation1.pptx";
+        this.tabBar.addTab({
+          id: "tab-slides-1",
+          docType: "PowerPoint",
+          title,
+          isDirty: false,
+        });
+        this.tabBar.switchTab("tab-slides-1");
+        break;
+      }
+      case "pdf": {
+        const title = initialFile
+          ? initialFile.split(/[/\\]/).pop() || "Document.pdf"
+          : "Document.pdf";
+        this.tabBar.addTab({
+          id: "tab-pdf-1",
+          docType: "PDF",
+          title,
+          isDirty: false,
+        });
+        this.tabBar.switchTab("tab-pdf-1");
+        break;
+      }
+      case "hub":
+      default: {
+        const title = initialFile
+          ? initialFile.split(/[/\\]/).pop() || "Untitled 1.docx"
+          : "Untitled 1.docx";
+        this.tabBar.addTab({
+          id: "tab-hub-1",
+          docType: "Word",
+          title,
+          isDirty: false,
+        });
+        this.tabBar.switchTab("tab-hub-1");
+        break;
+      }
+    }
+  }
+
+  public getTabBar(): TabBar {
+    return this.tabBar;
+  }
+
+  public getCurrentDocType(): DocumentType {
+    return this.currentDocType;
   }
 
   private handleTabChange(tab: TabItem) {

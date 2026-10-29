@@ -1,45 +1,28 @@
----
+﻿---
 trigger: always_on
-description: Global Engineering Contract (GEC-v1.0) governing clean-room reverse engineering, ECMA-376 fidelity, performance SLAs, cross-platform adaptive UI, and zero-defect verification.
+description: Global Engineering Contract (GEC-v2.0) enforcing zero-mockup UI, real-time Rust IPC wiring, 5 standalone binaries, and E2E Playwright verification.
 ---
 
-# GLOBAL ENGINEERING CONTRACT (GEC-v1.0)
-**Project:** OpenOfficeRS (Word, Excel, PowerPoint Unified Rust Engine & Shell)
-**Status:** MANDATORY / NON-NEGOTIABLE FOR ALL ANTIGRAVITY AGENTS
+# GLOBAL ENGINEERING CONTRACT (GEC-v2.0)
 
-## ARTICLE I: LEGAL CLEAN-ROOM & BINARY ISOLATION WALL
-1. **Open Format First:** All `.docx`, `.xlsx`, and `.pptx` structural parsing and serialization MUST follow the public ECMA-376 / ISO/IEC 29500 standard.
-2. **Strict Two-Phase Separation (When REA is Active):**
-   - **Analysis Phase (`@rea-binary-analyst`):** May inspect staged binaries ONLY to document mathematical equations, state transitions, and input/output test vectors inside `specs/evidence/<app>/`.
-   - **Implementation Phase (`@ecma376-architect`, `@adaptive-ui-builder`):** Writes clean, idiomatic Rust/TypeScript in `crates/` and `apps/` reading ONLY from ECMA-376 specs and `specs/evidence/`.
-3. **Zero Contamination:** Never paste decompiled C/C++, x86_64 assembly, or Microsoft internal symbols into `crates/` or `apps/`.
+## ARTICLES I - VI (INHERITED FROM GEC-v1.0)
+All Clean-Room, ECMA-376 / ISO 32000 Round-Trip, Performance SLAs (<150ms startup, 120fps), Zero-Panic Rust (`#[forbid(unsafe_code)]`, no `.unwrap()`/`.expect()`), and 5-OS Portability rules remain strictly in force.
 
-## ARTICLE II: ZERO-LOSS ECMA-376 ROUND-TRIP FIDELITY
-1. Opening and saving any `.docx`, `.xlsx`, or `.pptx` file MUST NEVER strip or corrupt unmodeled XML elements, attributes (`mc:Ignorable`), macros (`vbaProject.bin`), or OPC `.rels` relationships.
-2. Every parser must retain unrecognized nodes/parts in an `UnparsedPartStore` and write them back deterministically on save.
-
-## ARTICLE III: HARD PERFORMANCE & RESOURCE SLAs
-1. **Startup:** `< 150 ms` on Desktop; `< 300 ms` on Mobile.
-2. **Memory:** Idle `< 35 MB` RSS; 1M populated Excel cells `< 180 MB` RSS via Compressed Sparse Page Grid (CSPG).
-3. **Latency:** Viewport scrolling/zoom locked at `120 fps` (`< 8.33 ms` frame budget); Word typing `< 1.0 ms` per keystroke via Piece-Tree Rope.
-4. **Threading:** Never block the UI or GPU thread with file I/O, XML parsing, or formula evaluation.
-
-## ARTICLE IV: RUST & TYPESCRIPT CODE QUALITY INVARIANTS
-1. `#[forbid(unsafe_code)]` enforced in `ooxml-opc`, `word-engine`, `excel-engine`, and `ppt-engine`.
-2. `.unwrap()`, `.expect()`, `panic!()`, `todo!()`, and `unimplemented!()` are **BANNED** in non-test library code (`crates/*/src/**`). Return typed `Result<T, EngineError>` using `thiserror`.
-3. Zero warnings allowed under `cargo clippy --workspace --all-targets -- -D warnings` and `cargo fmt --all -- --check`.
-
-## ARTICLE V: UNIVERSAL CROSS-PLATFORM & ADAPTIVE UI PARITY
-1. All engine crates must compile cleanly for Windows, Linux, macOS, Android, and iOS.
-2. `apps/unified-shell` must automatically adapt across:
-   - **Desktop/Laptop (`>= 1024px`, fine pointer):** Multi-tab workspace, full Ribbon, formula bar, dockable panels, keyboard shortcuts.
-   - **Tablet (`768px - 1023px`, touch/stylus):** Compact touch ribbon, stylus ink overlay, split-view support.
-   - **Mobile (`< 768px`, touch):** Bottom command sheets, virtual-keyboard inset avoidance, Word Reflow Reader mode, Excel card editor.
-
-## ARTICLE VI: DEFINITION OF DONE (DoD) GATEKEEPING
-No subphase is complete until `tools/verify-contract.ps1` exits with code `0` and changes are committed with `[GEC-Verified]`.
-
-## ARTICLE VII: HUMAN-IN-THE-LOOP APPROVAL GATES & CONTAINER FALLBACK
-1. **Never Silently Auto-Advance:** After completing any subphase or stage and verifying with `tools/verify-contract.ps1`, the agent MUST pause and present a concise summary of deliverables and contract audit results to the user.
-2. **Explicit User Approval Required:** The agent MUST explicitly ask the user for confirmation/permission before proceeding to the next subphase or advancing to the next stage. Never start the next subphase without affirmative user consent.
-3. **Podman Container Fallback:** If any required tool, package, compiler, or CLI (such as `gh`, Android NDK, or headless Linux utilities) is not installed locally on the host machine, the agent MUST run it via `tools/podman-runner.ps1` using a Podman container.
+## ARTICLE VII: ZERO-MOCKUP UI & LIVE RUST IPC MANDATE (NEW - CRITICAL)
+1. **Ban on Hardcoded Demo Documents:**
+   - The frontend (`apps/unified-shell/src/`) MUST NEVER boot into hardcoded fake tabs (`Financials.xlsx`, `Pitch.pptx`, or `"OpenOfficeRS â€” Executive Technical Summary"`).
+   - Every standalone app (`Writer`, `Calc`, `Slides`, `PDF`) must boot into a clean, editable blank document (`Untitled.docx`, `Book1.xlsx`, `Presentation1.pptx`, or PDF Open/Create Screen) or open a file passed via CLI/OS file association.
+2. **Ban on Dead / Placeholder Ribbon Tabs:**
+   - Every top-level menu tab (`File`, `Home`, `Insert`, `Layout`, `Formulas`, `Data`, `Transitions`, `Animations`, `Slide Show`, `PDF Tools`, `Review`, `View`) MUST switch the active ribbon panel cleanly (`activeRibbonTab` state) and render real, clickable controls specific ONLY to the active application mode.
+   - Word styles (`Normal`, `Heading 1`) must NEVER appear inside PowerPoint or Excel ribbons.
+3. **5-Binary Standalone + Unified Hub Architecture:**
+   - The project must produce **5 distinct executable entrypoints**:
+     1. `aether-hub` (Main Unified Launcher & Multi-Window Suite Manager)
+     2. `aether-writer` (Standalone Word Processor `.docx` App)
+     3. `aether-calc` (Standalone Spreadsheet `.xlsx` App)
+     4. `aether-slides` (Standalone Presentation `.pptx` App)
+     5. `aether-pdf` (Standalone PDF Read/Edit/Write `.pdf` App)
+   - Passing `--app writer|calc|slides|pdf` or launching the respective binary must mount ONLY that application's dedicated chrome, menu bar, shortcuts, and file dialogsâ€”zero cross-format clutter.
+4. **End-to-End Interactive Verification Gate:**
+   - No UI subphase (Stages 8â€“13) may be marked `COMPLETED` based solely on Rust unit tests.
+   - Every subphase MUST include an automated frontend integration/E2E test (`apps/unified-shell/src/__tests__/stage_<id>.test.ts` via Vitest/Playwright DOM) that programmatically clicks the Ribbon buttons, simulates keyboard typing/cell editing/shape dragging, and asserts that the underlying document state and DOM canvas actually mutated.
