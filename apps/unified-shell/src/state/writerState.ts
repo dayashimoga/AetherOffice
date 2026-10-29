@@ -4,9 +4,12 @@ export interface WordRun {
   italic?: boolean;
   underline?: boolean;
   strikethrough?: boolean;
+  subscript?: boolean;
+  superscript?: boolean;
   font?: string;
   size?: number;
   color?: string;
+  highlight?: string;
 }
 
 export interface WordParagraph {
@@ -15,6 +18,7 @@ export interface WordParagraph {
   runs: WordRun[];
   alignment: "left" | "center" | "right" | "justify";
   indent?: number;
+  lineSpacing?: number;
 }
 
 export interface DocPage {
@@ -29,6 +33,7 @@ export interface WordDocumentModel {
   pageOrientation?: "portrait" | "landscape";
   margins?: "normal" | "narrow" | "wide";
   pageSize?: "letter" | "a4" | "legal";
+  columns?: number;
   headerText?: string;
   footerText?: string;
 }
@@ -604,15 +609,50 @@ export class WriterState {
   private applyRunMutation(mutate: (r: WordRun) => void) {
     this.saveSnapshot();
     if (this.selection && !this.isSelectionCollapsed()) {
-      const a = this.selection.anchor;
-      const f = this.selection.focus;
-      const startP = Math.min(a.pageIndex, f.pageIndex);
-      const endP = Math.max(a.pageIndex, f.pageIndex);
+      const isStartFirst = comparePositions(this.selection.anchor, this.selection.focus) <= 0;
+      const start = isStartFirst ? this.selection.anchor : this.selection.focus;
+      const end = isStartFirst ? this.selection.focus : this.selection.anchor;
 
-      for (let pIdx = startP; pIdx <= endP; pIdx++) {
+      if (
+        start.pageIndex === end.pageIndex &&
+        start.paragraphIndex === end.paragraphIndex &&
+        start.runIndex === end.runIndex
+      ) {
+        const page = this.doc.pages[start.pageIndex];
+        const para = page?.paragraphs[start.paragraphIndex];
+        const run = para?.runs[start.runIndex];
+        if (run && start.offset !== end.offset) {
+          const beforeText = run.text.slice(0, start.offset);
+          const selectedText = run.text.slice(start.offset, end.offset);
+          const afterText = run.text.slice(end.offset);
+
+          const mutatedRun: WordRun = { ...run, text: selectedText };
+          mutate(mutatedRun);
+
+          const replacementRuns: WordRun[] = [];
+          if (beforeText) replacementRuns.push({ ...run, text: beforeText });
+          replacementRuns.push(mutatedRun);
+          if (afterText) replacementRuns.push({ ...run, text: afterText });
+
+          para.runs.splice(start.runIndex, 1, ...replacementRuns);
+          const newSelectedRunIdx = beforeText ? start.runIndex + 1 : start.runIndex;
+          this.selection = {
+            anchor: { ...start, runIndex: newSelectedRunIdx, offset: 0 },
+            focus: { ...end, runIndex: newSelectedRunIdx, offset: selectedText.length },
+          };
+          this.cursor = { ...end, runIndex: newSelectedRunIdx, offset: selectedText.length };
+          return;
+        }
+      }
+
+      for (let pIdx = start.pageIndex; pIdx <= end.pageIndex; pIdx++) {
         const page = this.doc.pages[pIdx];
         if (!page) continue;
-        for (const para of page.paragraphs) {
+        const startPara = pIdx === start.pageIndex ? start.paragraphIndex : 0;
+        const endPara = pIdx === end.pageIndex ? end.paragraphIndex : page.paragraphs.length - 1;
+        for (let paraIdx = startPara; paraIdx <= endPara; paraIdx++) {
+          const para = page.paragraphs[paraIdx];
+          if (!para) continue;
           for (const r of para.runs) {
             mutate(r);
           }
@@ -673,6 +713,22 @@ export class WriterState {
         });
         break;
 
+      case "toggleSubscript":
+      case "ToggleSubscript":
+        this.applyRunMutation((r) => {
+          r.subscript = !r.subscript;
+          if (r.subscript) r.superscript = false;
+        });
+        break;
+
+      case "toggleSuperscript":
+      case "ToggleSuperscript":
+        this.applyRunMutation((r) => {
+          r.superscript = !r.superscript;
+          if (r.superscript) r.subscript = false;
+        });
+        break;
+
       case "setFont":
       case "SetFontFamily":
         this.activeFormat.font = val;
@@ -709,11 +765,20 @@ export class WriterState {
         break;
       }
 
+      case "setFontColor":
+      case "SetFontColor":
       case "setTextColor":
       case "SetTextColor":
         this.activeFormat.color = val || "#242424";
         this.applyRunMutation((r) => {
           r.color = val || "#242424";
+        });
+        break;
+
+      case "setHighlightColor":
+      case "SetHighlightColor":
+        this.applyRunMutation((r) => {
+          r.highlight = val || "#fef08a";
         });
         break;
 
@@ -817,11 +882,23 @@ export class WriterState {
               r.size = 16;
               r.color = "#2e75b6";
             });
+          } else if (styleName === "Heading 3" || styleName === "Heading3") {
+            p.runs.forEach((r) => {
+              r.bold = true;
+              r.size = 13;
+              r.color = "#595959";
+            });
           } else if (styleName === "Title") {
             p.runs.forEach((r) => {
               r.bold = true;
               r.size = 28;
               r.color = "#1f497d";
+            });
+          } else if (styleName === "Subtitle") {
+            p.runs.forEach((r) => {
+              r.italic = true;
+              r.size = 12;
+              r.color = "#595959";
             });
           } else {
             p.runs.forEach((r) => {
@@ -883,8 +960,19 @@ export class WriterState {
         break;
 
       case "setLineSpacing":
-      case "SetLineSpacing":
-        this.activeFormat.lineSpacing = Number(val) || 1.15;
+      case "SetLineSpacing": {
+        const spacing = Number(val) || 1.15;
+        this.activeFormat.lineSpacing = spacing;
+        this.applyParagraphMutation((p) => {
+          p.lineSpacing = spacing;
+        });
+        break;
+      }
+
+      case "setColumns":
+      case "SetColumns":
+        this.saveSnapshot();
+        this.doc.columns = Number(val) || 1;
         break;
 
       case "undo":

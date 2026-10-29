@@ -83,6 +83,13 @@ export class WriterCanvas {
 
   public setMargins(left: number, _right?: number) {
     this.marginX = Math.max(24, Math.min(left, 300));
+    if (this.marginX === 48) {
+      this.state.doc.margins = "narrow";
+    } else if (this.marginX === 144) {
+      this.state.doc.margins = "wide";
+    } else if (this.marginX === 96) {
+      this.state.doc.margins = "normal";
+    }
     this.render();
   }
 
@@ -802,6 +809,7 @@ export class WriterCanvas {
             ctx.textAlign = "left";
 
             const words = r.text.split(" ");
+            const maxLineWidth = this.pageWidth - 2 * this.marginX - (p.indent || 0);
             let currentLineText = "";
             let lineStartOffset = 0;
 
@@ -809,10 +817,26 @@ export class WriterCanvas {
               const word = words[w];
               const testLine = currentLineText ? `${currentLineText} ${word}` : word;
               const testWidth = ctx.measureText(testLine).width;
-              const maxLineWidth = this.pageWidth - 2 * this.marginX - (p.indent || 0);
 
               if (testWidth > maxLineWidth && currentLineText) {
-                this.renderTextLine(ctx, currentLineText, lineX, lineY, fontSize, r.underline || false);
+                let actualLineX = lineX;
+                const curWidth = ctx.measureText(currentLineText).width;
+                if (p.alignment === "center") {
+                  actualLineX = this.marginX + Math.max(0, (maxLineWidth - curWidth) / 2);
+                } else if (p.alignment === "right") {
+                  actualLineX = this.pageWidth - this.marginX - curWidth;
+                }
+
+                this.renderTextLine(
+                  ctx,
+                  currentLineText,
+                  actualLineX,
+                  lineY,
+                  fontSize,
+                  r.underline || false,
+                  r.strikethrough || false,
+                  r.highlight
+                );
                 const charAdv = this.computeCharAdvances(ctx, currentLineText);
                 const lineEndOffset = lineStartOffset + currentLineText.length;
                 pageLayout.lines.push({
@@ -820,7 +844,7 @@ export class WriterCanvas {
                   paragraphIndex: pIndex,
                   runIndex: rIndex,
                   text: currentLineText,
-                  x: lineX,
+                  x: actualLineX,
                   y: lineY - fontSize + 2,
                   height: fontSize * 1.25,
                   fontSize,
@@ -840,13 +864,14 @@ export class WriterCanvas {
                   const subpixelWidth = ctx.measureText(textBefore).width;
                   caretRenderCoords = {
                     canvasIndex: pIdx,
-                    x: lineX + subpixelWidth,
+                    x: actualLineX + subpixelWidth,
                     y: lineY - fontSize + 2,
                     height: fontSize * 1.25,
                   };
                 }
 
-                lineY += fontSize * 1.35;
+                const spacingMultiplier = p.lineSpacing || this.state.activeFormat.lineSpacing || 1.15;
+                lineY += fontSize * 1.35 * (spacingMultiplier / 1.15);
                 lineStartOffset = lineEndOffset + 1;
                 currentLineText = word;
               } else {
@@ -855,7 +880,24 @@ export class WriterCanvas {
             }
 
             if (currentLineText !== "") {
-              this.renderTextLine(ctx, currentLineText, lineX, lineY, fontSize, r.underline || false);
+              let actualLineX = lineX;
+              const curWidth = ctx.measureText(currentLineText).width;
+              if (p.alignment === "center") {
+                actualLineX = this.marginX + Math.max(0, (maxLineWidth - curWidth) / 2);
+              } else if (p.alignment === "right") {
+                actualLineX = this.pageWidth - this.marginX - curWidth;
+              }
+
+              this.renderTextLine(
+                ctx,
+                currentLineText,
+                actualLineX,
+                lineY,
+                fontSize,
+                r.underline || false,
+                r.strikethrough || false,
+                r.highlight
+              );
               const charAdv = this.computeCharAdvances(ctx, currentLineText);
               const lineEndOffset = lineStartOffset + currentLineText.length;
               pageLayout.lines.push({
@@ -863,7 +905,7 @@ export class WriterCanvas {
                 paragraphIndex: pIndex,
                 runIndex: rIndex,
                 text: currentLineText,
-                x: lineX,
+                x: actualLineX,
                 y: lineY - fontSize + 2,
                 height: fontSize * 1.25,
                 fontSize,
@@ -883,13 +925,14 @@ export class WriterCanvas {
                 const subpixelWidth = ctx.measureText(textBefore).width;
                 caretRenderCoords = {
                   canvasIndex: pIdx,
-                  x: lineX + subpixelWidth,
+                  x: actualLineX + subpixelWidth,
                   y: lineY - fontSize + 2,
                   height: fontSize * 1.25,
                 };
               }
 
-              lineY += fontSize * 1.35;
+              const spacingMultiplier = p.lineSpacing || this.state.activeFormat.lineSpacing || 1.15;
+              lineY += fontSize * 1.35 * (spacingMultiplier / 1.15);
             } else if (r.text === "") {
               const charAdv = [0];
               pageLayout.lines.push({
@@ -1022,15 +1065,31 @@ export class WriterCanvas {
     text: string,
     x: number,
     y: number,
-    _fontSize: number,
-    underline: boolean
+    fontSize: number,
+    underline: boolean,
+    strikethrough: boolean = false,
+    highlight?: string
   ) {
+    const width = ctx.measureText(text).width;
+    if (highlight) {
+      const prevFill = ctx.fillStyle;
+      ctx.fillStyle = highlight;
+      ctx.fillRect(x, y - fontSize + 2, width, fontSize * 1.25);
+      ctx.fillStyle = prevFill;
+    }
     ctx.fillText(text, x, y);
     if (underline) {
-      const width = ctx.measureText(text).width;
       ctx.beginPath();
       ctx.moveTo(x, y + 2);
       ctx.lineTo(x + width, y + 2);
+      ctx.strokeStyle = ctx.fillStyle;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+    if (strikethrough) {
+      ctx.beginPath();
+      ctx.moveTo(x, y - fontSize / 3);
+      ctx.lineTo(x + width, y - fontSize / 3);
       ctx.strokeStyle = ctx.fillStyle;
       ctx.lineWidth = 1;
       ctx.stroke();

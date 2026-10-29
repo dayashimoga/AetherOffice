@@ -76,33 +76,35 @@ export class WriterRibbon implements AppRibbonComponent {
     fontRow1.className = "ribbon-group-row";
     fontRow1.appendChild(
       createRibbonSelect(
-        ["Calibri", "Aptos", "Arial", "Times New Roman", "Consolas"],
+        ["Calibri", "Arial", "Times New Roman", "Inter", "Consolas", "Georgia", "Aptos"],
         "Calibri",
-        (val) => emit("SetFontFamily", val)
+        (val) => emit("SetFontFamily", val),
+        "font-family-select"
       )
     );
     fontRow1.appendChild(
       createRibbonSelect(
-        [9, 10, 11, 12, 14, 16, 18, 24, 32],
+        [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72],
         11,
-        (val) => emit("SetFontSize", parseFloat(val))
+        (val) => emit("SetFontSize", parseFloat(val)),
+        "font-size-select"
       )
     );
     fontGroup.appendChild(fontRow1);
 
     const fontRow2 = document.createElement("div");
     fontRow2.className = "ribbon-group-row";
-    fontRow2.appendChild(createRibbonButton("Bold", "B", () => emit("ToggleBold"), true));
-    fontRow2.appendChild(createRibbonButton("Italic", "I", () => emit("ToggleItalic"), true));
-    fontRow2.appendChild(createRibbonButton("Underline", "U", () => emit("ToggleUnderline"), true));
-    fontRow2.appendChild(createRibbonButton("Strikethrough", "S", () => emit("ToggleStrikethrough"), true));
-    fontRow2.appendChild(createRibbonButton("Subscript", "X₂", () => emit("ToggleSubscript"), true));
-    fontRow2.appendChild(createRibbonButton("Superscript", "X²", () => emit("ToggleSuperscript"), true));
-    fontRow2.appendChild(createRibbonButton("Font Color", "🎨", () => emit("SetFontColor", "#2563eb")));
-    fontRow2.appendChild(createRibbonButton("Highlight", "🖍️", () => emit("SetHighlightColor", "#fef08a")));
-    fontRow2.appendChild(createRibbonButton("Increase Font", "A+", () => emit("IncreaseFontSize")));
-    fontRow2.appendChild(createRibbonButton("Decrease Font", "A-", () => emit("DecreaseFontSize")));
-    fontRow2.appendChild(createRibbonButton("Clear Formatting", "🧹", () => emit("ClearFormatting")));
+    fontRow2.appendChild(createRibbonButton("Bold", "B", () => emit("ToggleBold"), true, "btn-bold"));
+    fontRow2.appendChild(createRibbonButton("Italic", "I", () => emit("ToggleItalic"), true, "btn-italic"));
+    fontRow2.appendChild(createRibbonButton("Underline", "U", () => emit("ToggleUnderline"), true, "btn-underline"));
+    fontRow2.appendChild(createRibbonButton("Strikethrough", "S", () => emit("ToggleStrikethrough"), true, "btn-strikethrough"));
+    fontRow2.appendChild(createRibbonButton("Subscript", "X₂", () => emit("ToggleSubscript"), true, "btn-subscript"));
+    fontRow2.appendChild(createRibbonButton("Superscript", "X²", () => emit("ToggleSuperscript"), true, "btn-superscript"));
+    fontRow2.appendChild(createRibbonButton("Font Color", "🎨", () => emit("SetFontColor", "#2563eb"), false, "btn-font-color"));
+    fontRow2.appendChild(createRibbonButton("Highlight", "🖍️", () => emit("SetHighlightColor", "#fef08a"), false, "btn-highlight-color"));
+    fontRow2.appendChild(createRibbonButton("Increase Font", "A+", () => emit("IncreaseFontSize"), false, "btn-increase-font"));
+    fontRow2.appendChild(createRibbonButton("Decrease Font", "A-", () => emit("DecreaseFontSize"), false, "btn-decrease-font"));
+    fontRow2.appendChild(createRibbonButton("Clear Formatting", "🧹", () => emit("ClearFormatting"), false, "btn-clear-formatting"));
     fontGroup.appendChild(fontRow2);
     body.appendChild(fontGroup);
 
@@ -110,18 +112,26 @@ export class WriterRibbon implements AppRibbonComponent {
     const paraGroup = createRibbonGroup("Paragraph");
     const paraRow1 = document.createElement("div");
     paraRow1.className = "ribbon-group-row";
-    paraRow1.appendChild(createRibbonButton("Bullets", "•≡", () => emit("ToggleBulletList")));
-    paraRow1.appendChild(createRibbonButton("Numbering", "1≡", () => emit("ToggleNumberedList")));
-    paraRow1.appendChild(createRibbonButton("DecIndent", "⇤", () => emit("DecreaseIndent")));
-    paraRow1.appendChild(createRibbonButton("IncIndent", "⇥", () => emit("IncreaseIndent")));
+    paraRow1.appendChild(createRibbonButton("Bullets", "•≡", () => emit("ToggleBulletList"), false, "btn-bullet-list"));
+    paraRow1.appendChild(createRibbonButton("Numbering", "1≡", () => emit("ToggleNumberedList"), false, "btn-numbered-list"));
+    paraRow1.appendChild(createRibbonButton("DecIndent", "⇤", () => emit("DecreaseIndent"), false, "btn-decrease-indent"));
+    paraRow1.appendChild(createRibbonButton("IncIndent", "⇥", () => emit("IncreaseIndent"), false, "btn-increase-indent"));
     paraGroup.appendChild(paraRow1);
 
     const paraRow2 = document.createElement("div");
     paraRow2.className = "ribbon-group-row";
-    paraRow2.appendChild(createRibbonButton("Align Left", "Left", () => emit("AlignLeft")));
-    paraRow2.appendChild(createRibbonButton("Center", "Center", () => emit("AlignCenter")));
-    paraRow2.appendChild(createRibbonButton("Align Right", "Right", () => emit("AlignRight")));
-    paraRow2.appendChild(createRibbonButton("Justify", "Justify", () => emit("AlignJustify")));
+    paraRow2.appendChild(createRibbonButton("Align Left", "Left", () => emit("AlignLeft"), false, "btn-align-left"));
+    paraRow2.appendChild(createRibbonButton("Center", "Center", () => emit("AlignCenter"), false, "btn-align-center"));
+    paraRow2.appendChild(createRibbonButton("Align Right", "Right", () => emit("AlignRight"), false, "btn-align-right"));
+    paraRow2.appendChild(createRibbonButton("Justify", "Justify", () => emit("AlignJustify"), false, "btn-align-justify"));
+    paraRow2.appendChild(
+      createRibbonSelect(
+        ["1.0", "1.15", "1.5", "2.0"],
+        "1.15",
+        (val) => emit("SetLineSpacing", parseFloat(val)),
+        "line-spacing-select"
+      )
+    );
     paraGroup.appendChild(paraRow2);
     body.appendChild(paraGroup);
 
@@ -129,11 +139,12 @@ export class WriterRibbon implements AppRibbonComponent {
     const stylesGroup = createRibbonGroup("Styles");
     const stylesRow = document.createElement("div");
     stylesRow.className = "ribbon-group-row";
-    stylesRow.appendChild(createRibbonButton("Normal", "Normal", () => emit("SetStyle", "Normal")));
-    stylesRow.appendChild(createRibbonButton("Heading 1", "Heading 1", () => emit("SetStyle", "Heading 1")));
-    stylesRow.appendChild(createRibbonButton("Heading 2", "Heading 2", () => emit("SetStyle", "Heading 2")));
-    stylesRow.appendChild(createRibbonButton("Heading 3", "Heading 3", () => emit("SetStyle", "Heading 3")));
-    stylesRow.appendChild(createRibbonButton("Title", "Title", () => emit("SetStyle", "Title")));
+    stylesRow.appendChild(createRibbonButton("Normal", "Normal", () => emit("SetStyle", "Normal"), false, "btn-style-normal"));
+    stylesRow.appendChild(createRibbonButton("Heading 1", "Heading 1", () => emit("SetStyle", "Heading 1"), false, "btn-style-h1"));
+    stylesRow.appendChild(createRibbonButton("Heading 2", "Heading 2", () => emit("SetStyle", "Heading 2"), false, "btn-style-h2"));
+    stylesRow.appendChild(createRibbonButton("Heading 3", "Heading 3", () => emit("SetStyle", "Heading 3"), false, "btn-style-h3"));
+    stylesRow.appendChild(createRibbonButton("Title", "Title", () => emit("SetStyle", "Title"), false, "btn-style-title"));
+    stylesRow.appendChild(createRibbonButton("Subtitle", "Subtitle", () => emit("SetStyle", "Subtitle"), false, "btn-style-subtitle"));
     stylesGroup.appendChild(stylesRow);
     body.appendChild(stylesGroup);
 
@@ -214,28 +225,40 @@ export class WriterRibbon implements AppRibbonComponent {
     const pageGroup = createRibbonGroup("Page Setup");
     const pageRow1 = document.createElement("div");
     pageRow1.className = "ribbon-group-row";
-    pageRow1.appendChild(createRibbonButton("Normal Margins", "📐 Normal", () => emit("SetMargins", "normal")));
-    pageRow1.appendChild(createRibbonButton("Narrow Margins", "📐 Narrow", () => emit("SetMargins", "narrow")));
-    pageRow1.appendChild(createRibbonButton("Wide Margins", "📐 Wide", () => emit("SetMargins", "wide")));
+    pageRow1.appendChild(createRibbonButton("Normal Margins", "📐 Normal", () => emit("SetMargins", "normal"), false, "btn-margins-normal"));
+    pageRow1.appendChild(createRibbonButton("Narrow Margins", "📐 Narrow", () => emit("SetMargins", "narrow"), false, "btn-margins-narrow"));
+    pageRow1.appendChild(createRibbonButton("Wide Margins", "📐 Wide", () => emit("SetMargins", "wide"), false, "btn-margins-wide"));
     pageGroup.appendChild(pageRow1);
 
     const pageRow2 = document.createElement("div");
     pageRow2.className = "ribbon-group-row";
-    pageRow2.appendChild(createRibbonButton("Portrait", "📄 Portrait", () => emit("SetOrientation", "portrait")));
-    pageRow2.appendChild(createRibbonButton("Landscape", "📃 Landscape", () => emit("SetOrientation", "landscape")));
-    pageRow2.appendChild(createRibbonButton("Letter", "Letter", () => emit("SetPageSize", "letter")));
-    pageRow2.appendChild(createRibbonButton("A4", "A4", () => emit("SetPageSize", "a4")));
+    pageRow2.appendChild(createRibbonButton("Portrait", "📄 Portrait", () => emit("SetOrientation", "portrait"), false, "btn-orientation-portrait"));
+    pageRow2.appendChild(createRibbonButton("Landscape", "📃 Landscape", () => emit("SetOrientation", "landscape"), false, "btn-orientation-landscape"));
+    pageRow2.appendChild(createRibbonButton("Letter", "Letter", () => emit("SetPageSize", "letter"), false, "btn-pagesize-letter"));
+    pageRow2.appendChild(createRibbonButton("A4", "A4", () => emit("SetPageSize", "a4"), false, "btn-pagesize-a4"));
+    pageRow2.appendChild(createRibbonButton("Legal", "Legal", () => emit("SetPageSize", "legal"), false, "btn-pagesize-legal"));
     pageGroup.appendChild(pageRow2);
     body.appendChild(pageGroup);
 
-    // 2. Paragraph Spacing Group
+    // 2. Columns Group
+    const colsGroup = createRibbonGroup("Columns");
+    const colsRow = document.createElement("div");
+    colsRow.className = "ribbon-group-row";
+    colsRow.appendChild(createRibbonButton("One Column", "1 Col", () => emit("SetColumns", 1), false, "btn-cols-1"));
+    colsRow.appendChild(createRibbonButton("Two Columns", "2 Col", () => emit("SetColumns", 2), false, "btn-cols-2"));
+    colsRow.appendChild(createRibbonButton("Three Columns", "3 Col", () => emit("SetColumns", 3), false, "btn-cols-3"));
+    colsGroup.appendChild(colsRow);
+    body.appendChild(colsGroup);
+
+    // 3. Paragraph Spacing Group
     const paraGroup = createRibbonGroup("Paragraph Spacing");
     const paraRow = document.createElement("div");
     paraRow.className = "ribbon-group-row";
-    paraRow.appendChild(createRibbonButton("Indent", "⇥ Indent", () => emit("IncreaseIndent")));
-    paraRow.appendChild(createRibbonButton("Outdent", "⇤ Outdent", () => emit("DecreaseIndent")));
-    paraRow.appendChild(createRibbonButton("1.0 Spacing", "1.0", () => emit("SetLineSpacing", 1.0)));
-    paraRow.appendChild(createRibbonButton("1.5 Spacing", "1.5", () => emit("SetLineSpacing", 1.5)));
+    paraRow.appendChild(createRibbonButton("Indent", "⇥ Indent", () => emit("IncreaseIndent"), false, "btn-layout-indent"));
+    paraRow.appendChild(createRibbonButton("Outdent", "⇤ Outdent", () => emit("DecreaseIndent"), false, "btn-layout-outdent"));
+    paraRow.appendChild(createRibbonButton("1.0 Spacing", "1.0", () => emit("SetLineSpacing", 1.0), false, "btn-spacing-10"));
+    paraRow.appendChild(createRibbonButton("1.5 Spacing", "1.5", () => emit("SetLineSpacing", 1.5), false, "btn-spacing-15"));
+    paraRow.appendChild(createRibbonButton("2.0 Spacing", "2.0", () => emit("SetLineSpacing", 2.0), false, "btn-spacing-20"));
     paraGroup.appendChild(paraRow);
     body.appendChild(paraGroup);
   }

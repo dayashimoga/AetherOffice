@@ -312,6 +312,44 @@ export class UnifiedShellApp {
     return this.wordRuler;
   }
 
+  public getNavPane(): NavigationPane | undefined {
+    return this.navPane;
+  }
+
+  public updateNavigationOutline() {
+    if (!this.navPane || this.currentDocType !== "Word") return;
+    const headings: { level: number; text: string; pageIndex: number; paragraphIndex: number }[] = [];
+    writerState.doc.pages.forEach((page, pIdx) => {
+      page.paragraphs.forEach((p, paraIdx) => {
+        if (p.style.startsWith("Heading") || p.style === "Title" || p.style === "Subtitle") {
+          let level = 1;
+          if (p.style === "Heading 2" || p.style === "Heading2") level = 2;
+          else if (p.style === "Heading 3" || p.style === "Heading3") level = 3;
+          else if (p.style === "Subtitle") level = 2;
+          const text = p.runs.map((r) => r.text).join("").trim();
+          if (text) {
+            headings.push({ level, text, pageIndex: pIdx, paragraphIndex: paraIdx });
+          }
+        }
+      });
+    });
+
+    this.navPane.setHeadings(headings.map((h) => ({ level: h.level, text: h.text })));
+    this.navPane.setOnSelectHeading((idx) => {
+      const target = headings[idx];
+      if (target) {
+        writerState.cursor = {
+          pageIndex: target.pageIndex,
+          paragraphIndex: target.paragraphIndex,
+          runIndex: 0,
+          offset: 0,
+        };
+        writerState.clearSelection();
+        this.writerCanvas?.render();
+      }
+    });
+  }
+
   public toggleBackstage() {
     if (this.backstageMenu.isOpen()) {
       this.backstageMenu.hide();
@@ -388,12 +426,7 @@ export class UnifiedShellApp {
     // Update Sidebar
     if (tab.docType === "Word") {
       this.navPane = new NavigationPane("sidebar-container");
-      this.navPane.setHeadings([
-        { level: 1, text: "Executive Summary" },
-        { level: 2, text: "Market Opportunity" },
-        { level: 1, text: "Technical Architecture" },
-        { level: 2, text: "Rust Engine Core" },
-      ]);
+      this.updateNavigationOutline();
     } else if (tab.docType === "PowerPoint") {
       this.slideSorter = new SlideSorter("sidebar-container");
       this.slideSorter.setCallbacks({
@@ -537,6 +570,13 @@ export class UnifiedShellApp {
       } else {
         writerState.execCommand(action, payload);
         this.writerCanvas?.render();
+        if (action === "SetStyle" || action === "setStyle") {
+          this.updateNavigationOutline();
+        } else if (action === "SetMargins" || action === "setMargins") {
+          const leftMargin = payload === "narrow" ? 48 : payload === "wide" ? 144 : 96;
+          this.wordRuler.setMargins(leftMargin, leftMargin, 0);
+          this.writerCanvas?.setMargins(leftMargin, leftMargin);
+        }
       }
       this.tabBar.setDirty(active.id, true);
     } else if (this.currentDocType === "PowerPoint") {
