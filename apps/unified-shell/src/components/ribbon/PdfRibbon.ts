@@ -218,22 +218,23 @@ export class PdfRibbon implements AppRibbonComponent {
   }
 
   private renderPageToolsTab(body: HTMLElement, emit: RibbonActionEmitter) {
-    // 1. Page Manipulation
+    // 1. Page Management
     const pageGroup = createRibbonGroup("Page Management");
     const pageRow1 = document.createElement("div");
     pageRow1.className = "ribbon-group-row";
-    pageRow1.appendChild(createRibbonButton("Rotate 90° CCW", "↶ Rotate Left", () => emit("RotatePage", -90)));
-    pageRow1.appendChild(createRibbonButton("Rotate 90° CW", "↷ Rotate Right", () => emit("RotatePage", 90)));
+    pageRow1.appendChild(createRibbonButton("Rotate 90° CCW", "↶ Rotate Left", () => emit("RotatePageCCW")));
+    pageRow1.appendChild(createRibbonButton("Rotate 90° CW", "↷ Rotate Right", () => emit("RotatePageCW")));
     pageRow1.appendChild(createRibbonButton("Delete Page", "🗑️ Delete Page", () => emit("DeletePage")));
-    pageRow1.appendChild(createRibbonButton("Insert Page", "➕ Insert Page", () => emit("InsertPage")));
+    pageRow1.appendChild(createRibbonButton("Insert Page", "➕ Insert Page", () => emit("InsertBlankPage")));
     pageGroup.appendChild(pageRow1);
 
     const pageRow2 = document.createElement("div");
     pageRow2.className = "ribbon-group-row";
-    pageRow2.appendChild(createRibbonButton("Extract Pages", "📤 Extract", () => emit("ExtractPages")));
-    pageRow2.appendChild(createRibbonButton("Split Document", "✂️ Split Doc", () => emit("SplitPdf")));
-    pageRow2.appendChild(createRibbonButton("Reorder Pages", "🔀 Reorder", () => emit("ReorderPages")));
-    pageRow2.appendChild(createRibbonButton("Crop Page", "📐 Crop Page", () => emit("CropPage")));
+    pageRow2.appendChild(createRibbonButton("Move Page Up", "▲ Move Up", () => emit("MovePageUp")));
+    pageRow2.appendChild(createRibbonButton("Move Page Down", "▼ Move Down", () => emit("MovePageDown")));
+    pageRow2.appendChild(createRibbonButton("Extract Pages", "📤 Extract", () => emit("ExtractPage")));
+    pageRow2.appendChild(createRibbonButton("Merge PDF", "📑 Merge PDF", () => emit("MergePdf")));
+    pageRow2.appendChild(createRibbonButton("Create Blank PDF", "📄 Blank PDF", () => emit("CreateBlankPdf")));
     pageGroup.appendChild(pageRow2);
     body.appendChild(pageGroup);
   }

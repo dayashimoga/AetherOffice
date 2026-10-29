@@ -34,6 +34,7 @@ import { SpeakerNotesPane } from "./components/SpeakerNotesPane";
 import { FormatBackgroundDialog } from "./components/FormatBackgroundDialog";
 import { AnimationPane } from "./components/AnimationPane";
 import { PresentationPlayer } from "./components/PresentationPlayer";
+import { PdfWorkspace } from "./apps/pdf/PdfWorkspace";
 
 export class UnifiedShellApp {
   private tabBar!: TabBar;
@@ -67,6 +68,7 @@ export class UnifiedShellApp {
   private speakerNotesPane?: SpeakerNotesPane;
   private animationPane?: AnimationPane;
   private presentationPlayer?: PresentationPlayer;
+  private pdfWorkspace?: PdfWorkspace;
 
   constructor(autoBoot = true) {
     this.init(autoBoot);
@@ -542,6 +544,10 @@ export class UnifiedShellApp {
     return this.presentationPlayer;
   }
 
+  public getPdfWorkspace(): PdfWorkspace | undefined {
+    return this.pdfWorkspace;
+  }
+
   public getFormulaBar(): FormulaBar {
     return this.formulaBar;
   }
@@ -830,6 +836,16 @@ export class UnifiedShellApp {
         }
       } else if (tab.docType === "PDF") {
         this.pdfViewerCanvas = new PdfViewerCanvas(viewportContainer, pdfState);
+        this.pdfWorkspace = new PdfWorkspace(viewportContainer, pdfState);
+        this.pdfWorkspace.setCallbacks({
+          onDirty: () => this.tabBar.setDirty(tab.id, true),
+          onPageChange: (p) => {
+            const docInfo = document.getElementById("status-doc-info");
+            if (docInfo) {
+              docInfo.textContent = `Page ${p} of ${pdfState.pageCount}`;
+            }
+          },
+        });
       }
     }
 
@@ -838,6 +854,8 @@ export class UnifiedShellApp {
     if (docInfo) {
       if (tab.docType === "Excel") {
         this.updateCalcStatusBar();
+      } else if (tab.docType === "PDF") {
+        docInfo.textContent = `Page ${pdfState.currentPage} of ${pdfState.pageCount}`;
       } else {
         docInfo.textContent = tab.docType === "PowerPoint" ? "Slide 1 of 3" : "Page 1 of 1";
       }
@@ -1208,6 +1226,17 @@ export class UnifiedShellApp {
         calcState.unfreezePanes();
         this.calcGridCanvas?.render();
       }
+    } else if (this.currentDocType === "PDF") {
+      const changed = pdfState.execCommand(action, payload);
+      if (changed) {
+        this.pdfWorkspace?.render();
+        this.pdfViewerCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+        const docInfo = document.getElementById("status-doc-info");
+        if (docInfo) {
+          docInfo.textContent = `Page ${pdfState.currentPage} of ${pdfState.pageCount}`;
+        }
+      }
     } else if (action === "SetFormField") {
       if (this.currentDocType === "PDF") {
         this.pdfViewerCanvas?.render();
@@ -1238,6 +1267,9 @@ export class UnifiedShellApp {
         if (this.currentDocType === "PowerPoint") {
           slidesState.undo();
           this.slideStageCanvas?.render();
+        } else if (this.currentDocType === "PDF") {
+          pdfState.undo();
+          this.pdfWorkspace?.render();
         } else {
           IPC.executeUndo(active.id);
         }
@@ -1246,6 +1278,9 @@ export class UnifiedShellApp {
         if (this.currentDocType === "PowerPoint") {
           slidesState.redo();
           this.slideStageCanvas?.render();
+        } else if (this.currentDocType === "PDF") {
+          pdfState.redo();
+          this.pdfWorkspace?.render();
         } else {
           IPC.executeRedo(active.id);
         }
