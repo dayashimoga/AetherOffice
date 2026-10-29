@@ -244,3 +244,4 @@ export class FindReplaceDialog {
     replaceAllBtn.onclick = () => this.replaceAll();
   }
 }
+

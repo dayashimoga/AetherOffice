@@ -546,3 +546,156 @@ body, html {
   cursor: pointer;
 }
 
+/* 7. Calc Sheet Tab Bar & Grid Layout */
+.calc-viewport-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.calc-grid-container {
+  flex: 1;
+  width: 100%;
+  height: calc(100% - 28px);
+  position: relative;
+  overflow: hidden;
+}
+
+.calc-sheet-tab-bar {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  background-color: #f3f3f3;
+  border-top: 1px solid var(--border-color);
+  padding: 0 6px;
+  gap: 4px;
+  user-select: none;
+  z-index: 5;
+}
+
+.calc-sheet-nav-btns {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sheet-nav-btn {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 10px;
+  border-radius: 2px;
+  color: #555555;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sheet-nav-btn:hover {
+  background-color: var(--hover-bg);
+  color: #111111;
+}
+
+.calc-sheet-tabs-list {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  overflow-x: auto;
+  height: 100%;
+}
+
+.calc-sheet-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  background-color: transparent;
+  border-radius: 4px 4px 0 0;
+  font-size: 12px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.calc-sheet-tab:hover {
+  background-color: #eaeaea;
+}
+
+.calc-sheet-tab.active {
+  background-color: #ffffff;
+  border-bottom: 2px solid var(--excel-accent);
+  font-weight: 600;
+  color: var(--excel-accent);
+}
+
+.btn-delete-sheet {
+  border: none;
+  background: none;
+  font-size: 13px;
+  color: #888888;
+  cursor: pointer;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-delete-sheet:hover {
+  background-color: #fee2e2;
+  color: #ef4444;
+}
+
+.btn-add-sheet {
+  width: 22px;
+  height: 22px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  border-radius: 3px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  color: #374151;
+}
+
+.btn-add-sheet:hover {
+  background-color: var(--hover-bg);
+}
+
+.sheet-rename-input {
+  border: 1px solid var(--excel-accent);
+  padding: 1px 4px;
+  font-size: 12px;
+  border-radius: 2px;
+  outline: none;
+}
+
+.btn-sidebar-add-sheet {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  border-radius: 3px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #374151;
+}
+
+.btn-sidebar-add-sheet:hover {
+  background-color: var(--hover-bg);
+}
+

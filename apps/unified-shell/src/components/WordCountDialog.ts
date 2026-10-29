@@ -75,3 +75,4 @@ export class WordCountDialog {
     okBtn.onclick = () => this.hide();
   }
 }
+

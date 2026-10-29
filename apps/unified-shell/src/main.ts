@@ -25,6 +25,8 @@ import { HubLauncher } from "./apps/hub/HubLauncher";
 import { BackstageMenu } from "./components/BackstageMenu";
 import { FindReplaceDialog } from "./components/FindReplaceDialog";
 import { WordCountDialog } from "./components/WordCountDialog";
+import { SheetTabBar } from "./components/SheetTabBar";
+import { WorkbookSheetsPane } from "./components/WorkbookSheetsPane";
 
 export class UnifiedShellApp {
   private tabBar!: TabBar;
@@ -43,6 +45,8 @@ export class UnifiedShellApp {
 
   private writerCanvas?: WriterCanvas;
   private calcGridCanvas?: CalcGridCanvas;
+  private sheetTabBar?: SheetTabBar;
+  private workbookSheetsPane?: WorkbookSheetsPane;
   private slideStageCanvas?: SlideStageCanvas;
   private pdfViewerCanvas?: PdfViewerCanvas;
   private hubLauncher?: HubLauncher;
@@ -460,6 +464,31 @@ export class UnifiedShellApp {
     return this.currentDocType;
   }
 
+  public getCalcGridCanvas(): CalcGridCanvas | undefined {
+    return this.calcGridCanvas;
+  }
+
+  public getSheetTabBar(): SheetTabBar | undefined {
+    return this.sheetTabBar;
+  }
+
+  public getWorkbookSheetsPane(): WorkbookSheetsPane | undefined {
+    return this.workbookSheetsPane;
+  }
+
+  public getFormulaBar(): FormulaBar {
+    return this.formulaBar;
+  }
+
+  public updateCalcStatusBar() {
+    const docInfo = document.getElementById("status-doc-info");
+    if (docInfo && this.currentDocType === "Excel") {
+      const current = calcState.getActiveSheetIndex() + 1;
+      const total = calcState.sheets.length;
+      docInfo.textContent = `Sheet ${current} of ${total}`;
+    }
+  }
+
   private handleTabChange(tab: TabItem) {
     const appContainer = document.getElementById("app");
     if (appContainer) {
@@ -479,23 +508,29 @@ export class UnifiedShellApp {
           onCommit: (val) => {
             calcState.commitFormula(val);
             this.calcGridCanvas?.render();
+            this.tabBar.setDirty(tab.id, true);
           },
-          onCancel: () => console.log("Formula cancelled"),
+          onCancel: () => {
+            this.calcGridCanvas?.cancelEditing();
+          },
           onNameBoxJump: (coord) => {
             calcState.selectCell(coord);
             this.calcGridCanvas?.render();
           },
+          onInput: (val) => {
+            this.calcGridCanvas?.setEditingValue(val);
+          },
         });
-        this.formulaBar.setActiveCell("A1", "=SUM(B2:B10)");
+        this.formulaBar.setActiveCell(calcState.selectedCell, calcState.formulaBarText);
       } else if (tab.docType === "Word") {
         subHeader.style.display = "flex";
         this.wordRuler = new WordRuler("sub-header-container");
-    this.wordRuler.setOnMarginsChange((left, right, indent) => {
-      this.writerCanvas?.setMargins(left, right);
-      if (indent !== 0) {
-        writerState.execCommand("indent", indent);
-      }
-    });
+        this.wordRuler.setOnMarginsChange((left, right, indent) => {
+          this.writerCanvas?.setMargins(left, right);
+          if (indent !== 0) {
+            writerState.execCommand("indent", indent);
+          }
+        });
         this.wordRuler.setMargins(96, 96, 0);
       } else {
         subHeader.style.display = "none";
@@ -545,9 +580,35 @@ export class UnifiedShellApp {
         },
       });
       this.updateSlideSorter();
+    } else if (tab.docType === "Excel") {
+      this.workbookSheetsPane = new WorkbookSheetsPane("sidebar-container", calcState);
+      this.workbookSheetsPane.setCallbacks({
+        onSheetSwitched: () => {
+          this.calcGridCanvas?.render();
+          this.sheetTabBar?.refresh();
+          this.updateCalcStatusBar();
+          this.formulaBar.setActiveCell(calcState.selectedCell, calcState.formulaBarText);
+        },
+        onSheetAdded: () => {
+          this.calcGridCanvas?.render();
+          this.sheetTabBar?.refresh();
+          this.updateCalcStatusBar();
+          this.tabBar.setDirty(tab.id, true);
+        },
+        onSheetRenamed: () => {
+          this.sheetTabBar?.refresh();
+          this.tabBar.setDirty(tab.id, true);
+        },
+        onSheetDeleted: () => {
+          this.calcGridCanvas?.render();
+          this.sheetTabBar?.refresh();
+          this.updateCalcStatusBar();
+          this.tabBar.setDirty(tab.id, true);
+        },
+      });
     } else {
       const sidebar = document.getElementById("sidebar-container");
-      if (sidebar) sidebar.innerHTML = '<div class="sidebar-heading">Workbook Sheets</div>';
+      if (sidebar) sidebar.innerHTML = '<div class="sidebar-heading">Navigation</div>';
     }
 
     // Update Active Viewport Controller
@@ -558,6 +619,7 @@ export class UnifiedShellApp {
         this.writerCanvas = undefined;
       }
       this.calcGridCanvas = undefined;
+      this.sheetTabBar = undefined;
       this.slideStageCanvas = undefined;
       this.pdfViewerCanvas = undefined;
 
@@ -582,9 +644,51 @@ export class UnifiedShellApp {
           }
         });
       } else if (tab.docType === "Excel") {
-        this.calcGridCanvas = new CalcGridCanvas(viewportContainer, calcState);
+        viewportContainer.innerHTML = `
+          <div class="calc-viewport-wrapper">
+            <div class="calc-grid-container" id="calc-grid-container"></div>
+            <div id="calc-sheet-tab-bar-container"></div>
+          </div>
+        `;
+        const gridContainer = document.getElementById("calc-grid-container")!;
+        const sheetTabContainer = document.getElementById("calc-sheet-tab-bar-container")!;
+
+        this.calcGridCanvas = new CalcGridCanvas(gridContainer, calcState);
         this.calcGridCanvas.setOnCellSelected((coord, val) => {
           this.formulaBar.setActiveCell(coord, val);
+        });
+        this.calcGridCanvas.setOnCellEditing((coord, val) => {
+          this.formulaBar.setActiveCell(coord, val);
+        });
+        this.calcGridCanvas.setOnCellModified((_coord, _val) => {
+          this.tabBar.setDirty(tab.id, true);
+          this.workbookSheetsPane?.refresh();
+        });
+
+        this.sheetTabBar = new SheetTabBar(sheetTabContainer, calcState);
+        this.sheetTabBar.setCallbacks({
+          onSheetSwitched: () => {
+            this.calcGridCanvas?.render();
+            this.workbookSheetsPane?.refresh();
+            this.updateCalcStatusBar();
+            this.formulaBar.setActiveCell(calcState.selectedCell, calcState.formulaBarText);
+          },
+          onSheetAdded: () => {
+            this.calcGridCanvas?.render();
+            this.workbookSheetsPane?.refresh();
+            this.updateCalcStatusBar();
+            this.tabBar.setDirty(tab.id, true);
+          },
+          onSheetRenamed: () => {
+            this.workbookSheetsPane?.refresh();
+            this.tabBar.setDirty(tab.id, true);
+          },
+          onSheetDeleted: () => {
+            this.calcGridCanvas?.render();
+            this.workbookSheetsPane?.refresh();
+            this.updateCalcStatusBar();
+            this.tabBar.setDirty(tab.id, true);
+          },
         });
       } else if (tab.docType === "PowerPoint") {
         this.slideStageCanvas = new SlideStageCanvas(viewportContainer, slidesState);
@@ -597,8 +701,11 @@ export class UnifiedShellApp {
     // Update Status Bar
     const docInfo = document.getElementById("status-doc-info");
     if (docInfo) {
-      docInfo.textContent =
-        tab.docType === "Excel" ? "Sheet 1 of 3" : tab.docType === "PowerPoint" ? "Slide 1 of 3" : "Page 1 of 1";
+      if (tab.docType === "Excel") {
+        this.updateCalcStatusBar();
+      } else {
+        docInfo.textContent = tab.docType === "PowerPoint" ? "Slide 1 of 3" : "Page 1 of 1";
+      }
     }
   }
 
@@ -721,20 +828,59 @@ export class UnifiedShellApp {
           this.tabBar.setDirty(active.id, true);
         }
       }
-    } else if (action === "ToggleBold") {
-      if (this.currentDocType === "Excel") {
+    } else if (this.currentDocType === "Excel") {
+      if (action === "ToggleBold") {
         const cell = calcState.cells.get(calcState.selectedCell);
         if (cell) cell.bold = !cell.bold;
         this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "ToggleItalic") {
+        const cell = calcState.cells.get(calcState.selectedCell);
+        if (cell) cell.italic = !cell.italic;
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "ToggleUnderline") {
+        const cell = calcState.cells.get(calcState.selectedCell);
+        if (cell) cell.underline = !cell.underline;
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "SetFontColor") {
+        const cell = calcState.cells.get(calcState.selectedCell);
+        if (cell) cell.color = String(payload || "#15803d");
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "SetFillColor") {
+        const cell = calcState.cells.get(calcState.selectedCell);
+        if (cell) cell.bgColor = String(payload || "#dcfce7");
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "InsertRow") {
+        const cr = calcState.coordToColRow(calcState.selectedCell);
+        calcState.insertRow(cr.row);
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "DeleteRow") {
+        const cr = calcState.coordToColRow(calcState.selectedCell);
+        calcState.deleteRow(cr.row);
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "InsertColumn") {
+        const cr = calcState.coordToColRow(calcState.selectedCell);
+        calcState.insertColumn(cr.col);
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "DeleteColumn") {
+        const cr = calcState.coordToColRow(calcState.selectedCell);
+        calcState.deleteColumn(cr.col);
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "Recalculate") {
+        calcState.recalculateAll();
+        this.calcGridCanvas?.render();
       }
-      this.tabBar.setDirty(active.id, true);
     } else if (action === "SetFormField") {
       if (this.currentDocType === "PDF") {
         this.pdfViewerCanvas?.render();
-      }
-    } else if (action === "Recalculate") {
-      if (this.currentDocType === "Excel") {
-        this.calcGridCanvas?.render();
       }
     } else if (action === "ToggleReflow") {
       this.reflowReader.toggle();
