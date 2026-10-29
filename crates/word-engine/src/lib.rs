@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 //! word-engine - ECMA-376 / Clean-Room Engine Module
 
+pub mod layout;
 pub mod model;
 pub mod numbering;
 pub mod package;
@@ -11,6 +12,7 @@ pub mod serializer;
 pub mod styles;
 pub mod sub_documents;
 
+pub use layout::*;
 pub use model::*;
 pub use numbering::*;
 pub use package::WordPackage;

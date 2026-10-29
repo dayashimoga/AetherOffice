@@ -506,6 +506,11 @@ pub(crate) fn parse_paragraph_properties<R: std::io::BufRead>(
                     "spacing" => p_pr.spacing = Some(parse_spacing(e)),
                     "ind" => p_pr.indentation = Some(parse_indentation(e)),
                     "rPr" => p_pr.r_pr = Some(parse_empty_run_properties(e)),
+                    "widowControl" => p_pr.widow_control = Some(parse_boolean_attr(e)),
+                    "keepNext" => p_pr.keep_next = parse_boolean_attr(e),
+                    "keepLines" => p_pr.keep_lines = parse_boolean_attr(e),
+                    "pageBreakBefore" => p_pr.page_break_before = parse_boolean_attr(e),
+                    "kinsoku" => p_pr.kinsoku = Some(parse_boolean_attr(e)),
                     _ => p_pr.raw_elements.push(parse_empty_raw_node(e)?),
                 }
             }

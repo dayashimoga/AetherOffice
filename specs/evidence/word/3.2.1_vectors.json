@@ -1,0 +1,336 @@
+{
+  "subphase_id": "3.2.1",
+  "title": "REA Line-Breaking Knuth-Plass/Greedy Hybrid & Pagination Solver",
+  "crate": "word-engine",
+  "created_at": "2026-10-29T08:38:00Z",
+  "total_vectors": 28,
+  "vectors": [
+    {
+      "id": "WORD-LAYOUT-001",
+      "name": "Character Advance & Metric Measurement",
+      "category": "Text Measurement",
+      "description": "Validates character advance width, ascent, and descent calculations across 10pt, 12pt, and 24pt fonts.",
+      "input": "Characters 'a' and space at sizes 20, 24, and 48 half-points in Calibri.",
+      "expected": {
+        "m10_advance": 100,
+        "m10_ascent": 160,
+        "m10_descent": 40,
+        "m12_advance": 120,
+        "m_space_advance": 120
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-002",
+      "name": "Kerning Pair Adjustments",
+      "category": "Text Measurement",
+      "description": "Validates kerning adjustment negative advance for ('A', 'V') and zero adjustment for ('A', 'B').",
+      "input": "Pair ('A', 'V') at 24pt (48 half-points); Pair ('A', 'B').",
+      "expected": {
+        "kern_av": -38,
+        "kern_ab": 0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-003",
+      "name": "Whitespace Compression at Line End",
+      "category": "Line Breaking",
+      "description": "Validates that trailing spaces at the end of a line do not cause premature line overflow or extra lines.",
+      "input": "Text 'Hello world     ' in content box sized for 'Hello world'.",
+      "expected": {
+        "line_count": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-004",
+      "name": "Non-Breaking Space Handling",
+      "category": "Line Breaking",
+      "description": "Validates that U+00A0 non-breaking space prevents line breaking between adjacent tokens.",
+      "input": "Text 'Price: 100\\u{00A0}USD total'.",
+      "expected": {
+        "token_kind": "Word",
+        "can_break_after": false
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-005",
+      "name": "Soft Hyphen Handling",
+      "category": "Line Breaking",
+      "description": "Validates soft hyphen U+00AD zero width inside lines and visible hyphen glyph '-' when broken at.",
+      "input": "Text with soft hyphen 'super\\u{00AD}califragilistic' in constrained box.",
+      "expected": {
+        "broken_glyph": "-"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-006",
+      "name": "Tab Stop Advancement",
+      "category": "Line Layout",
+      "description": "Validates horizontal tab stop character advancement to default half-inch (720 twips) interval.",
+      "input": "Text with RunContent::Tab.",
+      "expected": {
+        "tab_width": 720
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-007",
+      "name": "Kinsoku Prohibited Line-Start Characters",
+      "category": "Kinsoku Shori",
+      "description": "Validates classification of CJK and Latin punctuation prohibited at line starts (closing brackets, commas, periods).",
+      "input": "Characters ')', ']', '}', '、', '。', '！', '？', '」', '』', ',', '.'.",
+      "expected": {
+        "is_prohibited": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-008",
+      "name": "Kinsoku Prohibited Line-End Characters",
+      "category": "Kinsoku Shori",
+      "description": "Validates classification of opening punctuation and currency symbols prohibited at line ends.",
+      "input": "Characters '(', '[', '{', '「', '『', '（', '$', '¥', '£'.",
+      "expected": {
+        "is_prohibited": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-009",
+      "name": "Greedy Line Breaker",
+      "category": "Line Breaking",
+      "description": "Validates greedy line breaking algorithm wrapping lines when token advances exceed content box width.",
+      "input": "10-word sentence in 2200-twip column.",
+      "expected": {
+        "min_lines": 3
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-010",
+      "name": "Knuth-Plass Justified Line Breaking",
+      "category": "Line Breaking",
+      "description": "Validates Knuth-Plass total-fit dynamic programming line-breaker for justified text.",
+      "input": "Justified paragraph with 15 words in 3000-twip column.",
+      "expected": {
+        "min_lines": 2
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-011",
+      "name": "Knuth-Plass Demerits & Penalties",
+      "category": "Line Breaking",
+      "description": "Validates dynamic programming optimal breakpoint selection minimizing line stretch/shrink demerits.",
+      "input": "Multi-word paragraph in 3500-twip column.",
+      "expected": {
+        "lines_produced": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-012",
+      "name": "Paragraph Horizontal Alignments (Left, Right, Center)",
+      "category": "Line Layout",
+      "description": "Validates X-coordinate shifts for left, right, and center paragraph alignments.",
+      "input": "Three paragraphs with left, right, and center alignments.",
+      "expected": {
+        "x_right_gt_x_left": true,
+        "x_center_between": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-013",
+      "name": "Paragraph First Line Indentation",
+      "category": "Line Layout",
+      "description": "Validates first line indent (w:firstLine) reducing first line available width by specified twips.",
+      "input": "Paragraph with w:firstLine=720 twips.",
+      "expected": {
+        "indent_first_line": 720
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-014",
+      "name": "Paragraph Hanging Indentation",
+      "category": "Line Layout",
+      "description": "Validates hanging indent (w:hanging) shifting subsequent lines relative to paragraph margin.",
+      "input": "Paragraph with w:hanging=360, w:left=720.",
+      "expected": {
+        "indent_hanging": 360,
+        "indent_left": 720
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-015",
+      "name": "Line Height Auto Spacing",
+      "category": "Line Layout",
+      "description": "Validates auto line height calculation for single line spacing (line=240, 1.15x multiplier).",
+      "input": "12pt font with lineRule='auto', line=240.",
+      "expected": {
+        "line_height": 276
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-016",
+      "name": "Line Height Exact Spacing",
+      "category": "Line Layout",
+      "description": "Validates exact line height calculation (lineRule='exact', line=400 twips).",
+      "input": "Paragraph with lineRule='exact', line=400.",
+      "expected": {
+        "line_height": 400
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-017",
+      "name": "Line Height AtLeast Spacing",
+      "category": "Line Layout",
+      "description": "Validates atLeast line height calculation choosing maximum of natural height and line setting.",
+      "input": "12pt font (natural 276 twips) with lineRule='atLeast', line=500.",
+      "expected": {
+        "line_height": 500
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-018",
+      "name": "Paragraph Spacing Before & After",
+      "category": "Line Layout",
+      "description": "Validates vertical gap between consecutive paragraphs combining space_after and space_before.",
+      "input": "Paragraph 1 after=200; Paragraph 2 before=300.",
+      "expected": {
+        "vertical_gap": 500
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-019",
+      "name": "Single Page Layout Dimensions",
+      "category": "Pagination",
+      "description": "Validates US Letter page bounds, margins, and content box coordinates.",
+      "input": "Single paragraph document with US Letter 1-inch margins.",
+      "expected": {
+        "page_width": 12240,
+        "page_height": 15840,
+        "content_width": 9360,
+        "content_height": 12960
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-020",
+      "name": "Multi-Page Pagination",
+      "category": "Pagination",
+      "description": "Validates multi-page document pagination when content height exceeds printable page height.",
+      "input": "60 paragraphs with spacing overflow.",
+      "expected": {
+        "min_pages": 2
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-021",
+      "name": "Page Break Before Constraint",
+      "category": "Pagination",
+      "description": "Validates w:pageBreakBefore forcing immediate page break before designated paragraph.",
+      "input": "Two paragraphs with second having pageBreakBefore=true.",
+      "expected": {
+        "total_pages": 2,
+        "page1_lines": 1,
+        "page2_lines": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-022",
+      "name": "Keep Lines Together Constraint",
+      "category": "Pagination",
+      "description": "Validates w:keepLines moving entire paragraph to next page when it cannot fit without splitting.",
+      "input": "Near-bottom paragraph with keepLines=true.",
+      "expected": {
+        "total_pages": 2,
+        "page2_has_all_lines": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-023",
+      "name": "Keep With Next Constraint",
+      "category": "Pagination",
+      "description": "Validates w:keepNext pushing heading to next page to prevent leaving orphaned heading at bottom.",
+      "input": "Near-bottom heading with keepNext=true followed by content.",
+      "expected": {
+        "total_pages": 2,
+        "page2_has_heading_and_content": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-024",
+      "name": "Widow & Orphan Control",
+      "category": "Pagination",
+      "description": "Validates ECMA-376 w:widowControl preventing 1-line orphans at bottom and 1-line widows at top.",
+      "input": "3-line paragraph near page bottom with space for only 1 line.",
+      "expected": {
+        "total_pages": 2,
+        "page2_has_paragraph": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-025",
+      "name": "Multi-Column Section Flow",
+      "category": "Pagination",
+      "description": "Validates text flow through column 0, column 1, and subsequent columns in multi-column sections.",
+      "input": "2-column section filled with 60 paragraphs.",
+      "expected": {
+        "columns_count": 2,
+        "both_columns_populated": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-026",
+      "name": "CJK Ideograph Line Breaking",
+      "category": "Kinsoku Shori",
+      "description": "Validates Japanese / CJK full-width ideograph tokenization and line breaking with Kinsoku Shori.",
+      "input": "Japanese sentence with quotes and punctuation.",
+      "expected": {
+        "lines_produced": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-027",
+      "name": "WordPackage Full Layout Integration",
+      "category": "Package Integration",
+      "description": "Validates full WordPackage::layout() execution on baseline.docx producing valid LayoutDocument.",
+      "input": "baseline.docx loaded via WordPackage.",
+      "expected": {
+        "min_pages": 1,
+        "min_lines": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-LAYOUT-028",
+      "name": "Subphase 3.2.1 Test Vectors Manifest Validation",
+      "category": "Manifest Gate",
+      "description": "Asserts synchronization between test suite and evidence vector manifest with >= 25 vectors.",
+      "input": "specs/evidence/word/3.2.1_vectors.json.",
+      "expected": {
+        "min_vectors": 25,
+        "actual_vectors": 28
+      },
+      "status": "PASS"
+    }
+  ]
+}

@@ -252,6 +252,7 @@ fn test_08_paragraph_alignment_and_spacing() {
         r_pr: None,
         num_pr: None,
         raw_elements: Vec::new(),
+        ..Default::default()
     });
 
     let mut run = Run::default();

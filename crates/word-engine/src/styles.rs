@@ -212,6 +212,10 @@ impl StyleSheet {
         let bytes = serialize_stylesheet(self)?;
         String::from_utf8(bytes).map_err(|e| EngineError::MalformedPackage(e.to_string()))
     }
+
+    pub fn cascade_resolver(&self) -> StyleCascadeResolver<'_> {
+        StyleCascadeResolver::new(self)
+    }
 }
 
 /// Fully computed run properties after evaluating the complete style cascade.
@@ -257,7 +261,7 @@ impl Default for ResolvedRunProperties {
 }
 
 /// Fully computed paragraph properties after evaluating the complete style cascade.
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ResolvedParagraphProperties {
     pub style_id: Option<String>,
     pub justification: Option<String>,
@@ -272,7 +276,38 @@ pub struct ResolvedParagraphProperties {
     pub outline_level: Option<u32>,
     pub num_id: Option<u32>,
     pub num_level: Option<u32>,
+    pub widow_control: bool,
+    pub keep_next: bool,
+    pub keep_lines: bool,
+    pub page_break_before: bool,
+    pub kinsoku: bool,
     pub run_defaults: ResolvedRunProperties,
+}
+
+impl Default for ResolvedParagraphProperties {
+    fn default() -> Self {
+        Self {
+            style_id: None,
+            justification: None,
+            spacing_before: 0,
+            spacing_after: 0,
+            line_spacing: 240, // 100% single line spacing
+            line_rule: "auto".to_string(),
+            indent_left: 0,
+            indent_right: 0,
+            indent_first_line: 0,
+            indent_hanging: 0,
+            outline_level: None,
+            num_id: None,
+            num_level: None,
+            widow_control: true,
+            keep_next: false,
+            keep_lines: false,
+            page_break_before: false,
+            kinsoku: true,
+            run_defaults: ResolvedRunProperties::default(),
+        }
+    }
 }
 
 /// High-performance ECMA-376 Part 1 §17.7 style cascade resolver.
@@ -499,6 +534,21 @@ impl<'a> StyleCascadeResolver<'a> {
         if let Some(ref num) = src.num_pr {
             target.num_id = Some(num.num_id);
             target.num_level = Some(num.ilvl);
+        }
+        if let Some(wc) = src.widow_control {
+            target.widow_control = wc;
+        }
+        if src.keep_next {
+            target.keep_next = true;
+        }
+        if src.keep_lines {
+            target.keep_lines = true;
+        }
+        if src.page_break_before {
+            target.page_break_before = true;
+        }
+        if let Some(k) = src.kinsoku {
+            target.kinsoku = k;
         }
     }
 

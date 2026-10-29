@@ -431,6 +431,44 @@ pub(crate) fn serialize_paragraph_properties<W: std::io::Write>(
         serialize_run_properties(writer, r_pr)?;
     }
 
+    if let Some(wc) = p_pr.widow_control {
+        let mut wc_tag = BytesStart::new("w:widowControl");
+        if !wc {
+            wc_tag.push_attribute(("w:val", "0"));
+        }
+        writer
+            .write_event(Event::Empty(wc_tag))
+            .map_err(EngineError::Io)?;
+    }
+
+    if p_pr.keep_next {
+        writer
+            .write_event(Event::Empty(BytesStart::new("w:keepNext")))
+            .map_err(EngineError::Io)?;
+    }
+
+    if p_pr.keep_lines {
+        writer
+            .write_event(Event::Empty(BytesStart::new("w:keepLines")))
+            .map_err(EngineError::Io)?;
+    }
+
+    if p_pr.page_break_before {
+        writer
+            .write_event(Event::Empty(BytesStart::new("w:pageBreakBefore")))
+            .map_err(EngineError::Io)?;
+    }
+
+    if let Some(k) = p_pr.kinsoku {
+        let mut k_tag = BytesStart::new("w:kinsoku");
+        if !k {
+            k_tag.push_attribute(("w:val", "0"));
+        }
+        writer
+            .write_event(Event::Empty(k_tag))
+            .map_err(EngineError::Io)?;
+    }
+
     for raw in &p_pr.raw_elements {
         serialize_raw_node(writer, raw)?;
     }

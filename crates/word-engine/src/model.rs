@@ -130,6 +130,11 @@ pub struct ParagraphProperties {
     pub indentation: Option<Indentation>,
     pub r_pr: Option<RunProperties>,
     pub num_pr: Option<NumberingProperty>,
+    pub widow_control: Option<bool>,
+    pub keep_next: bool,
+    pub keep_lines: bool,
+    pub page_break_before: bool,
+    pub kinsoku: Option<bool>,
     pub raw_elements: Vec<RawXmlNode>,
 }
 

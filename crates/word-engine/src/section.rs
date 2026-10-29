@@ -163,6 +163,17 @@ impl SectionGeometry {
             .unwrap_or_else(|| self.content_width())
     }
 
+    /// Returns the X start coordinate of column `col_idx` from the left page boundary in twips.
+    pub fn column_x(&self, col_idx: usize) -> u32 {
+        let mut x = (self.margin_left.max(0) as u32).saturating_add(self.gutter.max(0) as u32);
+        for i in 0..col_idx.min(self.columns.len()) {
+            if let Some(col) = self.columns.get(i) {
+                x = x.saturating_add(col.width).saturating_add(col.space);
+            }
+        }
+        x
+    }
+
     // --- Unit Conversions ---
 
     /// Converts twips (twentieths of a point) to typographic points ($pt = twips / 20.0$).
