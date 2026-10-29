@@ -27,6 +27,60 @@ export interface SheetData {
   selectedRanges: GridRange[];
 }
 
+export interface RangeStats {
+  count: number;
+  numbersCount: number;
+  sum: number;
+  average: number;
+  min: number;
+  max: number;
+}
+
+export interface ClipboardPayload {
+  range: GridRange;
+  isCut: boolean;
+  sheetId: string;
+  data: string[][];
+}
+
+export function shiftFormula(formula: string, deltaRow: number, deltaCol: number): string {
+  if (!formula.startsWith("=")) return formula;
+
+  // Match cell references like $A$1, A$1, $A1, A1
+  return formula.replace(/(\$?)([A-Z]+)(\$?)([0-9]+)/gi, (_match, colPinned, colLetters, rowPinned, rowDigits) => {
+    let newCol = colLetters.toUpperCase();
+    if (!colPinned && deltaCol !== 0) {
+      let colIdx = 0;
+      for (let i = 0; i < newCol.length; i++) {
+        colIdx = colIdx * 26 + (newCol.charCodeAt(i) - 64);
+      }
+      colIdx = Math.max(1, colIdx + deltaCol);
+      let shiftedCol = "";
+      while (colIdx > 0) {
+        const rem = (colIdx - 1) % 26;
+        shiftedCol = String.fromCharCode(65 + rem) + shiftedCol;
+        colIdx = Math.floor((colIdx - 1) / 26);
+      }
+      newCol = shiftedCol;
+    }
+
+    let newRow = parseInt(rowDigits, 10);
+    if (!rowPinned && deltaRow !== 0) {
+      newRow = Math.max(1, newRow + deltaRow);
+    }
+
+    return `${colPinned}${newCol}${rowPinned}${newRow}`;
+  });
+}
+
+const SHORT_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const FULL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const FULL_MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
+
 export class CalcState {
   sheets: SheetData[] = [
     {
@@ -53,6 +107,8 @@ export class CalcState {
   formulaBarText: string = "Revenue";
   autoFillPreview: GridRange | null = null;
   formulaReferences: { range: GridRange; color: string }[] = [];
+  clipboardData: ClipboardPayload | null = null;
+  internalClipboardText: string = "";
 
   // Backward compatibility getters & setters delegating to active sheet
   get cells(): Map<string, CellData> {
@@ -111,9 +167,7 @@ export class CalcState {
     const newSheet: SheetData = {
       id: `sheet-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       name: sheetName,
-      cells: new Map<string, CellData>([
-        ["A1", { raw: "", computed: "" }],
-      ]),
+      cells: new Map<string, CellData>([["A1", { raw: "", computed: "" }]]),
       colWidths: new Map(),
       rowHeights: new Map(),
       selectedCell: "A1",
@@ -126,7 +180,7 @@ export class CalcState {
   }
 
   public deleteSheet(idOrName: string): boolean {
-    if (this.sheets.length <= 1) return false; // Prevent deleting only sheet
+    if (this.sheets.length <= 1) return false;
 
     const idx = this.sheets.findIndex(
       (s) => s.id === idOrName || s.name.toLowerCase() === idOrName.toLowerCase()
@@ -147,10 +201,11 @@ export class CalcState {
     const clean = newName.trim();
     if (!clean) return false;
 
-    // Check duplicate
     const exists = this.sheets.some(
-      (s) => (s.id !== idOrName && s.name.toLowerCase() !== idOrName.toLowerCase()) &&
-             s.name.toLowerCase() === clean.toLowerCase()
+      (s) =>
+        s.id !== idOrName &&
+        s.name.toLowerCase() !== idOrName.toLowerCase() &&
+        s.name.toLowerCase() === clean.toLowerCase()
     );
     if (exists) return false;
 
@@ -337,6 +392,51 @@ export class CalcState {
     this.updateFormulaReferences();
   }
 
+  public getSelectedRangeStats(): RangeStats {
+    const primary = this.selectedRanges[this.selectedRanges.length - 1];
+    if (!primary) {
+      return { count: 0, numbersCount: 0, sum: 0, average: 0, min: 0, max: 0 };
+    }
+
+    const minCol = Math.min(primary.minCol, primary.maxCol);
+    const maxCol = Math.max(primary.minCol, primary.maxCol);
+    const minRow = Math.min(primary.minRow, primary.maxRow);
+    const maxRow = Math.max(primary.minRow, primary.maxRow);
+
+    let count = 0;
+    let numbersCount = 0;
+    let sum = 0;
+    let min = Infinity;
+    let max = -Infinity;
+
+    for (let r = minRow; r <= maxRow; r++) {
+      for (let c = minCol; c <= maxCol; c++) {
+        const coord = `${this.colIndexToLetter(c)}${r + 1}`;
+        const cell = this.cells.get(coord);
+        if (cell && cell.raw && cell.raw.trim().length > 0) {
+          count++;
+          const val = Number(cell.computed !== undefined ? cell.computed : cell.raw);
+          if (!isNaN(val)) {
+            numbersCount++;
+            sum += val;
+            if (val < min) min = val;
+            if (val > max) max = val;
+          }
+        }
+      }
+    }
+
+    const average = numbersCount > 0 ? Math.round((sum / numbersCount) * 1000) / 1000 : 0;
+    return {
+      count,
+      numbersCount,
+      sum: Math.round(sum * 1000) / 1000,
+      average,
+      min: min === Infinity ? 0 : min,
+      max: max === -Infinity ? 0 : max,
+    };
+  }
+
   commitFormula(val: string) {
     let computed: string | number = val;
     if (val.startsWith("=")) {
@@ -364,7 +464,6 @@ export class CalcState {
   }
 
   recalculateAll() {
-    // Up to 5 passes for DAG dependency propagation
     for (let pass = 0; pass < 5; pass++) {
       let changed = false;
       this.cells.forEach((cell) => {
@@ -387,7 +486,7 @@ export class CalcState {
     const content = raw.slice(1).trim();
     const upper = content.toUpperCase();
 
-    // 1. =SUM(range), =AVERAGE(range), =MIN(range), =MAX(range), =COUNT(range)
+    // 1. Statistical & Math functions
     const fnMatch = upper.match(/^(SUM|AVERAGE|AVG|MIN|MAX|COUNT)\(([^)]+)\)$/);
     if (fnMatch) {
       const fnName = fnMatch[1];
@@ -411,10 +510,9 @@ export class CalcState {
       }
     }
 
-    // 2. Simple Arithmetic with Cell References, e.g. A1+A2, A1*2, B2/B1 - 1
+    // 2. Arithmetic expressions with cell coordinates
     try {
       let evalExpr = content;
-      // Replace cell coordinates (e.g. A1, $B$2) with numeric values
       evalExpr = evalExpr.replace(/(\$?[A-Z]+\$?[0-9]+)/gi, (coordMatch) => {
         const cleanCoord = coordMatch.replace(/\$/g, "").toUpperCase();
         const cell = this.cells.get(cleanCoord);
@@ -425,9 +523,7 @@ export class CalcState {
         return "0";
       });
 
-      // Sanitized math evaluation
       if (/^[0-9+\-*/().\s^%]+$/.test(evalExpr)) {
-        // Safe evaluation
         const fn = new Function(`return (${evalExpr});`);
         const result = fn();
         if (typeof result === "number" && !isNaN(result) && isFinite(result)) {
@@ -531,7 +627,7 @@ export class CalcState {
           samples.push(this.cells.get(coord)?.raw || "");
         }
         const count = target.maxRow - source.maxRow;
-        const predicted = this.predictSeries(samples, count);
+        const predicted = this.predictSeries(samples, count, true);
         for (let i = 0; i < predicted.length; i++) {
           const r = source.maxRow + 1 + i;
           const coord = `${this.colIndexToLetter(c)}${r + 1}`;
@@ -548,7 +644,7 @@ export class CalcState {
           samples.push(this.cells.get(coord)?.raw || "");
         }
         const count = target.maxCol - source.maxCol;
-        const predicted = this.predictSeries(samples, count);
+        const predicted = this.predictSeries(samples, count, false);
         for (let i = 0; i < predicted.length; i++) {
           const c = source.maxCol + 1 + i;
           const coord = `${this.colIndexToLetter(c)}${r + 1}`;
@@ -561,14 +657,82 @@ export class CalcState {
     this.recalculateAll();
   }
 
-  predictSeries(samples: string[], count: number): string[] {
+  predictSeries(samples: string[], count: number, isRow: boolean = true): string[] {
     if (samples.length === 0) return [];
+
+    // 1. Formulas shifting
+    const allFormulas = samples.every((s) => s.startsWith("="));
+    if (allFormulas) {
+      const res: string[] = [];
+      const sourceLen = samples.length;
+      for (let k = 0; k < count; k++) {
+        const baseFormula = samples[k % sourceLen];
+        const cycle = Math.floor(k / sourceLen) + 1;
+        const deltaRow = isRow ? cycle * sourceLen : 0;
+        const deltaCol = isRow ? 0 : cycle * sourceLen;
+        res.push(shiftFormula(baseFormula, deltaRow, deltaCol));
+      }
+      return res;
+    }
+
+    // 2. Days of week auto-fill
+    const dayIndices = samples.map((s) => {
+      const si = SHORT_DAYS.findIndex((d) => d.toLowerCase() === s.toLowerCase());
+      if (si >= 0) return { idx: si, full: false };
+      const fi = FULL_DAYS.findIndex((d) => d.toLowerCase() === s.toLowerCase());
+      if (fi >= 0) return { idx: fi, full: true };
+      return null;
+    });
+
+    if (dayIndices.every((d) => d !== null)) {
+      const res: string[] = [];
+      const last = dayIndices[dayIndices.length - 1]!;
+      const isFull = last.full;
+      const list = isFull ? FULL_DAYS : SHORT_DAYS;
+      const step = dayIndices.length > 1 ? (last.idx - dayIndices[0]!.idx) / (dayIndices.length - 1) : 1;
+
+      for (let k = 1; k <= count; k++) {
+        const nextIdx = ((last.idx + Math.round(step * k)) % 7 + 7) % 7;
+        res.push(list[nextIdx]);
+      }
+      return res;
+    }
+
+    // 3. Months auto-fill
+    const monthIndices = samples.map((s) => {
+      const si = SHORT_MONTHS.findIndex((m) => m.toLowerCase() === s.toLowerCase());
+      if (si >= 0) return { idx: si, full: false };
+      const fi = FULL_MONTHS.findIndex((m) => m.toLowerCase() === s.toLowerCase());
+      if (fi >= 0) return { idx: fi, full: true };
+      return null;
+    });
+
+    if (monthIndices.every((m) => m !== null)) {
+      const res: string[] = [];
+      const last = monthIndices[monthIndices.length - 1]!;
+      const isFull = last.full;
+      const list = isFull ? FULL_MONTHS : SHORT_MONTHS;
+      const step = monthIndices.length > 1 ? (last.idx - monthIndices[0]!.idx) / (monthIndices.length - 1) : 1;
+
+      for (let k = 1; k <= count; k++) {
+        const nextIdx = ((last.idx + Math.round(step * k)) % 12 + 12) % 12;
+        res.push(list[nextIdx]);
+      }
+      return res;
+    }
+
+    // 4. Linear numeric series
     const nums = samples.map((s) => Number(s));
     const allNums = nums.every((n) => !isNaN(n) && typeof n === "number");
 
     if (allNums) {
       if (nums.length === 1) {
-        return Array(count).fill(String(nums[0]));
+        // Increment single number by 1
+        const res: string[] = [];
+        for (let k = 1; k <= count; k++) {
+          res.push(String(nums[0] + k));
+        }
+        return res;
       }
       const step = (nums[nums.length - 1] - nums[0]) / (nums.length - 1);
       const res: string[] = [];
@@ -578,12 +742,110 @@ export class CalcState {
       return res;
     }
 
-    // Default: repeat pattern
+    // 5. Default pattern repetition
     const res: string[] = [];
     for (let k = 0; k < count; k++) {
       res.push(samples[k % samples.length]);
     }
     return res;
+  }
+
+  public copyRange(range?: GridRange): string {
+    const targetRange = range || this.selectedRanges[this.selectedRanges.length - 1];
+    if (!targetRange) return "";
+
+    const minCol = Math.min(targetRange.minCol, targetRange.maxCol);
+    const maxCol = Math.max(targetRange.minCol, targetRange.maxCol);
+    const minRow = Math.min(targetRange.minRow, targetRange.maxRow);
+    const maxRow = Math.max(targetRange.minRow, targetRange.maxRow);
+
+    const data: string[][] = [];
+    const lines: string[] = [];
+
+    for (let r = minRow; r <= maxRow; r++) {
+      const rowCells: string[] = [];
+      for (let c = minCol; c <= maxCol; c++) {
+        const coord = `${this.colIndexToLetter(c)}${r + 1}`;
+        const cell = this.cells.get(coord);
+        rowCells.push(cell?.raw || "");
+      }
+      data.push(rowCells);
+      lines.push(rowCells.join("\t"));
+    }
+
+    const tsv = lines.join("\n");
+    this.internalClipboardText = tsv;
+    this.clipboardData = {
+      range: { minRow, maxRow, minCol, maxCol },
+      isCut: false,
+      sheetId: this.activeSheetId,
+      data,
+    };
+    return tsv;
+  }
+
+  public cutRange(range?: GridRange): string {
+    const tsv = this.copyRange(range);
+    if (this.clipboardData) {
+      this.clipboardData.isCut = true;
+    }
+    return tsv;
+  }
+
+  public pasteRange(tsvText?: string, targetCoord?: string): void {
+    const text = tsvText !== undefined ? tsvText : this.internalClipboardText;
+    if (!text) return;
+
+    const coord = targetCoord || this.selectedCell;
+    const start = this.coordToColRow(coord);
+
+    const rows = text.split(/\r?\n/).filter((line, idx, arr) => line.length > 0 || idx < arr.length - 1);
+
+    rows.forEach((rowStr, rIdx) => {
+      const cols = rowStr.split("\t");
+      cols.forEach((val, cIdx) => {
+        const targetCol = start.col + cIdx;
+        const targetRow = start.row + rIdx;
+        const cellCoord = `${this.colIndexToLetter(targetCol)}${targetRow + 1}`;
+
+        let computed: string | number = val;
+        if (val.startsWith("=")) {
+          computed = this.evaluateFormula(val);
+        } else {
+          const n = Number(val);
+          if (!isNaN(n) && val.trim() !== "") computed = n;
+        }
+        this.cells.set(cellCoord, { raw: val, computed });
+      });
+    });
+
+    // If this was a cut operation, clear the original cells
+    if (this.clipboardData?.isCut) {
+      const src = this.clipboardData.range;
+      const srcSheet =
+        this.sheets.find((s) => s.id === this.clipboardData!.sheetId) || this.getActiveSheet();
+      const numCols = rows[0]?.split("\t").length || 1;
+      const numRows = rows.length;
+
+      for (let r = src.minRow; r <= src.maxRow; r++) {
+        for (let c = src.minCol; c <= src.maxCol; c++) {
+          const isOverlapping =
+            srcSheet.id === this.activeSheetId &&
+            r >= start.row &&
+            r < start.row + numRows &&
+            c >= start.col &&
+            c < start.col + numCols;
+
+          if (!isOverlapping) {
+            const srcCoord = `${this.colIndexToLetter(c)}${r + 1}`;
+            srcSheet.cells.delete(srcCoord);
+          }
+        }
+      }
+      this.clipboardData = null;
+    }
+
+    this.recalculateAll();
   }
 
   colIndexToLetter(idx: number): string {

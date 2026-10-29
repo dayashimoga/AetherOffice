@@ -656,6 +656,7 @@ export class UnifiedShellApp {
         this.calcGridCanvas = new CalcGridCanvas(gridContainer, calcState);
         this.calcGridCanvas.setOnCellSelected((coord, val) => {
           this.formulaBar.setActiveCell(coord, val);
+          this.updateCalcStatusBar();
         });
         this.calcGridCanvas.setOnCellEditing((coord, val) => {
           this.formulaBar.setActiveCell(coord, val);
@@ -663,6 +664,15 @@ export class UnifiedShellApp {
         this.calcGridCanvas.setOnCellModified((_coord, _val) => {
           this.tabBar.setDirty(tab.id, true);
           this.workbookSheetsPane?.refresh();
+        });
+        this.calcGridCanvas.setOnRangeStatsChanged((stats, rangeText) => {
+          this.formulaBar.getNameBox().value = rangeText;
+          const docInfo = document.getElementById("status-doc-info");
+          if (docInfo) {
+            const current = calcState.getActiveSheetIndex() + 1;
+            const total = calcState.sheets.length;
+            docInfo.textContent = `Sheet ${current} of ${total} | Average: ${stats.average}  Count: ${stats.count}  Sum: ${stats.sum}`;
+          }
         });
 
         this.sheetTabBar = new SheetTabBar(sheetTabContainer, calcState);
@@ -877,6 +887,12 @@ export class UnifiedShellApp {
       } else if (action === "Recalculate") {
         calcState.recalculateAll();
         this.calcGridCanvas?.render();
+      } else if (action === "Copy") {
+        this.calcGridCanvas?.copy();
+      } else if (action === "Cut") {
+        this.calcGridCanvas?.cut();
+      } else if (action === "Paste") {
+        this.calcGridCanvas?.paste();
       }
     } else if (action === "SetFormField") {
       if (this.currentDocType === "PDF") {
@@ -939,6 +955,21 @@ export class UnifiedShellApp {
       case "CellEdit":
         if (this.currentDocType === "Excel") {
           this.formulaBar.focus();
+        }
+        break;
+      case "Copy":
+        if (this.currentDocType === "Excel") {
+          this.calcGridCanvas?.copy();
+        }
+        break;
+      case "Cut":
+        if (this.currentDocType === "Excel") {
+          this.calcGridCanvas?.cut();
+        }
+        break;
+      case "Paste":
+        if (this.currentDocType === "Excel") {
+          this.calcGridCanvas?.paste();
         }
         break;
     }

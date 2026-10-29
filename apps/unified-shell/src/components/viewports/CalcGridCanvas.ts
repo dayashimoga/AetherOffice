@@ -1,4 +1,4 @@
-import { CalcState, calcState } from "../../state/calcState";
+import { CalcState, calcState, RangeStats } from "../../state/calcState";
 
 export class CalcGridCanvas {
   private container: HTMLElement;
@@ -26,6 +26,7 @@ export class CalcGridCanvas {
   private onCellSelected?: (coord: string, value: string) => void;
   private onCellEditing?: (coord: string, value: string) => void;
   private onCellModified?: (coord: string, value: string) => void;
+  private onRangeStatsChanged?: (stats: RangeStats, rangeText: string) => void;
 
   constructor(container: HTMLElement, state: CalcState = calcState) {
     this.container = container;
@@ -95,6 +96,10 @@ export class CalcGridCanvas {
     this.onCellModified = cb;
   }
 
+  public setOnRangeStatsChanged(cb: (stats: RangeStats, rangeText: string) => void) {
+    this.onRangeStatsChanged = cb;
+  }
+
   public getState(): CalcState {
     return this.state;
   }
@@ -105,6 +110,31 @@ export class CalcGridCanvas {
 
   public isCellEditing(): boolean {
     return this.isEditing;
+  }
+
+  public copy(): string {
+    const tsv = this.state.copyRange();
+    this.render();
+    return tsv;
+  }
+
+  public cut(): string {
+    const tsv = this.state.cutRange();
+    this.render();
+    return tsv;
+  }
+
+  public paste(tsvText?: string): void {
+    this.state.pasteRange(tsvText);
+    this.render();
+    if (this.onCellModified) {
+      this.onCellModified(this.state.selectedCell, "paste");
+    }
+  }
+
+  public clearClipboard(): void {
+    this.state.clipboardData = null;
+    this.render();
   }
 
   public resize() {
@@ -122,7 +152,27 @@ export class CalcGridCanvas {
     }
     this.state.selectCell(coord, extend, multi);
     this.render();
-    if (this.onCellSelected) {
+
+    if (extend && this.state.selectedRanges.length > 0) {
+      const primary = this.state.selectedRanges[this.state.selectedRanges.length - 1];
+      const minCol = Math.min(primary.minCol, primary.maxCol);
+      const maxCol = Math.max(primary.minCol, primary.maxCol);
+      const minRow = Math.min(primary.minRow, primary.maxRow);
+      const maxRow = Math.max(primary.minRow, primary.maxRow);
+
+      const isMultiCell = minCol !== maxCol || minRow !== maxRow;
+      if (isMultiCell) {
+        const startCoord = `${this.state.colIndexToLetter(minCol)}${minRow + 1}`;
+        const endCoord = `${this.state.colIndexToLetter(maxCol)}${maxRow + 1}`;
+        const rangeText = `${startCoord}:${endCoord}`;
+        const stats = this.state.getSelectedRangeStats();
+        if (this.onRangeStatsChanged) {
+          this.onRangeStatsChanged(stats, rangeText);
+        }
+      } else if (this.onCellSelected) {
+        this.onCellSelected(coord, this.state.formulaBarText);
+      }
+    } else if (this.onCellSelected) {
       this.onCellSelected(coord, this.state.formulaBarText);
     }
   }
@@ -415,6 +465,18 @@ export class CalcGridCanvas {
         this.selectCell(coord);
         this.showContextMenu(x, y, [
           {
+            label: "Cut",
+            action: () => this.cut(),
+          },
+          {
+            label: "Copy",
+            action: () => this.copy(),
+          },
+          {
+            label: "Paste",
+            action: () => this.paste(),
+          },
+          {
             label: "Insert Row Above",
             action: () => {
               this.state.insertRow(row);
@@ -591,6 +653,41 @@ export class CalcGridCanvas {
     this.canvas.addEventListener("keydown", (e: KeyboardEvent) => {
       if (this.isEditing) return;
 
+      const isCtrl = e.ctrlKey || e.metaKey;
+
+      if (isCtrl && !e.altKey) {
+        const key = e.key.toLowerCase();
+        if (key === "c") {
+          e.preventDefault();
+          this.copy();
+          return;
+        }
+        if (key === "x") {
+          e.preventDefault();
+          this.cut();
+          return;
+        }
+        if (key === "v") {
+          e.preventDefault();
+          this.paste();
+          return;
+        }
+        if (key === "a") {
+          e.preventDefault();
+          this.selectCell("A1", false, false);
+          this.selectCell("Z50", true, false);
+          return;
+        }
+      }
+
+      if (e.key === "Escape") {
+        if (this.state.clipboardData) {
+          e.preventDefault();
+          this.clearClipboard();
+          return;
+        }
+      }
+
       if (e.key === "F2") {
         e.preventDefault();
         this.startEditing();
@@ -621,27 +718,31 @@ export class CalcGridCanvas {
         return;
       }
 
-      // Directional Navigation
-      const cur = this.state.coordToColRow(this.state.selectedCell);
+      // Directional Navigation (with Shift selection extension)
+      const primary = this.state.selectedRanges[this.state.selectedRanges.length - 1];
+      const curCol = e.shiftKey && primary ? primary.maxCol : this.state.coordToColRow(this.state.selectedCell).col;
+      const curRow = e.shiftKey && primary ? primary.maxRow : this.state.coordToColRow(this.state.selectedCell).row;
+      let nextCol = curCol;
+      let nextRow = curRow;
       let changed = false;
 
       if (e.key === "ArrowDown") {
-        cur.row++;
+        nextRow++;
         changed = true;
       } else if (e.key === "ArrowUp") {
-        if (cur.row > 0) cur.row--;
+        if (nextRow > 0) nextRow--;
         changed = true;
       } else if (e.key === "ArrowRight") {
-        cur.col++;
+        nextCol++;
         changed = true;
       } else if (e.key === "ArrowLeft") {
-        if (cur.col > 0) cur.col--;
+        if (nextCol > 0) nextCol--;
         changed = true;
       }
 
       if (changed) {
         e.preventDefault();
-        const coord = `${this.state.colIndexToLetter(cur.col)}${cur.row + 1}`;
+        const coord = `${this.state.colIndexToLetter(nextCol)}${nextRow + 1}`;
         this.selectCell(coord, e.shiftKey, false);
       }
     });
@@ -791,6 +892,29 @@ export class CalcGridCanvas {
       ctx.lineWidth = 1.5;
       ctx.setLineDash([4, 4]);
       ctx.strokeRect(px, py, pw, ph);
+      ctx.restore();
+    }
+
+    // 5b. Render Marching Ants for Clipboard Cut/Copy Range
+    if (this.state.clipboardData) {
+      const clip = this.state.clipboardData.range;
+      const minCol = Math.min(clip.minCol, clip.maxCol);
+      const maxCol = Math.max(clip.minCol, clip.maxCol);
+      const minRow = Math.min(clip.minRow, clip.maxRow);
+      const maxRow = Math.max(clip.minRow, clip.maxRow);
+
+      const cx = this.headerWidth + this.state.getColOffset(minCol) - this.scrollX;
+      const cy = this.headerHeight + this.state.getRowOffset(minRow) - this.scrollY;
+      let cw = 0;
+      for (let c = minCol; c <= maxCol; c++) cw += this.state.getColWidth(c);
+      let ch = 0;
+      for (let r = minRow; r <= maxRow; r++) ch += this.state.getRowHeight(r);
+
+      ctx.save();
+      ctx.strokeStyle = this.state.clipboardData.isCut ? "#0f6cbd" : "#107c41";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(cx, cy, cw, ch);
       ctx.restore();
     }
 
