@@ -243,12 +243,15 @@ dependencies = [
 name = "render-core"
 version = "0.1.0"
 dependencies = [
+ "excel-engine",
  "ooxml-opc",
+ "ppt-engine",
  "quick-xml",
  "rayon",
  "serde",
  "serde_json",
  "thiserror",
+ "word-engine",
  "zip",
 ]
 

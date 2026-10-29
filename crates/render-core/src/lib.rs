@@ -1,4 +1,34 @@
-﻿//! render-core - ECMA-376 / Clean-Room Engine Module
+#![forbid(unsafe_code)]
+//! render-core - Unified 120fps WebGPU / Cosmic-Text Render Core
+//!
+//! Provides:
+//! - GPU draw primitives (`QuadInstance`, `GlyphRun`, `BezierPathBatch`)
+//! - Viewport culling and uniform 2D spatial grid indexing (`SpatialGrid`)
+//! - Subpixel text shaping and BiDi / RTL / CJK handling (`ShapedTextEngine`)
+//! - Retained display list compiler for Word, Excel, and PowerPoint
+//! - Headless SVG exporter, software pixel rasterizer, and PDF vector fallback
+//! - 120Hz frame pacing compositor and latency profiler
+
+pub mod compiler;
+pub mod compositor;
+pub mod primitive;
+pub mod rasterizer;
+pub mod spatial;
+pub mod text;
+
+pub use compiler::{
+    excel::{ExcelDisplayCell, ExcelDisplayCompiler, ExcelSelectionRange},
+    ppt::{PptDisplayCompiler, SlideCanvasConfig},
+    word::{WordDisplayCompiler, WordDisplayLine, WordDisplayPage, WordDisplayTableCell},
+};
+pub use compositor::{Compositor, FrameStats, ViewportConfig};
+pub use primitive::{
+    BezierPathBatch, ColorRgba, DisplayCommand, DisplayList, GlyphInstance, GlyphRun, QuadInstance,
+    Rect2D, TextScript, TransformMatrix,
+};
+pub use rasterizer::SoftwareRasterizer;
+pub use spatial::SpatialGrid;
+pub use text::ShapedTextEngine;
 
 pub fn health_check() -> bool {
     true

@@ -11,3 +11,6 @@ serde.workspace = true
 serde_json.workspace = true
 rayon.workspace = true
 thiserror.workspace = true
+word-engine = { path = "../word-engine" }
+excel-engine = { path = "../excel-engine" }
+ppt-engine = { path = "../ppt-engine" }
