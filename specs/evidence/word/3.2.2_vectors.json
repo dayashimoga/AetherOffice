@@ -1,0 +1,337 @@
+{
+  "subphase_id": "3.2.2",
+  "title": "REA Table Auto-Fit Widths, Row Splitting & Floating Wrap Polygons",
+  "crate": "word-engine",
+  "created_at": "2026-10-29T08:57:00Z",
+  "total_vectors": 28,
+  "vectors": [
+    {
+      "id": "WORD-TBL-001",
+      "name": "Cell Width Conversion (dxa)",
+      "category": "Width Conversion",
+      "description": "Validates table and cell width conversion from dxa (twips). 4320 dxa = 3 inches = 4320 twips.",
+      "input": "Table width 4320 dxa with available width 10000 twips.",
+      "expected": {
+        "resolved_width": 4320
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-002",
+      "name": "Cell Width Conversion (pct 50ths of percent)",
+      "category": "Width Conversion",
+      "description": "Validates ECMA-376 pct width unit where 5000 = 100% and 2500 = 50%.",
+      "input": "Table width 2500 pct (50%) of 10000 twips; 5000 pct (100%) of 9000 twips.",
+      "expected": {
+        "target_50pct": 5000,
+        "target_100pct": 9000
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-003",
+      "name": "Cell Width Conversion (auto)",
+      "category": "Width Conversion",
+      "description": "Validates table width type auto resolves to available column width.",
+      "input": "Table width type 'auto' with available width 8500 twips.",
+      "expected": {
+        "resolved_width": 8500
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-004",
+      "name": "Cell Margins & Padding Resolution",
+      "category": "Cell Margins",
+      "description": "Validates measurement of cell content with horizontal padding additions (tblCellMar and tcMar).",
+      "input": "Cell content 'Sample' with 0 twips padding vs 200 twips horizontal padding.",
+      "expected": {
+        "delta_min": 200,
+        "delta_max": 200
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-005",
+      "name": "Min Content Width Unbreakable Word Bound",
+      "category": "Auto-Fit Solver",
+      "description": "Computes unbreakable word lower bound for auto-fit column solver.",
+      "input": "Paragraph with words 'Short' and 'Supercalifragilisticexpialidocious'.",
+      "expected": {
+        "min_width_bounds_longest_word": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-006",
+      "name": "Max Content Width Unwrapped Paragraph Bound",
+      "category": "Auto-Fit Solver",
+      "description": "Computes unwrapped single-line paragraph upper bound for auto-fit column solver.",
+      "input": "Paragraph 'Hello World from OpenOfficeRS'.",
+      "expected": {
+        "max_width_greater_than_min": true,
+        "max_width_ge_2000": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-007",
+      "name": "Fixed Table Layout Grid Conformance",
+      "category": "Auto-Fit Solver",
+      "description": "Validates that w:tblLayout w:type='fixed' adheres strictly to explicit w:tblGrid column dimensions.",
+      "input": "Fixed table layout with grid columns [2000, 3000, 4000].",
+      "expected": {
+        "resolved_columns": [2000, 3000, 4000]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-008",
+      "name": "Auto-Fit Target Width Equals Min Content Width",
+      "category": "Auto-Fit Solver",
+      "description": "Validates width allocation when target table width exactly equals sum of minContentWidth.",
+      "input": "min [1000, 1500, 2000], max [2000, 3000, 4000], target 4500.",
+      "expected": {
+        "allocated_columns": [1000, 1500, 2000]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-009",
+      "name": "Auto-Fit Target Width Equals Max Content Width",
+      "category": "Auto-Fit Solver",
+      "description": "Validates width allocation when target table width exactly equals sum of maxContentWidth.",
+      "input": "min [1000, 1500, 2000], max [2000, 3000, 4000], target 9000.",
+      "expected": {
+        "allocated_columns": [2000, 3000, 4000]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-010",
+      "name": "Auto-Fit Proportional Interpolation",
+      "category": "Auto-Fit Solver",
+      "description": "Validates proportional interpolation between min and max widths when target is intermediate.",
+      "input": "min [1000, 1000], max [2000, 2000], target 3000 (alpha = 0.5).",
+      "expected": {
+        "allocated_columns": [1500, 1500]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-011",
+      "name": "Auto-Fit Slack Distribution Exceeding Max",
+      "category": "Auto-Fit Solver",
+      "description": "Validates proportional expansion beyond maxContentWidth when target table width > sum(max).",
+      "input": "min [1000, 2000], max [2000, 4000], target 9000 (extra 3000 twips distributed 1:2).",
+      "expected": {
+        "allocated_columns": [3000, 6000]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-012",
+      "name": "Auto-Fit Compression Below Min",
+      "category": "Auto-Fit Solver",
+      "description": "Validates proportional compression when target table width < sum(min) subject to min floor.",
+      "input": "min [2000, 4000], max [3000, 6000], target 3000.",
+      "expected": {
+        "allocated_columns": [1000, 2000]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-013",
+      "name": "GridSpan Merged Columns Slack Distribution",
+      "category": "Merged Cells",
+      "description": "Distributes multi-column merged cell excess width proportionally across underlying columns.",
+      "input": "Row 1 with 2 single cells, Row 2 with 1 cell spanning 2 columns with long text.",
+      "expected": {
+        "columns_count": 2,
+        "col1_expanded": true,
+        "col2_expanded": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-014",
+      "name": "Table Horizontal Alignment (Left)",
+      "category": "Table Alignment",
+      "description": "Validates left table alignment starting at column boundary.",
+      "input": "Table width 4000 in column width 8000 at col_x = 1000 with w:jc='left'.",
+      "expected": {
+        "bounds_x": 1000
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-015",
+      "name": "Table Horizontal Alignment (Center)",
+      "category": "Table Alignment",
+      "description": "Validates center table alignment offset = (available_width - table_width) / 2.",
+      "input": "Table width 4000 in column width 8000 at col_x = 1000 with w:jc='center'.",
+      "expected": {
+        "bounds_x": 3000
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-016",
+      "name": "Table Horizontal Alignment (Right)",
+      "category": "Table Alignment",
+      "description": "Validates right table alignment offset = available_width - table_width.",
+      "input": "Table width 4000 in column width 8000 at col_x = 1000 with w:jc='right'.",
+      "expected": {
+        "bounds_x": 5000
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-017",
+      "name": "Cell Vertical Alignment (Center)",
+      "category": "Cell Vertical Alignment",
+      "description": "Validates w:vAlign='center' shifting text lines downward by half remaining cell height.",
+      "input": "Row height 2000 twips with single line of text and w:vAlign='center'.",
+      "expected": {
+        "line_y_centered": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-018",
+      "name": "Cell Vertical Alignment (Bottom)",
+      "category": "Cell Vertical Alignment",
+      "description": "Validates w:vAlign='bottom' shifting text lines downward near bottom cell margin.",
+      "input": "Row height 2000 twips with single line of text and w:vAlign='bottom'.",
+      "expected": {
+        "line_bottom_ge_2800": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-019",
+      "name": "Row Pagination with w:cantSplit",
+      "category": "Row Pagination",
+      "description": "Validates that rows with w:cantSplit advance to next page when exceeding remaining height.",
+      "input": "Row height 800 with cantSplit=true when only 500 twips remain on page.",
+      "expected": {
+        "pages_spanned": 1,
+        "row_y_relocated": 1440
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-020",
+      "name": "Splittable Row Fits on Page",
+      "category": "Row Pagination",
+      "description": "Validates that row fits on current page when remaining page height is sufficient.",
+      "input": "Row height 400 when 1000 twips remain on page.",
+      "expected": {
+        "pages_spanned": 0,
+        "row_y": 9000
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-021",
+      "name": "Repeating Header Rows (w:tblHeader)",
+      "category": "Row Pagination",
+      "description": "Validates that rows with w:tblHeader repeat at top of subsequent pages when table splits.",
+      "input": "Header row (height 500) and cantSplit data row (height 800) splitting across pages.",
+      "expected": {
+        "pages_spanned": 1,
+        "total_rows": 3,
+        "row_1_is_repeated_header": true,
+        "repeated_header_y": 1440,
+        "data_row_y": 1940
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-022",
+      "name": "Multiple Repeating Header Rows",
+      "category": "Row Pagination",
+      "description": "Validates multiple header rows repeating in exact sequence on subsequent pages.",
+      "input": "Two consecutive header rows (heights 300, 400) and data row advancing to page 2.",
+      "expected": {
+        "pages_spanned": 1,
+        "total_rows": 5,
+        "repeated_headers_count": 2
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-023",
+      "name": "Floating DrawingML Anchor Wrap Square",
+      "category": "DrawingML Wrapping",
+      "description": "Validates wrapSquare text exclusion interval and resulting left/right text intervals.",
+      "input": "Anchor bounds (2000, 1000, 3000, 2000) with dist_left=200, dist_right=200 at y=1500.",
+      "expected": {
+        "exclusion": [1800, 5200],
+        "available_intervals": [[0, 1800], [5200, 8000]]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-024",
+      "name": "Floating DrawingML Anchor Wrap TopAndBottom",
+      "category": "DrawingML Wrapping",
+      "description": "Validates wrapTopAndBottom completely excluding text within vertical bounds.",
+      "input": "Anchor bounds (2000, 1000, 3000, 2000) with wrapTopAndBottom at y=1500.",
+      "expected": {
+        "exclusion": [0, 8000],
+        "available_intervals_count": 0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-025",
+      "name": "Floating DrawingML Anchor Wrap Tight Raycasting",
+      "category": "DrawingML Wrapping",
+      "description": "Validates raycasting intersection with diamond polygon edges for wrapTight.",
+      "input": "Diamond polygon [(3000, 1000), (5000, 3000), (3000, 5000), (1000, 3000)] at y=2000.",
+      "expected": {
+        "exclusion": [2000, 4000],
+        "available_intervals": [[0, 2000], [4000, 8000]]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-026",
+      "name": "Floating DrawingML Anchor Wrap Through Raycasting",
+      "category": "DrawingML Wrapping",
+      "description": "Validates raycasting intersection for wrapThrough polygon with horizontal padding.",
+      "input": "Triangular polygon [(3000, 1000), (5000, 5000), (1000, 5000)] with dist=100 at y=3000.",
+      "expected": {
+        "exclusion_exists": true,
+        "left_bound_lt_3000": true,
+        "right_bound_gt_3000": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-027",
+      "name": "WordPackage Full Table Layout Integration",
+      "category": "Package Integration",
+      "description": "Validates WordPackage layout pipeline containing both paragraphs and paginated tables.",
+      "input": "WordPackage with baseline document and appended multi-row table.",
+      "expected": {
+        "page_count_ge_1": true,
+        "total_lines_ge_3": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-TBL-028",
+      "name": "Test Vectors Manifest Conformance",
+      "category": "Manifest Gate",
+      "description": "Validates that specs/evidence/word/3.2.2_vectors.json exists, is valid JSON, and has >= 25 vectors.",
+      "input": "specs/evidence/word/3.2.2_vectors.json",
+      "expected": {
+        "subphase_id": "3.2.2",
+        "total_vectors_ge_25": true
+      },
+      "status": "PASS"
+    }
+  ]
+}

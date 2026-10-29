@@ -850,6 +850,20 @@ fn serialize_table<W: std::io::Write>(writer: &mut Writer<W>, tbl: &Table) -> Re
                 .write_event(Event::Empty(j_tag))
                 .map_err(EngineError::Io)?;
         }
+        if let Some(ref lt) = tbl_pr.layout_type {
+            let mut l_tag = BytesStart::new("w:tblLayout");
+            l_tag.push_attribute(("w:type", lt.as_str()));
+            writer
+                .write_event(Event::Empty(l_tag))
+                .map_err(EngineError::Io)?;
+        }
+        if let Some(ref st) = tbl_pr.style {
+            let mut s_tag = BytesStart::new("w:tblStyle");
+            s_tag.push_attribute(("w:val", st.as_str()));
+            writer
+                .write_event(Event::Empty(s_tag))
+                .map_err(EngineError::Io)?;
+        }
         for raw in &tbl_pr.raw_elements {
             serialize_raw_node(writer, raw)?;
         }
@@ -900,6 +914,36 @@ fn serialize_table_row<W: std::io::Write>(writer: &mut Writer<W>, row: &TableRow
         .write_event(Event::Start(tr_tag))
         .map_err(EngineError::Io)?;
 
+    if let Some(ref tr_pr) = row.properties {
+        writer
+            .write_event(Event::Start(BytesStart::new("w:trPr")))
+            .map_err(EngineError::Io)?;
+        if tr_pr.cant_split {
+            writer
+                .write_event(Event::Empty(BytesStart::new("w:cantSplit")))
+                .map_err(EngineError::Io)?;
+        }
+        if tr_pr.is_header {
+            writer
+                .write_event(Event::Empty(BytesStart::new("w:tblHeader")))
+                .map_err(EngineError::Io)?;
+        }
+        if let Some(h) = tr_pr.height {
+            let mut h_tag = BytesStart::new("w:trHeight");
+            let s = h.to_string();
+            h_tag.push_attribute(("w:val", s.as_str()));
+            if let Some(ref hr) = tr_pr.height_rule {
+                h_tag.push_attribute(("w:hRule", hr.as_str()));
+            }
+            writer
+                .write_event(Event::Empty(h_tag))
+                .map_err(EngineError::Io)?;
+        }
+        writer
+            .write_event(Event::End(BytesEnd::new("w:trPr")))
+            .map_err(EngineError::Io)?;
+    }
+
     for cell in &row.cells {
         serialize_table_cell(writer, cell)?;
     }
@@ -919,17 +963,52 @@ fn serialize_table_cell<W: std::io::Write>(writer: &mut Writer<W>, cell: &TableC
         .write_event(Event::Start(tc_tag))
         .map_err(EngineError::Io)?;
 
-    if let Some(ref width) = cell.width {
+    if cell.properties.is_some() || cell.width.is_some() {
         writer
             .write_event(Event::Start(BytesStart::new("w:tcPr")))
             .map_err(EngineError::Io)?;
-        let mut w_tag = BytesStart::new("w:tcW");
-        let w_str = width.width.to_string();
-        w_tag.push_attribute(("w:w", w_str.as_str()));
-        w_tag.push_attribute(("w:type", width.width_type.as_str()));
-        writer
-            .write_event(Event::Empty(w_tag))
-            .map_err(EngineError::Io)?;
+        if let Some(ref width) = cell.width {
+            let mut w_tag = BytesStart::new("w:tcW");
+            let w_str = width.width.to_string();
+            w_tag.push_attribute(("w:w", w_str.as_str()));
+            w_tag.push_attribute(("w:type", width.width_type.as_str()));
+            writer
+                .write_event(Event::Empty(w_tag))
+                .map_err(EngineError::Io)?;
+        }
+        if let Some(ref tc_pr) = cell.properties {
+            if tc_pr.grid_span > 1 {
+                let mut gs = BytesStart::new("w:gridSpan");
+                let s = tc_pr.grid_span.to_string();
+                gs.push_attribute(("w:val", s.as_str()));
+                writer
+                    .write_event(Event::Empty(gs))
+                    .map_err(EngineError::Io)?;
+            }
+            if let Some(ref vm) = tc_pr.v_merge {
+                let mut vm_tag = BytesStart::new("w:vMerge");
+                if vm != "continue" {
+                    vm_tag.push_attribute(("w:val", vm.as_str()));
+                }
+                writer
+                    .write_event(Event::Empty(vm_tag))
+                    .map_err(EngineError::Io)?;
+            }
+            if let Some(ref va) = tc_pr.vertical_align {
+                let mut va_tag = BytesStart::new("w:vAlign");
+                va_tag.push_attribute(("w:val", va.as_str()));
+                writer
+                    .write_event(Event::Empty(va_tag))
+                    .map_err(EngineError::Io)?;
+            }
+            if let Some(ref shd) = tc_pr.shading_fill {
+                let mut shd_tag = BytesStart::new("w:shd");
+                shd_tag.push_attribute(("w:fill", shd.as_str()));
+                writer
+                    .write_event(Event::Empty(shd_tag))
+                    .map_err(EngineError::Io)?;
+            }
+        }
         writer
             .write_event(Event::End(BytesEnd::new("w:tcPr")))
             .map_err(EngineError::Io)?;

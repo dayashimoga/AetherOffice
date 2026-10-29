@@ -16,6 +16,7 @@ use crate::model::{BodyElement, Paragraph, ParagraphChild, Run, RunContent};
 use crate::package::WordPackage;
 use crate::section::SectionGeometry;
 use crate::styles::{ResolvedParagraphProperties, ResolvedRunProperties, StyleCascadeResolver};
+use crate::table_layout::TablePaginationSolver;
 
 // =========================================================================
 // 1. Geometric & Layout Data Structures
@@ -947,6 +948,40 @@ impl<'a> PaginationSolver<'a> {
                 // Space after
                 curr_y = curr_y.saturating_add(p_props.spacing_after);
                 para_index += 1;
+            } else if let BodyElement::Table(ref tbl) = elem {
+                let table_solver = TablePaginationSolver::new(self.breaker.metrics, self.cascade);
+                let col_idx = curr_col_idx % num_cols;
+                let col_w = self.geometry.column_width(col_idx);
+                let col_x = self.geometry.column_x(col_idx);
+                let (layout_tbl, new_y, _pages_spanned) = table_solver.layout_table(
+                    tbl,
+                    col_x,
+                    curr_y,
+                    content_bottom,
+                    self.geometry.margin_top as u32,
+                    col_w,
+                );
+
+                for row in layout_tbl.rows {
+                    if row.bounds.y == self.geometry.margin_top as u32
+                        && !current_page.columns[col_idx].lines.is_empty()
+                    {
+                        self.advance_column_or_page(
+                            &mut pages,
+                            &mut current_page,
+                            &mut curr_page_idx,
+                            &mut curr_col_idx,
+                            &mut curr_y,
+                        );
+                    }
+                    for cell in row.cells {
+                        for line in cell.lines {
+                            current_page.columns[col_idx].lines.push(line);
+                            total_lines += 1;
+                        }
+                    }
+                }
+                curr_y = new_y;
             }
         }
 

@@ -333,11 +333,35 @@ impl Table {
     }
 }
 
+/// Table cell margins in twips (dxa): `<w:tblCellMar>` or `<w:tcMar>`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TableCellMargins {
+    pub top: u32,
+    pub bottom: u32,
+    pub left: u32,
+    pub right: u32,
+}
+
+impl Default for TableCellMargins {
+    fn default() -> Self {
+        // Standard Word default table padding: left/right = 108 twips (5.4pt), top/bottom = 0
+        Self {
+            top: 0,
+            bottom: 0,
+            left: 108,
+            right: 108,
+        }
+    }
+}
+
 /// Table formatting properties: `<w:tblPr>`.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct TableProperties {
     pub width: Option<TableWidth>,
     pub justification: Option<String>,
+    pub layout_type: Option<String>, // "autofit" or "fixed"
+    pub cell_margins: Option<TableCellMargins>,
+    pub style: Option<String>,
     pub raw_elements: Vec<RawXmlNode>,
 }
 
@@ -347,19 +371,41 @@ pub struct TableGrid {
     pub columns: Vec<u32>,
 }
 
+/// Formatting properties for a table row: `<w:trPr>`.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct TableRowProperties {
+    pub cant_split: bool,
+    pub is_header: bool,
+    pub height: Option<u32>,
+    pub height_rule: Option<String>, // "exact" or "atLeast"
+}
+
 /// Table row: `<w:tr>`.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct TableRow {
     pub rsid_r: Option<String>,
     pub rsid_tr: Option<String>,
+    pub properties: Option<TableRowProperties>,
     pub cells: Vec<TableCell>,
     pub raw_attrs: Vec<(String, String)>,
+}
+
+/// Formatting properties for a table cell: `<w:tcPr>`.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct TableCellProperties {
+    pub width: Option<TableWidth>,
+    pub grid_span: u32,
+    pub v_merge: Option<String>,        // "restart" or "continue"
+    pub vertical_align: Option<String>, // "top", "center", "bottom"
+    pub cell_margins: Option<TableCellMargins>,
+    pub shading_fill: Option<String>,
 }
 
 /// Table cell: `<w:tc>`.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct TableCell {
     pub width: Option<TableWidth>,
+    pub properties: Option<TableCellProperties>,
     pub elements: Vec<BodyElement>,
     pub raw_attrs: Vec<(String, String)>,
 }

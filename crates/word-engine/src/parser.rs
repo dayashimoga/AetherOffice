@@ -844,6 +844,8 @@ fn parse_table_properties<R: std::io::BufRead>(reader: &mut Reader<R>) -> Result
                         });
                     }
                     "jc" => tbl_pr.justification = get_attr_val(e, "val"),
+                    "tblLayout" => tbl_pr.layout_type = get_attr_val(e, "type"),
+                    "tblStyle" => tbl_pr.style = get_attr_val(e, "val"),
                     _ => tbl_pr.raw_elements.push(parse_empty_raw_node(e)?),
                 }
             }
@@ -897,6 +899,12 @@ fn parse_table_row<R: std::io::BufRead>(
     let mut buf = Vec::new();
     loop {
         match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Start(ref e) if local_name(e.name().into_inner()) == "trPr" => {
+                row.properties = Some(parse_table_row_properties(reader)?);
+            }
+            Event::Empty(ref e) if local_name(e.name().into_inner()) == "trPr" => {
+                row.properties = Some(TableRowProperties::default());
+            }
             Event::Start(ref e) if local_name(e.name().into_inner()) == "tc" => {
                 row.cells.push(parse_table_cell(reader, e)?);
             }
@@ -908,6 +916,31 @@ fn parse_table_row<R: std::io::BufRead>(
     }
 
     Ok(row)
+}
+
+fn parse_table_row_properties<R: std::io::BufRead>(
+    reader: &mut Reader<R>,
+) -> Result<TableRowProperties> {
+    let mut tr_pr = TableRowProperties::default();
+    let mut buf = Vec::new();
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Empty(ref e) | Event::Start(ref e) => match local_name(e.name().into_inner()) {
+                "cantSplit" => tr_pr.cant_split = parse_boolean_attr(e),
+                "tblHeader" => tr_pr.is_header = parse_boolean_attr(e),
+                "trHeight" => {
+                    tr_pr.height = get_attr_val(e, "val").and_then(|s| s.parse::<u32>().ok());
+                    tr_pr.height_rule = get_attr_val(e, "hRule");
+                }
+                _ => {}
+            },
+            Event::End(ref e) if local_name(e.name().into_inner()) == "trPr" => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+    Ok(tr_pr)
 }
 
 fn parse_empty_table_row(start_tag: &BytesStart) -> Result<TableRow> {
@@ -922,30 +955,48 @@ fn parse_empty_table_row(start_tag: &BytesStart) -> Result<TableRow> {
 
 fn parse_table_cell_properties<R: std::io::BufRead>(
     reader: &mut Reader<R>,
-) -> Result<Option<TableWidth>> {
-    let mut width = None;
+) -> Result<TableCellProperties> {
+    let mut tc_pr = TableCellProperties {
+        grid_span: 1,
+        ..Default::default()
+    };
     let mut buf = Vec::new();
     loop {
         match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
-            Event::Start(ref e) | Event::Empty(ref e)
-                if local_name(e.name().into_inner()) == "tcW" =>
-            {
-                let w = get_attr_val(e, "w")
-                    .and_then(|s| s.parse::<u32>().ok())
-                    .unwrap_or(0);
-                let w_type = get_attr_val(e, "type").unwrap_or_else(|| "dxa".to_string());
-                width = Some(TableWidth {
-                    width: w,
-                    width_type: w_type,
-                });
-            }
+            Event::Start(ref e) | Event::Empty(ref e) => match local_name(e.name().into_inner()) {
+                "tcW" => {
+                    let w = get_attr_val(e, "w")
+                        .and_then(|s| s.parse::<u32>().ok())
+                        .unwrap_or(0);
+                    let w_type = get_attr_val(e, "type").unwrap_or_else(|| "dxa".to_string());
+                    tc_pr.width = Some(TableWidth {
+                        width: w,
+                        width_type: w_type,
+                    });
+                }
+                "gridSpan" => {
+                    tc_pr.grid_span = get_attr_val(e, "val")
+                        .and_then(|s| s.parse::<u32>().ok())
+                        .unwrap_or(1);
+                }
+                "vMerge" => {
+                    tc_pr.v_merge = get_attr_val(e, "val").or_else(|| Some("continue".to_string()));
+                }
+                "vAlign" => {
+                    tc_pr.vertical_align = get_attr_val(e, "val");
+                }
+                "shd" => {
+                    tc_pr.shading_fill = get_attr_val(e, "fill");
+                }
+                _ => {}
+            },
             Event::End(ref e) if local_name(e.name().into_inner()) == "tcPr" => break,
             Event::Eof => break,
             _ => {}
         }
         buf.clear();
     }
-    Ok(width)
+    Ok(tc_pr)
 }
 
 fn parse_table_cell<R: std::io::BufRead>(
@@ -966,7 +1017,9 @@ fn parse_table_cell<R: std::io::BufRead>(
                 let name = local_name(e.name().into_inner());
                 match name {
                     "tcPr" => {
-                        cell.width = parse_table_cell_properties(reader)?;
+                        let props = parse_table_cell_properties(reader)?;
+                        cell.width = props.width.clone();
+                        cell.properties = Some(props);
                     }
                     "p" => cell
                         .elements

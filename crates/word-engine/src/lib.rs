@@ -11,6 +11,7 @@ pub mod section;
 pub mod serializer;
 pub mod styles;
 pub mod sub_documents;
+pub mod table_layout;
 
 pub use layout::*;
 pub use model::*;
@@ -22,6 +23,7 @@ pub use section::*;
 pub use serializer::*;
 pub use styles::*;
 pub use sub_documents::*;
+pub use table_layout::*;
 
 pub fn health_check() -> bool {
     true
