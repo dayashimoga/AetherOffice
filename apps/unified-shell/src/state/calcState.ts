@@ -2,10 +2,14 @@ export interface CellData {
   raw: string;
   computed: string | number;
   format?: string;
+  decimals?: number;
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
   align?: "left" | "center" | "right";
+  valign?: "top" | "middle" | "bottom";
+  wrapText?: boolean;
+  borders?: string;
   color?: string;
   bgColor?: string;
 }
@@ -25,6 +29,79 @@ export interface SheetData {
   rowHeights: Map<number, number>;
   selectedCell: string;
   selectedRanges: GridRange[];
+  filterActive?: boolean;
+  filterRange?: GridRange | null;
+  hiddenRows?: Set<number>;
+  mergedRanges?: GridRange[];
+}
+
+export function formatCellValue(cell: CellData): string {
+  if (cell.computed === undefined || cell.computed === null || cell.computed === "") {
+    return "";
+  }
+  const format = cell.format || "General";
+  const num = typeof cell.computed === "number" ? cell.computed : Number(cell.computed);
+  const isNumeric = !isNaN(num) && typeof cell.computed !== "boolean" && String(cell.raw).trim() !== "";
+
+  if (!isNumeric) {
+    return String(cell.computed);
+  }
+
+  const decimals = cell.decimals !== undefined ? cell.decimals : (format === "General" ? undefined : 2);
+
+  switch (format) {
+    case "Currency": {
+      const d = decimals !== undefined ? decimals : 2;
+      const abs = Math.abs(num).toLocaleString("en-US", {
+        minimumFractionDigits: d,
+        maximumFractionDigits: d,
+      });
+      return num < 0 ? `-$${abs}` : `$${abs}`;
+    }
+    case "Percentage": {
+      const d = decimals !== undefined ? decimals : 2;
+      const pctVal = (num * 100).toLocaleString("en-US", {
+        minimumFractionDigits: d,
+        maximumFractionDigits: d,
+      });
+      return `${pctVal}%`;
+    }
+    case "Comma":
+    case "Number": {
+      const d = decimals !== undefined ? decimals : 2;
+      return num.toLocaleString("en-US", {
+        minimumFractionDigits: d,
+        maximumFractionDigits: d,
+      });
+    }
+    case "Accounting": {
+      const d = decimals !== undefined ? decimals : 2;
+      const abs = Math.abs(num).toLocaleString("en-US", {
+        minimumFractionDigits: d,
+        maximumFractionDigits: d,
+      });
+      return num < 0 ? `($ ${abs})` : `$ ${abs}`;
+    }
+    case "Short Date":
+    case "Date": {
+      if (num > 0) {
+        const date = new Date((num - (25567 + 2)) * 86400 * 1000);
+        if (!isNaN(date.getTime()) && date.getFullYear() > 1900 && date.getFullYear() < 2100) {
+          return date.toLocaleDateString("en-US");
+        }
+      }
+      return String(cell.computed);
+    }
+    case "General":
+    default:
+      if (decimals !== undefined) {
+        return num.toLocaleString("en-US", {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals,
+        });
+      }
+      return String(cell.computed);
+  }
 }
 
 export interface RangeStats {
@@ -455,6 +532,11 @@ export class CalcState {
       italic: current?.italic,
       underline: current?.underline,
       format: current?.format,
+      decimals: current?.decimals,
+      align: current?.align,
+      valign: current?.valign,
+      wrapText: current?.wrapText,
+      borders: current?.borders,
       color: current?.color,
       bgColor: current?.bgColor,
     });
@@ -867,6 +949,445 @@ export class CalcState {
       col = col * 26 + (match[1].charCodeAt(i) - 64);
     }
     return { col: col - 1, row: parseInt(match[2], 10) - 1 };
+  }
+
+  public getTargetRange(range?: GridRange): GridRange {
+    const raw = range || this.selectedRanges[this.selectedRanges.length - 1];
+    if (!raw) {
+      const cr = this.coordToColRow(this.selectedCell);
+      return { minRow: cr.row, maxRow: cr.row, minCol: cr.col, maxCol: cr.col };
+    }
+    return {
+      minRow: Math.min(raw.minRow, raw.maxRow),
+      maxRow: Math.max(raw.minRow, raw.maxRow),
+      minCol: Math.min(raw.minCol, raw.maxCol),
+      maxCol: Math.max(raw.minCol, raw.maxCol),
+    };
+  }
+
+  public getOrCreateCell(coord: string): CellData {
+    let cell = this.cells.get(coord);
+    if (!cell) {
+      cell = { raw: "", computed: "" };
+      this.cells.set(coord, cell);
+    }
+    return cell;
+  }
+
+  public forEachCellInRange(
+    range: GridRange | undefined,
+    fn: (cell: CellData, coord: string, r: number, c: number) => void
+  ): void {
+    const target = this.getTargetRange(range);
+    for (let r = target.minRow; r <= target.maxRow; r++) {
+      for (let c = target.minCol; c <= target.maxCol; c++) {
+        const coord = `${this.colIndexToLetter(c)}${r + 1}`;
+        const cell = this.getOrCreateCell(coord);
+        fn(cell, coord, r, c);
+      }
+    }
+  }
+
+  public setNumberFormat(format: string, range?: GridRange): void {
+    this.forEachCellInRange(range, (cell) => {
+      cell.format = format;
+      if (
+        (format === "Currency" || format === "Percentage" || format === "Comma" || format === "Accounting") &&
+        cell.decimals === undefined
+      ) {
+        cell.decimals = 2;
+      }
+    });
+  }
+
+  public increaseDecimal(range?: GridRange): void {
+    this.forEachCellInRange(range, (cell) => {
+      cell.decimals = Math.min(10, (cell.decimals !== undefined ? cell.decimals : 2) + 1);
+    });
+  }
+
+  public decreaseDecimal(range?: GridRange): void {
+    this.forEachCellInRange(range, (cell) => {
+      cell.decimals = Math.max(0, (cell.decimals !== undefined ? cell.decimals : 2) - 1);
+    });
+  }
+
+  public toggleBold(range?: GridRange): void {
+    const target = this.getTargetRange(range);
+    const primary = this.cells.get(`${this.colIndexToLetter(target.minCol)}${target.minRow + 1}`);
+    const nextState = !primary?.bold;
+    this.forEachCellInRange(range, (cell) => {
+      cell.bold = nextState;
+    });
+  }
+
+  public toggleItalic(range?: GridRange): void {
+    const target = this.getTargetRange(range);
+    const primary = this.cells.get(`${this.colIndexToLetter(target.minCol)}${target.minRow + 1}`);
+    const nextState = !primary?.italic;
+    this.forEachCellInRange(range, (cell) => {
+      cell.italic = nextState;
+    });
+  }
+
+  public toggleUnderline(range?: GridRange): void {
+    const target = this.getTargetRange(range);
+    const primary = this.cells.get(`${this.colIndexToLetter(target.minCol)}${target.minRow + 1}`);
+    const nextState = !primary?.underline;
+    this.forEachCellInRange(range, (cell) => {
+      cell.underline = nextState;
+    });
+  }
+
+  public setAlignment(align: "left" | "center" | "right", range?: GridRange): void {
+    this.forEachCellInRange(range, (cell) => {
+      cell.align = align;
+    });
+  }
+
+  public setVerticalAlignment(valign: "top" | "middle" | "bottom", range?: GridRange): void {
+    this.forEachCellInRange(range, (cell) => {
+      cell.valign = valign;
+    });
+  }
+
+  public toggleWrapText(range?: GridRange): void {
+    const target = this.getTargetRange(range);
+    const primary = this.cells.get(`${this.colIndexToLetter(target.minCol)}${target.minRow + 1}`);
+    const nextState = !primary?.wrapText;
+    this.forEachCellInRange(range, (cell) => {
+      cell.wrapText = nextState;
+    });
+  }
+
+  public setBorders(borderType: string = "all", range?: GridRange): void {
+    this.forEachCellInRange(range, (cell) => {
+      cell.borders = borderType;
+    });
+  }
+
+  public setFillColor(color: string, range?: GridRange): void {
+    this.forEachCellInRange(range, (cell) => {
+      cell.bgColor = color;
+    });
+  }
+
+  public setFontColor(color: string, range?: GridRange): void {
+    this.forEachCellInRange(range, (cell) => {
+      cell.color = color;
+    });
+  }
+
+  public mergeAndCenter(range?: GridRange): void {
+    const target = this.getTargetRange(range);
+    const sheet = this.getActiveSheet();
+    sheet.mergedRanges = sheet.mergedRanges || [];
+    sheet.mergedRanges.push(target);
+
+    const topLeftCoord = `${this.colIndexToLetter(target.minCol)}${target.minRow + 1}`;
+    const topLeft = this.getOrCreateCell(topLeftCoord);
+    topLeft.align = "center";
+
+    // Clear other cells
+    for (let r = target.minRow; r <= target.maxRow; r++) {
+      for (let c = target.minCol; c <= target.maxCol; c++) {
+        if (r === target.minRow && c === target.minCol) continue;
+        const coord = `${this.colIndexToLetter(c)}${r + 1}`;
+        this.cells.delete(coord);
+      }
+    }
+  }
+
+  public insertAutoSum(fnName: "SUM" | "AVERAGE" | "COUNT" | "MAX" | "MIN" = "SUM"): string {
+    const target = this.getTargetRange();
+    const isMultiCell = target.minRow !== target.maxRow || target.minCol !== target.maxCol;
+
+    let formula = "";
+    let destCoord = "";
+
+    if (isMultiCell) {
+      const minColLetter = this.colIndexToLetter(target.minCol);
+      const maxColLetter = this.colIndexToLetter(target.maxCol);
+      const rangeRef = `${minColLetter}${target.minRow + 1}:${maxColLetter}${target.maxRow + 1}`;
+      formula = `=${fnName}(${rangeRef})`;
+      destCoord = `${minColLetter}${target.maxRow + 2}`;
+    } else {
+      const curr = this.coordToColRow(this.selectedCell);
+      let startRow = curr.row - 1;
+      let aboveCount = 0;
+      while (startRow >= 0) {
+        const cCoord = `${this.colIndexToLetter(curr.col)}${startRow + 1}`;
+        const cell = this.cells.get(cCoord);
+        if (cell && cell.raw && cell.raw.trim().length > 0) {
+          aboveCount++;
+          startRow--;
+        } else {
+          break;
+        }
+      }
+
+      if (aboveCount > 0) {
+        const fromRow = startRow + 1;
+        const toRow = curr.row - 1;
+        const colLetter = this.colIndexToLetter(curr.col);
+        const rangeRef = fromRow === toRow ? `${colLetter}${fromRow + 1}` : `${colLetter}${fromRow + 1}:${colLetter}${toRow + 1}`;
+        formula = `=${fnName}(${rangeRef})`;
+        destCoord = this.selectedCell;
+      } else {
+        let startCol = curr.col - 1;
+        let leftCount = 0;
+        while (startCol >= 0) {
+          const cCoord = `${this.colIndexToLetter(startCol)}${curr.row + 1}`;
+          const cell = this.cells.get(cCoord);
+          if (cell && cell.raw && cell.raw.trim().length > 0) {
+            leftCount++;
+            startCol--;
+          } else {
+            break;
+          }
+        }
+
+        if (leftCount > 0) {
+          const fromCol = startCol + 1;
+          const toCol = curr.col - 1;
+          const rowNum = curr.row + 1;
+          const fromColLetter = this.colIndexToLetter(fromCol);
+          const toColLetter = this.colIndexToLetter(toCol);
+          const rangeRef = fromCol === toCol ? `${fromColLetter}${rowNum}` : `${fromColLetter}${rowNum}:${toColLetter}${rowNum}`;
+          formula = `=${fnName}(${rangeRef})`;
+          destCoord = this.selectedCell;
+        } else {
+          formula = `=${fnName}()`;
+          destCoord = this.selectedCell;
+        }
+      }
+    }
+
+    this.selectedCell = destCoord;
+    this.commitFormula(formula);
+    return formula;
+  }
+
+  public sortRange(ascending: boolean = true, sortColIndex?: number, range?: GridRange): void {
+    let target = this.getTargetRange(range);
+    // If only 1 cell selected, expand to contiguous used rows in this column block
+    if (target.minRow === target.maxRow && target.minCol === target.maxCol) {
+      let rMin = target.minRow;
+      let rMax = target.maxRow;
+      while (rMin > 0 && this.cells.has(`${this.colIndexToLetter(target.minCol)}${rMin}`)) {
+        rMin--;
+      }
+      while (this.cells.has(`${this.colIndexToLetter(target.minCol)}${rMax + 2}`)) {
+        rMax++;
+      }
+      target = { minRow: rMin, maxRow: rMax, minCol: target.minCol, maxCol: target.maxCol };
+    }
+
+    const sortCol = sortColIndex !== undefined ? sortColIndex : target.minCol;
+    const rowRecords: { rowIdx: number; cells: Map<number, CellData>; key: string | number }[] = [];
+
+    for (let r = target.minRow; r <= target.maxRow; r++) {
+      const rowMap = new Map<number, CellData>();
+      let sortKey: string | number = "";
+      for (let c = target.minCol; c <= target.maxCol; c++) {
+        const coord = `${this.colIndexToLetter(c)}${r + 1}`;
+        const cell = this.cells.get(coord);
+        if (cell) {
+          rowMap.set(c, { ...cell });
+          if (c === sortCol) {
+            sortKey = cell.computed !== undefined ? cell.computed : cell.raw;
+          }
+        }
+      }
+      rowRecords.push({ rowIdx: r, cells: rowMap, key: sortKey });
+    }
+
+    rowRecords.sort((a, b) => {
+      const valA = a.key;
+      const valB = b.key;
+      const numA = Number(valA);
+      const numB = Number(valB);
+      const isNumA = !isNaN(numA) && typeof valA !== "boolean" && String(valA).trim() !== "";
+      const isNumB = !isNaN(numB) && typeof valB !== "boolean" && String(valB).trim() !== "";
+
+      let cmp = 0;
+      if (isNumA && isNumB) {
+        cmp = numA - numB;
+      } else {
+        cmp = String(valA).localeCompare(String(valB), undefined, { numeric: true, sensitivity: "base" });
+      }
+      return ascending ? cmp : -cmp;
+    });
+
+    // Write back sorted records
+    for (let i = 0; i < rowRecords.length; i++) {
+      const destRow = target.minRow + i;
+      const rec = rowRecords[i];
+      for (let c = target.minCol; c <= target.maxCol; c++) {
+        const destCoord = `${this.colIndexToLetter(c)}${destRow + 1}`;
+        const cellData = rec.cells.get(c);
+        if (cellData) {
+          this.cells.set(destCoord, cellData);
+        } else {
+          this.cells.delete(destCoord);
+        }
+      }
+    }
+
+    this.recalculateAll();
+  }
+
+  public toggleFilter(range?: GridRange): boolean {
+    const sheet = this.getActiveSheet();
+    if (sheet.filterActive) {
+      sheet.filterActive = false;
+      sheet.filterRange = null;
+      sheet.hiddenRows?.clear();
+      return false;
+    } else {
+      sheet.filterActive = true;
+      sheet.filterRange = this.getTargetRange(range);
+      sheet.hiddenRows = sheet.hiddenRows || new Set<number>();
+      return true;
+    }
+  }
+
+  public clearFilter(): void {
+    const sheet = this.getActiveSheet();
+    sheet.hiddenRows?.clear();
+  }
+
+  public filterColumn(colIdx: number, criteria: (val: string) => boolean): void {
+    const sheet = this.getActiveSheet();
+    if (!sheet.filterRange) return;
+    sheet.hiddenRows = sheet.hiddenRows || new Set<number>();
+    sheet.hiddenRows.clear();
+    const startRow = sheet.filterRange.maxRow + 1;
+    for (let r = startRow; r < startRow + 200; r++) {
+      const coord = `${this.colIndexToLetter(colIdx)}${r + 1}`;
+      const cell = this.cells.get(coord);
+      if (cell && cell.raw) {
+        const text = String(cell.computed !== undefined ? cell.computed : cell.raw);
+        if (!criteria(text)) {
+          sheet.hiddenRows.add(r);
+        }
+      }
+    }
+  }
+
+  public textToColumns(delimiter: string = ",", range?: GridRange): void {
+    const target = this.getTargetRange(range);
+    for (let r = target.minRow; r <= target.maxRow; r++) {
+      const srcCoord = `${this.colIndexToLetter(target.minCol)}${r + 1}`;
+      const cell = this.cells.get(srcCoord);
+      if (!cell || !cell.raw) continue;
+
+      const tokens = cell.raw.split(delimiter);
+      tokens.forEach((tok, idx) => {
+        const col = target.minCol + idx;
+        const dest = `${this.colIndexToLetter(col)}${r + 1}`;
+        const trimmed = tok.trim();
+        const num = Number(trimmed);
+        const computed = !isNaN(num) && trimmed !== "" ? num : trimmed;
+        this.cells.set(dest, { raw: trimmed, computed });
+      });
+    }
+    this.recalculateAll();
+  }
+
+  public flashFill(range?: GridRange): void {
+    const target = this.getTargetRange(range);
+    const targetCol = target.minCol;
+    const sourceCol = Math.max(0, targetCol - 1);
+
+    // Look at first row of selection
+    const topSrcCoord = `${this.colIndexToLetter(sourceCol)}${target.minRow + 1}`;
+    const topTgtCoord = `${this.colIndexToLetter(targetCol)}${target.minRow + 1}`;
+    const srcCell = this.cells.get(topSrcCoord);
+    const tgtCell = this.cells.get(topTgtCoord);
+
+    if (!srcCell || !tgtCell) return;
+
+    const sVal = String(srcCell.computed !== undefined ? srcCell.computed : srcCell.raw).trim();
+    const tVal = String(tgtCell.computed !== undefined ? tgtCell.computed : tgtCell.raw).trim();
+
+    let transform: (source: string) => string = (s) => s;
+
+    const delimiters = ["@", "-", "_", "/", ":", ";", ","];
+    let matchedDelim: { delim: string; partIdx: number } | null = null;
+    for (const d of delimiters) {
+      if (sVal.includes(d)) {
+        const parts = sVal.split(d);
+        const pIdx = parts.findIndex((p) => p === tVal);
+        if (pIdx >= 0) {
+          matchedDelim = { delim: d, partIdx: pIdx };
+          break;
+        }
+      }
+    }
+
+    if (tVal.toLowerCase() === sVal.toLowerCase() && tVal !== sVal) {
+      if (tVal === sVal.toUpperCase()) transform = (s) => s.toUpperCase();
+      else if (tVal === sVal.toLowerCase()) transform = (s) => s.toLowerCase();
+    } else if (sVal.split(/\s+/)[0] === tVal) {
+      transform = (s) => s.split(/\s+/)[0] || "";
+    } else if (sVal.split(/\s+/).slice(-1)[0] === tVal) {
+      transform = (s) => s.split(/\s+/).slice(-1)[0] || "";
+    } else if (matchedDelim) {
+      const { delim, partIdx } = matchedDelim;
+      transform = (s) => s.split(delim)[partIdx] || "";
+    } else if (sVal.replace(/\D/g, "") === tVal) {
+      transform = (s) => s.replace(/\D/g, "");
+    } else {
+      const idx = sVal.indexOf(tVal);
+      if (idx >= 0) {
+        const len = tVal.length;
+        transform = (s) => s.substring(idx, idx + len);
+      }
+    }
+
+    for (let r = target.minRow + 1; r <= target.maxRow; r++) {
+      const srcRowCoord = `${this.colIndexToLetter(sourceCol)}${r + 1}`;
+      const destRowCoord = `${this.colIndexToLetter(targetCol)}${r + 1}`;
+      const rowSrc = this.cells.get(srcRowCoord);
+      if (rowSrc) {
+        const text = String(rowSrc.computed !== undefined ? rowSrc.computed : rowSrc.raw);
+        const result = transform(text);
+        const num = Number(result);
+        const computed = !isNaN(num) && result !== "" ? num : result;
+        this.cells.set(destRowCoord, { raw: result, computed });
+      }
+    }
+
+    this.recalculateAll();
+  }
+
+  public removeDuplicates(range?: GridRange): number {
+    const target = this.getTargetRange(range);
+    const seen = new Set<string>();
+    let removed = 0;
+
+    for (let r = target.minRow; r <= target.maxRow; r++) {
+      const rowTokens: string[] = [];
+      for (let c = target.minCol; c <= target.maxCol; c++) {
+        const coord = `${this.colIndexToLetter(c)}${r + 1}`;
+        const cell = this.cells.get(coord);
+        rowTokens.push(cell?.raw || "");
+      }
+      const fingerprint = rowTokens.join("|||");
+      if (seen.has(fingerprint)) {
+        for (let c = target.minCol; c <= target.maxCol; c++) {
+          const coord = `${this.colIndexToLetter(c)}${r + 1}`;
+          this.cells.delete(coord);
+        }
+        removed++;
+      } else {
+        seen.add(fingerprint);
+      }
+    }
+
+    this.recalculateAll();
+    return removed;
   }
 }
 

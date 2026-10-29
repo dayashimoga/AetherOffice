@@ -27,6 +27,7 @@ import { FindReplaceDialog } from "./components/FindReplaceDialog";
 import { WordCountDialog } from "./components/WordCountDialog";
 import { SheetTabBar } from "./components/SheetTabBar";
 import { WorkbookSheetsPane } from "./components/WorkbookSheetsPane";
+import { FunctionWizardDialog } from "./components/FunctionWizardDialog";
 
 export class UnifiedShellApp {
   private tabBar!: TabBar;
@@ -53,6 +54,7 @@ export class UnifiedShellApp {
   private backstageMenu!: BackstageMenu;
   private findReplaceDialog!: FindReplaceDialog;
   private wordCountDialog!: WordCountDialog;
+  private functionWizardDialog!: FunctionWizardDialog;
 
   constructor(autoBoot = true) {
     this.init(autoBoot);
@@ -194,9 +196,19 @@ export class UnifiedShellApp {
 
     this.laserPointer = new LaserPointer("laser-pointer-dot");
 
-    // 6. Initialize Find & Replace + Word Count Dialogs
+    // 6. Initialize Find & Replace, Word Count, and Function Wizard Dialogs
     this.findReplaceDialog = new FindReplaceDialog();
     this.wordCountDialog = new WordCountDialog();
+    this.functionWizardDialog = new FunctionWizardDialog();
+    this.functionWizardDialog.setOnInsert((formulaText) => {
+      if (this.currentDocType === "Excel") {
+        calcState.commitFormula(formulaText);
+        this.calcGridCanvas?.render();
+        this.formulaBar.setActiveCell(calcState.selectedCell, formulaText);
+        const active = this.tabBar.getActiveTab();
+        if (active) this.tabBar.setDirty(active.id, true);
+      }
+    });
 
     const wordCountSpan = document.getElementById("status-word-count");
     if (wordCountSpan) {
@@ -433,6 +445,10 @@ export class UnifiedShellApp {
     return this.wordCountDialog;
   }
 
+  public getFunctionWizardDialog(): FunctionWizardDialog {
+    return this.functionWizardDialog;
+  }
+
   public toggleBackstage() {
     if (this.backstageMenu.isOpen()) {
       this.backstageMenu.hide();
@@ -458,6 +474,10 @@ export class UnifiedShellApp {
 
   public getTabBar(): TabBar {
     return this.tabBar;
+  }
+
+  public getRibbon(): Ribbon {
+    return this.ribbon;
   }
 
   public getCurrentDocType(): DocumentType {
@@ -519,6 +539,9 @@ export class UnifiedShellApp {
           },
           onInput: (val) => {
             this.calcGridCanvas?.setEditingValue(val);
+          },
+          onFxClick: () => {
+            this.functionWizardDialog.show();
           },
         });
         this.formulaBar.setActiveCell(calcState.selectedCell, calcState.formulaBarText);
@@ -749,7 +772,7 @@ export class UnifiedShellApp {
     }
   }
 
-  private handleRibbonAction(action: string, payload?: unknown) {
+  public handleRibbonAction(action: string, payload?: unknown) {
     console.log("Ribbon Action:", action, payload);
 
     if (action === "ToggleBackstage") {
@@ -840,28 +863,117 @@ export class UnifiedShellApp {
       }
     } else if (this.currentDocType === "Excel") {
       if (action === "ToggleBold") {
-        const cell = calcState.cells.get(calcState.selectedCell);
-        if (cell) cell.bold = !cell.bold;
+        calcState.toggleBold();
         this.calcGridCanvas?.render();
         this.tabBar.setDirty(active.id, true);
       } else if (action === "ToggleItalic") {
-        const cell = calcState.cells.get(calcState.selectedCell);
-        if (cell) cell.italic = !cell.italic;
+        calcState.toggleItalic();
         this.calcGridCanvas?.render();
         this.tabBar.setDirty(active.id, true);
       } else if (action === "ToggleUnderline") {
-        const cell = calcState.cells.get(calcState.selectedCell);
-        if (cell) cell.underline = !cell.underline;
+        calcState.toggleUnderline();
         this.calcGridCanvas?.render();
         this.tabBar.setDirty(active.id, true);
       } else if (action === "SetFontColor") {
-        const cell = calcState.cells.get(calcState.selectedCell);
-        if (cell) cell.color = String(payload || "#15803d");
+        calcState.setFontColor(String(payload || "#15803d"));
         this.calcGridCanvas?.render();
         this.tabBar.setDirty(active.id, true);
       } else if (action === "SetFillColor") {
-        const cell = calcState.cells.get(calcState.selectedCell);
-        if (cell) cell.bgColor = String(payload || "#dcfce7");
+        calcState.setFillColor(String(payload || "#dcfce7"));
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "SetBorders") {
+        calcState.setBorders("all");
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "AlignLeft") {
+        calcState.setAlignment("left");
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "AlignCenter") {
+        calcState.setAlignment("center");
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "AlignRight") {
+        calcState.setAlignment("right");
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "AlignTop") {
+        calcState.setVerticalAlignment("top");
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "AlignMiddle") {
+        calcState.setVerticalAlignment("middle");
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "AlignBottom") {
+        calcState.setVerticalAlignment("bottom");
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "ToggleWrapText") {
+        calcState.toggleWrapText();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "MergeAndCenter") {
+        calcState.mergeAndCenter();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "SetNumberFormat") {
+        calcState.setNumberFormat(String(payload || "General"));
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "IncreaseDecimal") {
+        calcState.increaseDecimal();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "DecreaseDecimal") {
+        calcState.decreaseDecimal();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "AutoSum") {
+        const formula = calcState.insertAutoSum("SUM");
+        this.formulaBar.setActiveCell(calcState.selectedCell, formula);
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "InsertFunction") {
+        this.functionWizardDialog.show();
+      } else if (action === "FormulaCategory") {
+        const catMap: Record<string, string> = {
+          financial: "Financial",
+          logical: "Logical",
+          text: "Text",
+          datetime: "Date & Time",
+          lookup: "Lookup & Reference",
+          math: "Math & Trig",
+        };
+        const cat = catMap[String(payload).toLowerCase()] || String(payload);
+        this.functionWizardDialog.show(cat);
+      } else if (action === "SortAsc") {
+        calcState.sortRange(true);
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "SortDesc") {
+        calcState.sortRange(false);
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "ToggleFilter") {
+        calcState.toggleFilter();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "ClearFilter") {
+        calcState.clearFilter();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "TextToColumns") {
+        calcState.textToColumns(String(payload || ","));
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "FlashFill") {
+        calcState.flashFill();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "RemoveDuplicates") {
+        calcState.removeDuplicates();
         this.calcGridCanvas?.render();
         this.tabBar.setDirty(active.id, true);
       } else if (action === "InsertRow") {

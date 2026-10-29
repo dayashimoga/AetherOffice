@@ -6,6 +6,7 @@ export class FormulaBar {
   private onCancelCallback?: () => void;
   private onNameBoxJumpCallback?: (coordOrRange: string) => void;
   private onInputCallback?: (val: string) => void;
+  private onFxClickCallback?: () => void;
   private activeCellText = "";
 
   constructor(containerId: string) {
@@ -20,11 +21,13 @@ export class FormulaBar {
     onCancel?: () => void;
     onNameBoxJump?: (coordOrRange: string) => void;
     onInput?: (val: string) => void;
+    onFxClick?: () => void;
   }) {
     this.onCommitCallback = callbacks.onCommit;
     this.onCancelCallback = callbacks.onCancel;
     this.onNameBoxJumpCallback = callbacks.onNameBoxJump;
     this.onInputCallback = callbacks.onInput;
+    this.onFxClickCallback = callbacks.onFxClick;
   }
 
   public setActiveCell(a1Coord: string, formulaOrValue: string) {
@@ -94,6 +97,9 @@ export class FormulaBar {
     fxLabel.style.fontWeight = "bold";
     fxLabel.style.fontStyle = "italic";
     fxLabel.title = "Insert Function";
+    fxLabel.onclick = () => {
+      if (this.onFxClickCallback) this.onFxClickCallback();
+    };
 
     btnBox.appendChild(cancelBtn);
     btnBox.appendChild(commitBtn);

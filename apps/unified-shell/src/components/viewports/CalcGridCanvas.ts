@@ -1,4 +1,4 @@
-import { CalcState, calcState, RangeStats } from "../../state/calcState";
+import { CalcState, calcState, RangeStats, formatCellValue } from "../../state/calcState";
 
 export class CalcGridCanvas {
   private container: HTMLElement;
@@ -777,8 +777,14 @@ export class CalcGridCanvas {
     }
 
     // 2. Grid lines and Cells
-    ctx.font = "12px Calibri, sans-serif";
+    const activeSheet = this.state.getActiveSheet();
+    const isFilterOn = !!activeSheet.filterActive;
+    const filterRange = activeSheet.filterRange;
+
     for (let r = 0; r < rowsInView; r++) {
+      if (activeSheet.hiddenRows?.has(r)) {
+        continue;
+      }
       const y = this.headerHeight + this.state.getRowOffset(r) - this.scrollY;
       const rowHeight = this.state.getRowHeight(r);
       const rowNum = r + 1;
@@ -789,13 +795,33 @@ export class CalcGridCanvas {
         const colLetter = this.state.colIndexToLetter(c);
         const coord = `${colLetter}${rowNum}`;
 
-        // Cell border
+        const cellData = this.state.cells.get(coord);
+
+        // Custom Cell Background Fill
+        if (cellData?.bgColor) {
+          ctx.fillStyle = cellData.bgColor;
+          ctx.fillRect(x, y, colWidth, rowHeight);
+        }
+
+        // Cell border (default or styled borders)
         ctx.strokeStyle = "#e1dfdd";
         ctx.lineWidth = 1;
         ctx.strokeRect(x, y, colWidth, rowHeight);
 
+        if (cellData?.borders === "all" || cellData?.borders === "box") {
+          ctx.strokeStyle = "#1b1b1b";
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(x, y, colWidth, rowHeight);
+        } else if (cellData?.borders === "bottom") {
+          ctx.strokeStyle = "#1b1b1b";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x, y + rowHeight);
+          ctx.lineTo(x + colWidth, y + rowHeight);
+          ctx.stroke();
+        }
+
         // Cell content
-        const cellData = this.state.cells.get(coord);
         if (cellData && (!this.isEditing || coord !== this.state.selectedCell)) {
           ctx.save();
           ctx.beginPath();
@@ -803,19 +829,79 @@ export class CalcGridCanvas {
           ctx.clip();
 
           ctx.fillStyle = cellData.color || "#1b1b1b";
-          if (cellData.bold) ctx.font = "bold 12px Calibri, sans-serif";
-          else ctx.font = "12px Calibri, sans-serif";
+          const fontStyle = cellData.italic ? "italic " : "";
+          const fontWeight = cellData.bold ? "bold " : "";
+          ctx.font = `${fontStyle}${fontWeight}12px Calibri, sans-serif`;
 
-          const text = String(cellData.computed !== undefined ? cellData.computed : cellData.raw);
-          const isNum = typeof cellData.computed === "number" || (!isNaN(Number(text)) && text.trim() !== "");
+          const text = formatCellValue(cellData);
+          const isNum =
+            cellData.format === "Currency" ||
+            cellData.format === "Percentage" ||
+            cellData.format === "Comma" ||
+            cellData.format === "Number" ||
+            typeof cellData.computed === "number" ||
+            (!isNaN(Number(text)) && text.trim() !== "");
 
-          if (isNum) {
+          const align = cellData.align || (isNum ? "right" : "left");
+          let drawX = x + 6;
+          if (align === "right") {
             ctx.textAlign = "right";
-            ctx.fillText(text, x + colWidth - 6, y + rowHeight / 2 + 4);
+            drawX = x + colWidth - 6;
+          } else if (align === "center") {
+            ctx.textAlign = "center";
+            drawX = x + colWidth / 2;
           } else {
             ctx.textAlign = "left";
-            ctx.fillText(text, x + 6, y + rowHeight / 2 + 4);
+            drawX = x + 6;
           }
+
+          let drawY = y + rowHeight / 2 + 4;
+          if (cellData.valign === "top") drawY = y + 14;
+          else if (cellData.valign === "bottom") drawY = y + rowHeight - 4;
+
+          ctx.fillText(text, drawX, drawY);
+
+          // Underline rendering
+          if (cellData.underline) {
+            const metrics = ctx.measureText(text);
+            let lineStartX = drawX;
+            if (align === "right") lineStartX = drawX - metrics.width;
+            else if (align === "center") lineStartX = drawX - metrics.width / 2;
+
+            ctx.strokeStyle = cellData.color || "#1b1b1b";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(lineStartX, drawY + 2);
+            ctx.lineTo(lineStartX + metrics.width, drawY + 2);
+            ctx.stroke();
+          }
+
+          ctx.restore();
+        }
+
+        // Filter dropdown arrow indicator
+        if (
+          isFilterOn &&
+          filterRange &&
+          r === filterRange.minRow &&
+          c >= filterRange.minCol &&
+          c <= filterRange.maxCol
+        ) {
+          ctx.save();
+          const arrowX = x + colWidth - 14;
+          const arrowY = y + rowHeight / 2 - 3;
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(arrowX - 2, arrowY - 2, 12, 12);
+          ctx.strokeStyle = "#a19f9d";
+          ctx.strokeRect(arrowX - 2, arrowY - 2, 12, 12);
+
+          ctx.fillStyle = "#323130";
+          ctx.beginPath();
+          ctx.moveTo(arrowX, arrowY + 1);
+          ctx.lineTo(arrowX + 8, arrowY + 1);
+          ctx.lineTo(arrowX + 4, arrowY + 6);
+          ctx.closePath();
+          ctx.fill();
           ctx.restore();
         }
       }
