@@ -300,6 +300,11 @@ pub fn serialize_slide(slide: &Slide) -> Result<Vec<u8>, EngineError> {
         serialize_color_map_override(&mut writer, ovr)?;
     }
 
+    // transition
+    if let Some(ref trans) = slide.transition {
+        serialize_slide_transition(&mut writer, trans)?;
+    }
+
     // timing
     if let Some(ref timing) = slide.timing {
         serialize_slide_timing(&mut writer, timing)?;
@@ -1862,6 +1867,77 @@ fn serialize_common_behavior<W: std::io::Write>(
     writer
         .write_event(Event::End(BytesEnd::new("p:cBhvr")))
         .map_err(EngineError::Io)?;
+
+    Ok(())
+}
+
+fn serialize_slide_transition<W: std::io::Write>(
+    writer: &mut Writer<W>,
+    trans: &SlideTransition,
+) -> Result<(), EngineError> {
+    let mut elem = BytesStart::new("p:transition");
+    if let Some(ref spd) = trans.speed {
+        elem.push_attribute(("spd", spd.as_str()));
+    }
+    if !trans.advance_on_click {
+        elem.push_attribute(("advClick", "0"));
+    }
+    let adv_tm_str;
+    if let Some(adv_tm) = trans.advance_after_ms {
+        adv_tm_str = adv_tm.to_string();
+        elem.push_attribute(("advTm", adv_tm_str.as_str()));
+    }
+    let dur_str;
+    if let Some(dur) = trans.duration_ms {
+        dur_str = dur.to_string();
+        elem.push_attribute(("dur", dur_str.as_str()));
+    }
+
+    if let Some(ref morph) = trans.morph {
+        writer
+            .write_event(Event::Start(elem))
+            .map_err(EngineError::Io)?;
+
+        writer
+            .write_event(Event::Start(BytesStart::new("p:extLst")))
+            .map_err(EngineError::Io)?;
+
+        let mut ext = BytesStart::new("p:ext");
+        ext.push_attribute(("uri", "{EFA19EB6-3868-41C2-BE5F-D4F860A86367}"));
+        writer
+            .write_event(Event::Start(ext))
+            .map_err(EngineError::Io)?;
+
+        let mut m = BytesStart::new("p159:morph");
+        m.push_attribute((
+            "xmlns:p159",
+            "http://schemas.microsoft.com/office/powerpoint/2015/09/main",
+        ));
+        let opt_str = match morph.option {
+            MorphOption::ByWord => "byWord",
+            MorphOption::ByChar => "byChar",
+            MorphOption::ByObject => "byObject",
+        };
+        m.push_attribute(("option", opt_str));
+        writer
+            .write_event(Event::Empty(m))
+            .map_err(EngineError::Io)?;
+
+        writer
+            .write_event(Event::End(BytesEnd::new("p:ext")))
+            .map_err(EngineError::Io)?;
+        writer
+            .write_event(Event::End(BytesEnd::new("p:extLst")))
+            .map_err(EngineError::Io)?;
+
+        writer
+            .write_event(Event::End(BytesEnd::new("p:transition")))
+            .map_err(EngineError::Io)?;
+    } else {
+        writer
+            .write_event(Event::Empty(elem))
+            .map_err(EngineError::Io)?;
+    }
 
     Ok(())
 }

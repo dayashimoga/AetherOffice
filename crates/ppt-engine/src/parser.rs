@@ -324,11 +324,19 @@ pub fn parse_slide(xml: &[u8]) -> Result<Slide, EngineError> {
                 "clrMapOvr" => {
                     slide.color_map_override = Some(parse_color_map_override(&mut reader)?);
                 }
+                "transition" => {
+                    slide.transition = Some(parse_slide_transition(&mut reader, e, false)?);
+                }
                 "timing" => {
                     slide.timing = Some(parse_slide_timing(&mut reader)?);
                 }
                 _ => {}
             },
+            Event::Empty(ref e) => {
+                if local_name(e.name().into_inner()) == "transition" {
+                    slide.transition = Some(parse_slide_transition(&mut reader, e, true)?);
+                }
+            }
             Event::Eof => break,
             _ => {}
         }
@@ -2077,4 +2085,48 @@ fn parse_set_anim(reader: &mut Reader<&[u8]>) -> Result<SetAnimation, EngineErro
         attribute_name,
         value,
     })
+}
+
+fn parse_slide_transition(
+    reader: &mut Reader<&[u8]>,
+    start: &BytesStart<'_>,
+    is_empty: bool,
+) -> Result<SlideTransition, EngineError> {
+    let mut transition = SlideTransition {
+        speed: get_attr_val(start, "spd"),
+        advance_on_click: get_attr_val(start, "advClick")
+            .map(|v| v == "1" || v == "true")
+            .unwrap_or(true),
+        advance_after_ms: get_attr_val(start, "advTm").and_then(|v| v.parse::<u64>().ok()),
+        duration_ms: get_attr_val(start, "dur").and_then(|v| v.parse::<u64>().ok()),
+        ..Default::default()
+    };
+
+    if is_empty {
+        return Ok(transition);
+    }
+
+    let mut buf = Vec::new();
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Start(ref e) | Event::Empty(ref e) => {
+                let tag = local_name(e.name().into_inner());
+                if tag == "morph" {
+                    let opt_str = get_attr_val(e, "option").unwrap_or_default();
+                    let option = match opt_str.as_str() {
+                        "byWord" => MorphOption::ByWord,
+                        "byChar" => MorphOption::ByChar,
+                        _ => MorphOption::ByObject,
+                    };
+                    transition.morph = Some(MorphTransition { option });
+                }
+            }
+            Event::End(ref e) if local_name(e.name().into_inner()) == "transition" => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(transition)
 }

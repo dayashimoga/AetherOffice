@@ -140,7 +140,42 @@ pub struct Slide {
     pub common_slide_data: CommonSlideData,
     pub color_map_override: Option<ColorMapOverride>,
     pub timing: Option<crate::animation::SlideTiming>,
+    pub transition: Option<SlideTransition>,
     pub raw_elements: Vec<RawXmlNode>,
+}
+
+/// Slide transition properties: `<p:transition>`.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct SlideTransition {
+    pub speed: Option<String>, // "slow", "med", "fast"
+    pub advance_on_click: bool,
+    pub advance_after_ms: Option<u64>,
+    pub duration_ms: Option<u64>,
+    pub morph: Option<MorphTransition>,
+    pub raw_elements: Vec<RawXmlNode>,
+}
+
+/// Morph transition settings: `<p159:morph>`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MorphTransition {
+    pub option: MorphOption,
+}
+
+impl Default for MorphTransition {
+    fn default() -> Self {
+        Self {
+            option: MorphOption::ByObject,
+        }
+    }
+}
+
+/// Morph transition correspondence level: `option="byObject" | "byWord" | "byChar"`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum MorphOption {
+    #[default]
+    ByObject,
+    ByWord,
+    ByChar,
 }
 
 /// Notes slide part root: `<p:notes>`.

@@ -1,0 +1,357 @@
+{
+  "subphase": "4.2.2",
+  "title": "REA Morph Transition Vertex Solver & SmartArt Layout Engine",
+  "governing_standard": "ECMA-376 Part 1 §19.5, §21.4 & MS-PPTX p159:morph",
+  "vector_count": 26,
+  "vectors": [
+    {
+      "id": "VEC-4.2.2-01",
+      "description": "Explicit '!!' name prefix guarantees correspondence match regardless of geometry or position",
+      "input": {
+        "shape_a": { "id": 1, "name": "!!HeaderBox", "geom": "rect", "x": 100, "y": 100 },
+        "shape_b": { "id": 2, "name": "!!HeaderBox", "geom": "ellipse", "x": 800, "y": 500 }
+      },
+      "expected": {
+        "matched": true,
+        "match_type": "explicit_bang_bang",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "VEC-4.2.2-02",
+      "description": "Geometric preset similarity scoring: identical preset gives 1.0, rectangular variant gives 0.5, unrelated gives 0.0",
+      "input": {
+        "case1": ["rect", "rect"],
+        "case2": ["rect", "roundRect"],
+        "case3": ["rect", "star5"]
+      },
+      "expected": {
+        "case1_score": 1.0,
+        "case2_score": 0.5,
+        "case3_score": 0.0
+      }
+    },
+    {
+      "id": "VEC-4.2.2-03",
+      "description": "Normalized spatial center distance similarity metric",
+      "input": {
+        "canvas": { "width": 1000, "height": 1000 },
+        "case_coincident": { "c1": [500, 500], "c2": [500, 500] },
+        "case_halfway": { "c1": [0, 0], "c2": [500, 500] }
+      },
+      "expected": {
+        "coincident_score": 1.0,
+        "halfway_score_approx": 0.50
+      }
+    },
+    {
+      "id": "VEC-4.2.2-04",
+      "description": "Bounding box area ratio similarity metric",
+      "input": {
+        "case_equal": { "area1": 50000, "area2": 50000 },
+        "case_half": { "area1": 25000, "area2": 50000 },
+        "case_tiny": { "area1": 5000, "area2": 50000 }
+      },
+      "expected": {
+        "equal_score": 1.0,
+        "half_score": 0.5,
+        "tiny_score": 0.1
+      }
+    },
+    {
+      "id": "VEC-4.2.2-05",
+      "description": "Text content bigram Jaccard similarity scoring",
+      "input": {
+        "identical": ["Quarterly Sales", "Quarterly Sales"],
+        "partial": ["Quarterly Sales", "Annual Sales"],
+        "both_empty": ["", ""],
+        "one_empty": ["Quarterly Sales", ""]
+      },
+      "expected": {
+        "identical_score": 1.0,
+        "partial_score_gt": 0.3,
+        "both_empty_score": 1.0,
+        "one_empty_score": 0.0
+      }
+    },
+    {
+      "id": "VEC-4.2.2-06",
+      "description": "Weighted overall correspondence scoring and match threshold >= 0.45",
+      "input": {
+        "shape_a": { "geom": "rect", "center": [100, 100], "area": 10000, "text": "Overview" },
+        "shape_b": { "geom": "rect", "center": [120, 110], "area": 9500, "text": "Overview" }
+      },
+      "expected": {
+        "combined_score_gt": 0.85,
+        "is_matched": true
+      }
+    },
+    {
+      "id": "VEC-4.2.2-07",
+      "description": "Unmatched shape in source slide fades out (opacity 1.0 -> 0.0)",
+      "input": {
+        "shape_source_only": { "id": 10, "name": "OldNote" }
+      },
+      "expected": {
+        "opacity_at_0": 1.0,
+        "opacity_at_half": 0.5,
+        "opacity_at_1": 0.0
+      }
+    },
+    {
+      "id": "VEC-4.2.2-08",
+      "description": "Unmatched shape in destination slide fades in (opacity 0.0 -> 1.0)",
+      "input": {
+        "shape_dest_only": { "id": 20, "name": "NewNote" }
+      },
+      "expected": {
+        "opacity_at_0": 0.0,
+        "opacity_at_half": 0.5,
+        "opacity_at_1": 1.0
+      }
+    },
+    {
+      "id": "VEC-4.2.2-09",
+      "description": "LineTo command conversion to cubic Bezier control points",
+      "input": {
+        "p0": [0.0, 0.0],
+        "p1": [300.0, 600.0]
+      },
+      "expected": {
+        "c1": [100.0, 200.0],
+        "c2": [200.0, 400.0],
+        "p3": [300.0, 600.0]
+      }
+    },
+    {
+      "id": "VEC-4.2.2-10",
+      "description": "QuadBezTo command conversion to cubic Bezier control points",
+      "input": {
+        "p0": [0.0, 0.0],
+        "ctrl": [150.0, 300.0],
+        "p1": [300.0, 0.0]
+      },
+      "expected": {
+        "c1": [100.0, 200.0],
+        "c2": [200.0, 200.0],
+        "p3": [300.0, 0.0]
+      }
+    },
+    {
+      "id": "VEC-4.2.2-11",
+      "description": "Equal-subdivision path re-parameterization to target segment count N",
+      "input": {
+        "triangle_segments": 3,
+        "target_segments": 8
+      },
+      "expected": {
+        "resampled_segment_count": 8,
+        "closed": true
+      }
+    },
+    {
+      "id": "VEC-4.2.2-12",
+      "description": "Continuous Bezier control point time interpolation at t=0.5",
+      "input": {
+        "seg_a": { "p0": [0, 0], "c1": [10, 20], "c2": [20, 20], "p3": [30, 0] },
+        "seg_b": { "p0": [100, 100], "c1": [110, 120], "c2": [120, 120], "p3": [130, 100] },
+        "t": 0.5
+      },
+      "expected": {
+        "interp_p0": [50.0, 50.0],
+        "interp_c1": [60.0, 70.0],
+        "interp_c2": [70.0, 70.0],
+        "interp_p3": [80.0, 50.0]
+      }
+    },
+    {
+      "id": "VEC-4.2.2-13",
+      "description": "Text morphing byObject: rigid transform matching shape bounding box",
+      "input": {
+        "option": "byObject",
+        "box_a": { "x": 100, "y": 100, "w": 200, "h": 50 },
+        "box_b": { "x": 300, "y": 200, "w": 400, "h": 100 },
+        "t": 0.5
+      },
+      "expected": {
+        "interp_box": { "x": 200.0, "y": 150.0, "w": 300.0, "h": 75.0 }
+      }
+    },
+    {
+      "id": "VEC-4.2.2-14",
+      "description": "Text morphing byWord: token alignment and position interpolation",
+      "input": {
+        "option": "byWord",
+        "text_a": "Revenue Growth 2025",
+        "text_b": "Revenue Target 2026",
+        "t": 0.5
+      },
+      "expected": {
+        "matched_word_count": 1,
+        "fading_out_words": ["Growth", "2025"],
+        "fading_in_words": ["Target", "2026"]
+      }
+    },
+    {
+      "id": "VEC-4.2.2-15",
+      "description": "Text morphing byChar: Myers LCS character alignment and glyph positioning",
+      "input": {
+        "option": "byChar",
+        "text_a": "OPEN",
+        "text_b": "OPERATE"
+      },
+      "expected": {
+        "common_prefix_len": 3,
+        "matched_chars": ["O", "P", "E"],
+        "unmatched_a": ["N"],
+        "unmatched_b": ["R", "A", "T", "E"]
+      }
+    },
+    {
+      "id": "VEC-4.2.2-16",
+      "description": "SmartArt linear layout (lin): horizontal node spacing distribution",
+      "input": {
+        "bounds": { "x": 0, "y": 0, "w": 1000, "h": 200 },
+        "count": 4,
+        "gap": 40
+      },
+      "expected": {
+        "item_width": 220.0,
+        "x_coords": [0.0, 260.0, 520.0, 780.0]
+      }
+    },
+    {
+      "id": "VEC-4.2.2-17",
+      "description": "SmartArt linear layout (lin): vertical node spacing distribution",
+      "input": {
+        "bounds": { "x": 0, "y": 0, "w": 300, "h": 800 },
+        "count": 3,
+        "gap": 40
+      },
+      "expected": {
+        "item_height": 240.0,
+        "y_coords": [0.0, 280.0, 560.0]
+      }
+    },
+    {
+      "id": "VEC-4.2.2-18",
+      "description": "SmartArt pyramid layout (pyra): vertical trapezoidal tier slicing",
+      "input": {
+        "bounds": { "x": 0, "y": 0, "w": 600, "h": 600 },
+        "tier_count": 3
+      },
+      "expected": {
+        "tier_height": 200.0,
+        "top_widths": [0.0, 200.0, 400.0],
+        "bottom_widths": [200.0, 400.0, 600.0]
+      }
+    },
+    {
+      "id": "VEC-4.2.2-19",
+      "description": "SmartArt cycle layout (cycle): radial ellipse node positioning",
+      "input": {
+        "bounds": { "x": 0, "y": 0, "w": 800, "h": 800 },
+        "node_count": 4,
+        "node_size": [100, 100]
+      },
+      "expected": {
+        "center": [400.0, 400.0],
+        "radius": 350.0,
+        "top_node_pos": [350.0, 50.0],
+        "right_node_pos": [700.0, 350.0]
+      }
+    },
+    {
+      "id": "VEC-4.2.2-20",
+      "description": "SmartArt hierarchy layout (hierChild): tree depth and subtree centering",
+      "input": {
+        "root": "CEO",
+        "children": ["CTO", "CFO", "COO"],
+        "bounds": { "x": 0, "y": 0, "w": 900, "h": 600 }
+      },
+      "expected": {
+        "root_center_x": 450.0,
+        "root_y": 0.0,
+        "child_level_y": 300.0,
+        "child_count": 3
+      }
+    },
+    {
+      "id": "VEC-4.2.2-21",
+      "description": "SmartArt snake layout (snake): zig-zag row-by-row alternating order",
+      "input": {
+        "columns": 3,
+        "items": 6
+      },
+      "expected": {
+        "row_col_map": [
+          [0, 0], [0, 1], [0, 2],
+          [1, 2], [1, 1], [1, 0]
+        ]
+      }
+    },
+    {
+      "id": "VEC-4.2.2-22",
+      "description": "SmartArt data model point (dgm:pt) and connection (dgm:cxn) graph extraction",
+      "input": {
+        "xml_pts": 4,
+        "xml_cxns": 3
+      },
+      "expected": {
+        "graph_node_count": 4,
+        "graph_edge_count": 3
+      }
+    },
+    {
+      "id": "VEC-4.2.2-23",
+      "description": "SmartArt fallback shape cache sync generates DrawingML p:sp shapes into slide shape tree",
+      "input": {
+        "layout_nodes": 3,
+        "shape_type": "roundRect"
+      },
+      "expected": {
+        "generated_shapes": 3,
+        "has_transforms": true,
+        "has_preset_geometries": true
+      }
+    },
+    {
+      "id": "VEC-4.2.2-24",
+      "description": "120Hz frame evaluation SLA (< 8.333 ms) across 120 interpolated morph frames",
+      "input": {
+        "frame_budget_ms": 8.333333,
+        "fps": 120,
+        "test_frames": 120
+      },
+      "expected": {
+        "max_frame_eval_time_ms_lt": 8.333333,
+        "mean_eval_time_ms_lt": 1.0
+      }
+    },
+    {
+      "id": "VEC-4.2.2-25",
+      "description": "Lossless XML serialization and deserialization of p:transition with p159:morph extension",
+      "input": {
+        "morph_option": "byChar",
+        "duration_ms": 1200
+      },
+      "expected": {
+        "xml_contains_morph": true,
+        "xml_contains_option_byChar": true,
+        "roundtrip_equal": true
+      }
+    },
+    {
+      "id": "VEC-4.2.2-26",
+      "description": "Vectors manifest validation: all 26 vectors present, sequential, and schema compliant",
+      "input": {
+        "subphase": "4.2.2",
+        "min_vectors": 25
+      },
+      "expected": {
+        "valid": true,
+        "total_vectors": 26
+      }
+    }
+  ]
+}

@@ -11,6 +11,7 @@ pub mod animation;
 pub mod cascade;
 pub mod drawingml;
 pub mod model;
+pub mod morph;
 pub mod package;
 pub mod parser;
 pub mod serializer;
@@ -29,6 +30,12 @@ pub use drawingml::{
     PresetDefinition,
 };
 pub use model::*;
+pub use morph::{
+    CubicBezierSegment, DiagramConnection, DiagramDataModel, DiagramPoint, DiagramPointType,
+    LinearDirection, MorphEvaluator, MorphMatcher, MorphPair, MorphedShapeState, MorphedSlideState,
+    MorphedTextElement, MorphedTransform, PathMorpher, Rect, SmartArtLayoutEngine,
+    SmartArtNodeLayout, TextMorpher,
+};
 pub use package::PresentationPackage;
 pub use parser::{
     parse_notes_slide, parse_presentation, parse_slide, parse_slide_layout, parse_slide_master,
