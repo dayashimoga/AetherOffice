@@ -91,3 +91,4 @@ export class SlideSorter {
     this.container.appendChild(filmstrip);
   }
 }
+

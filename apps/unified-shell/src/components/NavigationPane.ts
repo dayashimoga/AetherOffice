@@ -56,3 +56,4 @@ export class NavigationPane {
     this.container.appendChild(list);
   }
 }
+

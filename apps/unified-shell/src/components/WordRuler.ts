@@ -53,3 +53,4 @@ export class WordRuler {
     this.container.appendChild(rulerBox);
   }
 }
+

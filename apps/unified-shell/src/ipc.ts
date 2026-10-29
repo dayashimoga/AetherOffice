@@ -65,3 +65,4 @@ export const IPC = {
   exportSvg: (sessionId: string): Promise<string> =>
     invokeTauri("export_svg", { session_id: sessionId }),
 };
+

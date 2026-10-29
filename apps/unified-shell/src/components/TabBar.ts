@@ -149,3 +149,4 @@ export class TabBar {
     this.container.appendChild(addBtn);
   }
 }
+

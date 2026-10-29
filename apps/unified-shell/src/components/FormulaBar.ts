@@ -97,3 +97,4 @@ export class FormulaBar {
     this.container.appendChild(bar);
   }
 }
+

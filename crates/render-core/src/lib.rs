@@ -9,6 +9,7 @@
 //! - Headless SVG exporter, software pixel rasterizer, and PDF vector fallback
 //! - 120Hz frame pacing compositor and latency profiler
 
+pub mod adaptive;
 pub mod compiler;
 pub mod compositor;
 pub mod interaction;
@@ -17,6 +18,12 @@ pub mod rasterizer;
 pub mod shell;
 pub mod spatial;
 pub mod text;
+
+pub use adaptive::{
+    BottomSheetState, BottomSheetStateMachine, CardField, CardFieldType, FormFactor, InkPoint,
+    InkStroke, LaserPointerEngine, RowCardInspectorEngine, SafeAreaInsets, TouchRibbonState,
+    ViewportMetrics, WordReflowReaderEngine,
+};
 
 pub use compiler::{
     excel::{ExcelDisplayCell, ExcelDisplayCompiler, ExcelSelectionRange},

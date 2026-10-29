@@ -1,0 +1,343 @@
+{
+  "subphase": "5.2.2",
+  "title": "Adaptive Tablet & Mobile UI (Touch Drawers, Stylus Ink, Reflow Mode)",
+  "governing_standard": "ECMA-376 & W3C Pointer Events Level 3 / CSS Safe Area Insets",
+  "vector_count": 26,
+  "vectors": [
+    {
+      "id": "VEC-5.2.2-01",
+      "description": "Breakpoint classification: Desktop form factor for viewport width >= 1024px",
+      "input": {
+        "width": 1440.0,
+        "height": 900.0,
+        "pointer_coarse": false
+      },
+      "expected": {
+        "form_factor": "Desktop"
+      }
+    },
+    {
+      "id": "VEC-5.2.2-02",
+      "description": "Breakpoint classification: Tablet form factor for viewport width 768px - 1023px",
+      "input": {
+        "width": 820.0,
+        "height": 1180.0,
+        "pointer_coarse": true
+      },
+      "expected": {
+        "form_factor": "Tablet"
+      }
+    },
+    {
+      "id": "VEC-5.2.2-03",
+      "description": "Breakpoint classification: Mobile form factor for viewport width < 768px",
+      "input": {
+        "width": 390.0,
+        "height": 844.0,
+        "pointer_coarse": true
+      },
+      "expected": {
+        "form_factor": "Mobile"
+      }
+    },
+    {
+      "id": "VEC-5.2.2-04",
+      "description": "Pointer modality classification: Touch coarse vs Mouse fine",
+      "input": {
+        "is_touch_device": true,
+        "has_hover": false
+      },
+      "expected": {
+        "min_touch_target_px": 44.0
+      }
+    },
+    {
+      "id": "VEC-5.2.2-05",
+      "description": "Safe area insets subtraction: available canvas width and height",
+      "input": {
+        "screen_w": 390.0,
+        "screen_h": 844.0,
+        "inset_top": 47.0,
+        "inset_bottom": 34.0,
+        "inset_left": 0.0,
+        "inset_right": 0.0,
+        "chrome_h": 50.0
+      },
+      "expected": {
+        "usable_w": 390.0,
+        "usable_h": 713.0
+      }
+    },
+    {
+      "id": "VEC-5.2.2-06",
+      "description": "Virtual keyboard height compensation: usable viewport height calculation",
+      "input": {
+        "usable_h": 713.0,
+        "keyboard_h": 300.0
+      },
+      "expected": {
+        "active_h": 413.0
+      }
+    },
+    {
+      "id": "VEC-5.2.2-07",
+      "description": "Active caret auto-scroll clearance over virtual keyboard",
+      "input": {
+        "caret_y": 500.0,
+        "viewport_top": 0.0,
+        "keyboard_top": 413.0,
+        "min_clearance": 24.0
+      },
+      "expected": {
+        "needs_scroll": true,
+        "scroll_delta_y": 111.0
+      }
+    },
+    {
+      "id": "VEC-5.2.2-08",
+      "description": "Stylus ink: pressure to stroke width scaling w(p) = w0 * (1 + alpha * (p - 0.5))",
+      "input": {
+        "base_width": 2.5,
+        "alpha": 0.8,
+        "pressure_low": 0.25,
+        "pressure_mid": 0.5,
+        "pressure_high": 1.0
+      },
+      "expected": {
+        "width_low": 2.0,
+        "width_mid": 2.5,
+        "width_high": 3.5
+      }
+    },
+    {
+      "id": "VEC-5.2.2-09",
+      "description": "Stylus ink: stroke recording and bounding box accumulation",
+      "input": {
+        "points": [
+          [100.0, 150.0, 0.5],
+          [120.0, 180.0, 0.6],
+          [140.0, 160.0, 0.7]
+        ]
+      },
+      "expected": {
+        "point_count": 3,
+        "bbox": [100.0, 150.0, 40.0, 30.0]
+      }
+    },
+    {
+      "id": "VEC-5.2.2-10",
+      "description": "Stylus ink: Catmull-Rom spline cubic Bezier control point derivation",
+      "input": {
+        "p0": [0.0, 0.0],
+        "p1": [10.0, 20.0],
+        "p2": [20.0, 25.0],
+        "p3": [30.0, 10.0],
+        "tension": 0.5
+      },
+      "expected": {
+        "cp1_approx": [16.666666666666668, 28.333333333333332],
+        "cp2_approx": [13.333333333333334, 26.666666666666668]
+      }
+    },
+    {
+      "id": "VEC-5.2.2-11",
+      "description": "Stylus ink: stroke path decimation for micro-jitter filtering",
+      "input": {
+        "points": [
+          [10.0, 10.0],
+          [10.2, 10.1],
+          [20.0, 20.0]
+        ],
+        "epsilon": 0.5
+      },
+      "expected": {
+        "filtered_count": 2
+      }
+    },
+    {
+      "id": "VEC-5.2.2-12",
+      "description": "DrawingML ink trace serialization to XML element",
+      "input": {
+        "color_hex": "#002060",
+        "points": [[10, 20], [30, 40]]
+      },
+      "expected": {
+        "xml_contains_trace": true,
+        "xml_contains_points": true
+      }
+    },
+    {
+      "id": "VEC-5.2.2-13",
+      "description": "Tablet compact touch ribbon: collapsed and expanded states",
+      "input": {
+        "initially_collapsed": true,
+        "toggle_action": true
+      },
+      "expected": {
+        "is_expanded": true,
+        "touch_height_px": 56.0
+      }
+    },
+    {
+      "id": "VEC-5.2.2-14",
+      "description": "Mobile bottom sheet state machine transitions (Collapsed, Half, Full)",
+      "input": {
+        "initial_state": "Collapsed",
+        "drag_delta_y": -150.0
+      },
+      "expected": {
+        "next_state": "HalfExpanded"
+      }
+    },
+    {
+      "id": "VEC-5.2.2-15",
+      "description": "Mobile bottom sheet snap-to-nearest threshold logic",
+      "input": {
+        "sheet_y": 420.0,
+        "snap_targets": [100.0, 400.0, 700.0]
+      },
+      "expected": {
+        "snapped_target": 400.0
+      }
+    },
+    {
+      "id": "VEC-5.2.2-16",
+      "description": "Word Mobile Reflow Reader: single-column fluid layout calculation",
+      "input": {
+        "usable_width_px": 370.0,
+        "original_page_width_dxa": 12240,
+        "original_cols": 2
+      },
+      "expected": {
+        "reflow_cols": 1,
+        "reflow_width_px": 370.0
+      }
+    },
+    {
+      "id": "VEC-5.2.2-17",
+      "description": "Word Mobile Reflow Reader: font scale multiplier application",
+      "input": {
+        "base_font_pt": 11.0,
+        "scale_factor": 1.5
+      },
+      "expected": {
+        "scaled_font_pt": 16.5
+      }
+    },
+    {
+      "id": "VEC-5.2.2-18",
+      "description": "Word Mobile Reflow Reader: wide table to card layout conversion",
+      "input": {
+        "table_cols": 5,
+        "usable_width_px": 360.0,
+        "table_width_px": 600.0
+      },
+      "expected": {
+        "exceeds_viewport": true,
+        "render_as_cards": true
+      }
+    },
+    {
+      "id": "VEC-5.2.2-19",
+      "description": "Excel Row Card Inspector: row cells to field key-value pairs extraction",
+      "input": {
+        "headers": ["ID", "Name", "Salary"],
+        "row_values": ["101", "Alice", "95000"]
+      },
+      "expected": {
+        "field_count": 3,
+        "field_0": { "label": "ID", "value": "101" },
+        "field_1": { "label": "Name", "value": "Alice" },
+        "field_2": { "label": "Salary", "value": "95000" }
+      }
+    },
+    {
+      "id": "VEC-5.2.2-20",
+      "description": "Excel Row Card Inspector: field input type inference",
+      "input": {
+        "val_number": "123.45",
+        "val_date": "2026-10-29",
+        "val_formula": "=A1*2",
+        "val_text": "Product Note"
+      },
+      "expected": {
+        "type_number": "Numeric",
+        "type_date": "Date",
+        "type_formula": "Formula",
+        "type_text": "Text"
+      }
+    },
+    {
+      "id": "VEC-5.2.2-21",
+      "description": "Excel Row Card Inspector: edit field value updates underlying cell",
+      "input": {
+        "active_row": 4,
+        "edit_col": 2,
+        "new_value": "98000"
+      },
+      "expected": {
+        "cell_coord": [4, 2],
+        "updated_value": "98000"
+      }
+    },
+    {
+      "id": "VEC-5.2.2-22",
+      "description": "Excel Row Card Inspector: row navigation cycling",
+      "input": {
+        "current_row": 3,
+        "total_rows": 10,
+        "action": "Next"
+      },
+      "expected": {
+        "target_row": 4
+      }
+    },
+    {
+      "id": "VEC-5.2.2-23",
+      "description": "PowerPoint touch laser pointer: core and glow radius computation",
+      "input": {
+        "pointer_pos": [150.0, 200.0]
+      },
+      "expected": {
+        "core_radius_px": 6.0,
+        "glow_radius_px": 18.0
+      }
+    },
+    {
+      "id": "VEC-5.2.2-24",
+      "description": "PowerPoint touch laser pointer: exponential trail alpha decay",
+      "input": {
+        "alpha0": 1.0,
+        "elapsed_ms": 120.0,
+        "decay_constant_ms": 120.0
+      },
+      "expected": {
+        "decayed_alpha_approx": 0.367879
+      }
+    },
+    {
+      "id": "VEC-5.2.2-25",
+      "description": "Split-screen multitasking viewport resize recalculation",
+      "input": {
+        "screen_w": 1024.0,
+        "split_ratio": 0.5
+      },
+      "expected": {
+        "window_w": 512.0,
+        "resulting_form_factor": "Mobile"
+      }
+    },
+    {
+      "id": "VEC-5.2.2-26",
+      "description": "Vectors manifest validation: all 26 vectors present, sequential, and schema compliant",
+      "input": {
+        "subphase": "5.2.2",
+        "min_vectors": 25
+      },
+      "expected": {
+        "valid": true,
+        "total_vectors": 26
+      }
+    }
+  ]
+}

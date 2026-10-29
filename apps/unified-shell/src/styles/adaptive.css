@@ -1,0 +1,216 @@
+/* OpenOfficeRS Adaptive Tablet & Mobile Styling */
+
+/* 1. Safe Area Inset Variables */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --bottom-sheet-collapsed-h: 56px;
+  --bottom-sheet-half-h: 320px;
+}
+
+/* 2. Tablet Mode (768px - 1023px) */
+@media screen and (min-width: 768px) and (max-width: 1023px) {
+  .ribbon-bar {
+    height: 72px;
+  }
+
+  .ribbon-tools-body {
+    padding: 4px 8px;
+    gap: 8px;
+  }
+
+  .ribbon-btn {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 6px 10px;
+  }
+
+  .sidebar-pane {
+    width: 200px;
+  }
+}
+
+/* 3. Mobile Mode (< 768px) */
+@media screen and (max-width: 767px) {
+  .title-bar {
+    display: none; /* Hide desktop title bar on phones */
+  }
+
+  .tab-bar {
+    height: 40px;
+    overflow-x: auto;
+  }
+
+  .ribbon-bar {
+    display: none; /* Replaced by bottom command sheet on mobile */
+  }
+
+  .sidebar-pane {
+    display: none; /* Off-canvas drawer on mobile */
+  }
+
+  .sub-header-bar {
+    padding: 4px 8px;
+  }
+
+  .formula-input {
+    font-size: 14px; /* Prevent iOS auto-zoom on focus */
+  }
+
+  .workspace-layout {
+    height: calc(100vh - 40px - var(--bottom-sheet-collapsed-h) - var(--safe-bottom) - var(--safe-top));
+    padding-bottom: var(--safe-bottom);
+  }
+
+  .status-bar {
+    display: none; /* Hide detailed status bar on mobile */
+  }
+}
+
+/* 4. Touch Modality Enhancements (pointer: coarse) */
+@media (pointer: coarse) {
+  button, .tab-item, .ribbon-btn, .formula-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .ruler-indent-slider {
+    width: 16px;
+    height: 24px;
+  }
+}
+
+/* 5. Mobile Bottom Command Sheet */
+.bottom-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #ffffff;
+  border-top: 1px solid var(--border-color);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 1000;
+  transition: transform 0.25s cubic-bezier(0.1, 0.9, 0.2, 1);
+  padding-bottom: var(--safe-bottom);
+  touch-action: none;
+}
+
+.bottom-sheet-handle {
+  width: 40px;
+  height: 4px;
+  background-color: #d0d0d0;
+  border-radius: 2px;
+  margin: 8px auto;
+  cursor: grab;
+}
+
+.bottom-sheet-content {
+  padding: 8px 16px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.bottom-sheet-quick-actions {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  height: 44px;
+}
+
+/* 6. Stylus DrawingML Freehand Ink Overlay Canvas */
+.stylus-ink-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+  touch-action: none;
+  z-index: 50;
+}
+
+/* 7. Word Mobile Reflow Reader Mode */
+.reflow-reader-view {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 16px;
+  background-color: #ffffff;
+  color: #1a1a1a;
+  line-height: 1.6;
+  font-size: 16px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.reflow-reader-view p {
+  margin-bottom: 12px;
+}
+
+.reflow-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background-color: #f7f7f7;
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* 8. Excel Mobile Row Card Inspector */
+.row-card-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.card-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.card-field-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.card-field-input {
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 14px;
+  outline: none;
+}
+
+.card-field-input:focus {
+  border-color: var(--excel-accent);
+}
+
+.card-nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* 9. PowerPoint Touch Presentation Laser Pointer */
+.laser-pointer-dot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #ff1744;
+  box-shadow: 0 0 16px #ff1744, 0 0 24px #ff5252;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 2000;
+}
