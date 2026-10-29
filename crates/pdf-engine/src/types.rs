@@ -1,11 +1,9 @@
 //! Fundamental PDF data types defined in ISO 32000-1 and ISO 32000-2.
 
 use crate::error::PdfError;
-use flate2::read::ZlibDecoder;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
-use std::io::Read;
 
 /// Indirect object identifier composed of an object number and a generation number.
 /// In PDF syntax: `12 0 R` or `12 0 obj ... endobj`.
@@ -134,24 +132,14 @@ impl PdfStream {
         self.dict.get("Filter").and_then(|obj| obj.as_name())
     }
 
-    /// Decodes stream contents based on the `/Filter` dictionary entry.
-    /// Supports `/FlateDecode` (Zlib/Deflate) or uncompressed raw streams.
+    /// Decodes stream contents based on `/Filter` and `/DecodeParms`.
+    /// Supports `/FlateDecode` (with PNG/TIFF predictors), `/ASCIIHexDecode`, and `/ASCII85Decode`.
     pub fn decode(&self) -> Result<Vec<u8>, PdfError> {
-        match self.filter() {
-            None => Ok(self.content.clone()),
-            Some("FlateDecode") => {
-                let mut decoder = ZlibDecoder::new(&self.content[..]);
-                let mut decompressed = Vec::new();
-                decoder
-                    .read_to_end(&mut decompressed)
-                    .map_err(|e| PdfError::DecompressionError(e.to_string()))?;
-                Ok(decompressed)
-            }
-            Some(unsupported) => Err(PdfError::DecompressionError(format!(
-                "Unsupported stream filter: /{}",
-                unsupported
-            ))),
-        }
+        crate::filters::FilterPipeline::decode(
+            &self.content,
+            self.dict.get("Filter"),
+            self.dict.get("DecodeParms"),
+        )
     }
 }
 

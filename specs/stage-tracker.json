@@ -275,9 +275,9 @@
                           "title":  "Content Stream Filter Decompression \u0026 Font CMap Unicode Resolver",
                           "crate":  "pdf-engine",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-5/subphase-5.1.2.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-29T09:32:30Z"
                       },
                       {
                           "id":  "5.2.1",

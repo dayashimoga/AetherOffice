@@ -56,4 +56,21 @@ impl PdfPage {
             self.height_pts()
         }
     }
+
+    /// Extracts styled and positioned text runs from this page.
+    pub fn extract_text(
+        &self,
+        doc: &crate::catalog::PdfDocument,
+    ) -> Result<crate::text::ExtractedPageText, crate::error::PdfError> {
+        crate::text::ExtractedPageText::extract(self, doc)
+    }
+
+    /// Extracts plain text string from this page with spatial line break and word spacing recovery.
+    pub fn extract_plain_text(
+        &self,
+        doc: &crate::catalog::PdfDocument,
+    ) -> Result<String, crate::error::PdfError> {
+        let extracted = self.extract_text(doc)?;
+        Ok(extracted.to_plain_text())
+    }
 }

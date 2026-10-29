@@ -11,3 +11,4 @@ flate2 = "1.0"
 
 [dev-dependencies]
 serde_json.workspace = true
+
