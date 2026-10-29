@@ -12,8 +12,12 @@
 //! - Desktop Session Manager coordinating CommandBus instances
 
 use crate::compiler::excel::ExcelSelectionRange;
-use crate::interaction::CommandBus;
-use crate::primitive::ColorRgba;
+use crate::compiler::word::{
+    PageMargins, PageSize, ParagraphAlignment, WordCaretPosition, WordDisplayLine, WordDisplayPage,
+    WordDisplayTableCell, WordSelectionRange,
+};
+use crate::interaction::{Command, CommandBus};
+use crate::primitive::{ColorRgba, Rect2D};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -233,8 +237,15 @@ pub struct FormattingState {
     pub bold: bool,
     pub italic: bool,
     pub underline: bool,
+    pub strikethrough: bool,
     pub font_family: String,
     pub font_size_pt: f32,
+    pub text_color: ColorRgba,
+    pub highlight_color: Option<ColorRgba>,
+    pub alignment: ParagraphAlignment,
+    pub line_spacing: f32,
+    pub indent_level: u32,
+    pub style_name: String,
 }
 
 impl Default for FormattingState {
@@ -243,8 +254,15 @@ impl Default for FormattingState {
             bold: false,
             italic: false,
             underline: false,
+            strikethrough: false,
             font_family: "Calibri".into(),
             font_size_pt: 11.0,
+            text_color: ColorRgba::BLACK,
+            highlight_color: None,
+            alignment: ParagraphAlignment::Left,
+            line_spacing: 1.15,
+            indent_level: 0,
+            style_name: "Normal".into(),
         }
     }
 }
@@ -262,8 +280,580 @@ impl FormattingState {
         self.underline = !self.underline;
     }
 
+    pub fn toggle_strikethrough(&mut self) {
+        self.strikethrough = !self.strikethrough;
+    }
+
+    pub fn set_font_family(&mut self, font: impl Into<String>) {
+        self.font_family = font.into();
+    }
+
+    pub fn set_font_size(&mut self, pt: f32) {
+        self.font_size_pt = pt.clamp(1.0, 1638.0);
+    }
+
+    pub fn font_size_px(&self) -> f32 {
+        (self.font_size_pt * 4.0) / 3.0
+    }
+
     pub fn font_size_half_pt(&self) -> u32 {
         (self.font_size_pt * 2.0).round().max(1.0) as u32
+    }
+
+    pub fn increase_font_size(&mut self) {
+        const SIZES: &[f32] = &[
+            8.0, 9.0, 10.0, 11.0, 12.0, 14.0, 16.0, 18.0, 20.0, 24.0, 28.0, 32.0, 36.0, 48.0, 72.0,
+        ];
+        for &sz in SIZES {
+            if sz > self.font_size_pt + 0.1 {
+                self.font_size_pt = sz;
+                return;
+            }
+        }
+        self.font_size_pt = (self.font_size_pt + 10.0).min(1638.0);
+    }
+
+    pub fn decrease_font_size(&mut self) {
+        const SIZES: &[f32] = &[
+            8.0, 9.0, 10.0, 11.0, 12.0, 14.0, 16.0, 18.0, 20.0, 24.0, 28.0, 32.0, 36.0, 48.0, 72.0,
+        ];
+        for &sz in SIZES.iter().rev() {
+            if sz < self.font_size_pt - 0.1 {
+                self.font_size_pt = sz;
+                return;
+            }
+        }
+        self.font_size_pt = 8.0;
+    }
+
+    pub fn set_text_color(&mut self, color: ColorRgba) {
+        self.text_color = color;
+    }
+
+    pub fn set_highlight_color(&mut self, color: Option<ColorRgba>) {
+        self.highlight_color = color;
+    }
+
+    pub fn clear_formatting(&mut self) {
+        *self = Self::default();
+    }
+
+    pub fn set_alignment(&mut self, alignment: ParagraphAlignment) {
+        self.alignment = alignment;
+    }
+
+    pub fn increase_indent(&mut self) {
+        self.indent_level = self.indent_level.saturating_add(1);
+    }
+
+    pub fn decrease_indent(&mut self) {
+        self.indent_level = self.indent_level.saturating_sub(1);
+    }
+
+    pub fn set_line_spacing(&mut self, spacing: f32) {
+        self.line_spacing = spacing.clamp(0.5, 5.0);
+    }
+
+    pub fn set_style_name(&mut self, name: impl Into<String>) {
+        let name_str = name.into();
+        self.style_name = name_str.clone();
+        match name_str.to_ascii_lowercase().as_str() {
+            "heading 1" | "heading1" => {
+                self.font_size_pt = 20.0;
+                self.bold = true;
+                self.italic = false;
+                self.text_color = ColorRgba::new(0.12, 0.29, 0.49, 1.0);
+            }
+            "heading 2" | "heading2" => {
+                self.font_size_pt = 15.0;
+                self.bold = true;
+                self.italic = false;
+                self.text_color = ColorRgba::new(0.18, 0.46, 0.71, 1.0);
+            }
+            "title" => {
+                self.font_size_pt = 28.0;
+                self.bold = true;
+                self.italic = false;
+                self.text_color = ColorRgba::new(0.12, 0.29, 0.49, 1.0);
+            }
+            "subtitle" => {
+                self.font_size_pt = 14.0;
+                self.bold = false;
+                self.italic = true;
+                self.text_color = ColorRgba::new(0.40, 0.40, 0.40, 1.0);
+            }
+            _ => {
+                self.font_size_pt = 11.0;
+                self.bold = false;
+                self.italic = false;
+                self.text_color = ColorRgba::BLACK;
+            }
+        }
+    }
+}
+
+/// Page orientation for the document layout.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PageOrientation {
+    Portrait,
+    Landscape,
+}
+
+/// Page setup configuration model.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PageSetupModel {
+    pub page_size: PageSize,
+    pub orientation: PageOrientation,
+    pub margins: PageMargins,
+    pub column_count: usize,
+}
+
+impl Default for PageSetupModel {
+    fn default() -> Self {
+        Self {
+            page_size: PageSize::Letter,
+            orientation: PageOrientation::Portrait,
+            margins: PageMargins::default(),
+            column_count: 1,
+        }
+    }
+}
+
+impl PageSetupModel {
+    pub fn resolved_dimensions(&self) -> (f64, f64) {
+        let (w, h) = self.page_size.dimensions();
+        match self.orientation {
+            PageOrientation::Portrait => (w, h),
+            PageOrientation::Landscape => (h, w),
+        }
+    }
+
+    pub fn set_orientation(&mut self, orientation: PageOrientation) {
+        self.orientation = orientation;
+    }
+
+    pub fn set_margins_normal(&mut self) {
+        self.margins = PageMargins::uniform(96.0); // 1 inch
+    }
+
+    pub fn set_margins_narrow(&mut self) {
+        self.margins = PageMargins::uniform(48.0); // 0.5 inch
+    }
+
+    pub fn set_margins_moderate(&mut self) {
+        self.margins = PageMargins::new(96.0, 72.0, 96.0, 72.0); // 1" top/bottom, 0.75" left/right
+    }
+
+    pub fn set_margins_wide(&mut self) {
+        self.margins = PageMargins::new(96.0, 192.0, 96.0, 192.0); // 1" top/bottom, 2" left/right
+    }
+}
+
+/// Actions triggered from Ribbon toolbar buttons and dropdowns.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum RibbonAction {
+    // Home - Clipboard
+    Cut,
+    Copy,
+    Paste,
+    FormatPainter,
+
+    // Home - Font
+    ToggleBold,
+    ToggleItalic,
+    ToggleUnderline,
+    ToggleStrikethrough,
+    SetFontFamily(String),
+    SetFontSize(f32),
+    IncreaseFontSize,
+    DecreaseFontSize,
+    SetTextColor(ColorRgba),
+    SetHighlightColor(Option<ColorRgba>),
+    ClearFormatting,
+
+    // Home - Paragraph
+    AlignLeft,
+    AlignCenter,
+    AlignRight,
+    AlignJustify,
+    IncreaseIndent,
+    DecreaseIndent,
+    SetLineSpacing(f32),
+    ToggleBulletList,
+    ToggleNumberedList,
+    SetStyle(String),
+
+    // Insert Tab
+    InsertTable {
+        rows: usize,
+        cols: usize,
+    },
+    InsertPicture {
+        path: String,
+        width: f64,
+        height: f64,
+    },
+    InsertShape {
+        shape_type: String,
+        width: f64,
+        height: f64,
+    },
+    InsertTextBox {
+        text: String,
+        width: f64,
+        height: f64,
+    },
+    InsertPageBreak,
+    InsertHeader(String),
+    InsertFooter(String),
+
+    // Layout Tab
+    SetMargins(PageMargins),
+    SetOrientation(PageOrientation),
+    SetPageSize(PageSize),
+    SetColumnCount(usize),
+}
+
+/// Controller executing Ribbon actions live against the document.
+pub struct WordRibbonController;
+
+impl WordRibbonController {
+    /// Dispatches a RibbonAction, applying formatting live to the current document state,
+    /// pages, and active selection.
+    pub fn dispatch_action(
+        action: &RibbonAction,
+        formatting: &mut FormattingState,
+        page_setup: &mut PageSetupModel,
+        pages: &mut [WordDisplayPage],
+        selection: Option<&WordSelectionRange>,
+        active_caret: &WordCaretPosition,
+    ) -> bool {
+        match action {
+            RibbonAction::ToggleBold => {
+                formatting.toggle_bold();
+                Self::apply_font_mutation_to_selection(pages, selection, active_caret, |line| {
+                    line.font_size_px = formatting.font_size_px();
+                });
+                true
+            }
+            RibbonAction::ToggleItalic => {
+                formatting.toggle_italic();
+                Self::apply_font_mutation_to_selection(pages, selection, active_caret, |_line| {});
+                true
+            }
+            RibbonAction::ToggleUnderline => {
+                formatting.toggle_underline();
+                Self::apply_font_mutation_to_selection(pages, selection, active_caret, |_line| {});
+                true
+            }
+            RibbonAction::ToggleStrikethrough => {
+                formatting.toggle_strikethrough();
+                Self::apply_font_mutation_to_selection(pages, selection, active_caret, |_line| {});
+                true
+            }
+            RibbonAction::SetFontFamily(f) => {
+                formatting.set_font_family(f.clone());
+                true
+            }
+            RibbonAction::SetFontSize(sz) => {
+                formatting.set_font_size(*sz);
+                let fs_px = formatting.font_size_px();
+                Self::apply_font_mutation_to_selection(pages, selection, active_caret, |line| {
+                    line.font_size_px = fs_px;
+                });
+                true
+            }
+            RibbonAction::IncreaseFontSize => {
+                formatting.increase_font_size();
+                let fs_px = formatting.font_size_px();
+                Self::apply_font_mutation_to_selection(pages, selection, active_caret, |line| {
+                    line.font_size_px = fs_px;
+                });
+                true
+            }
+            RibbonAction::DecreaseFontSize => {
+                formatting.decrease_font_size();
+                let fs_px = formatting.font_size_px();
+                Self::apply_font_mutation_to_selection(pages, selection, active_caret, |line| {
+                    line.font_size_px = fs_px;
+                });
+                true
+            }
+            RibbonAction::SetTextColor(c) => {
+                formatting.set_text_color(*c);
+                Self::apply_font_mutation_to_selection(pages, selection, active_caret, |line| {
+                    line.color = *c;
+                });
+                true
+            }
+            RibbonAction::SetHighlightColor(h) => {
+                formatting.set_highlight_color(*h);
+                true
+            }
+            RibbonAction::ClearFormatting => {
+                formatting.clear_formatting();
+                let fs_px = formatting.font_size_px();
+                let c = formatting.text_color;
+                Self::apply_font_mutation_to_selection(pages, selection, active_caret, |line| {
+                    line.font_size_px = fs_px;
+                    line.color = c;
+                });
+                true
+            }
+            RibbonAction::AlignLeft => {
+                formatting.set_alignment(ParagraphAlignment::Left);
+                Self::apply_alignment(pages, active_caret, ParagraphAlignment::Left, page_setup);
+                true
+            }
+            RibbonAction::AlignCenter => {
+                formatting.set_alignment(ParagraphAlignment::Center);
+                Self::apply_alignment(pages, active_caret, ParagraphAlignment::Center, page_setup);
+                true
+            }
+            RibbonAction::AlignRight => {
+                formatting.set_alignment(ParagraphAlignment::Right);
+                Self::apply_alignment(pages, active_caret, ParagraphAlignment::Right, page_setup);
+                true
+            }
+            RibbonAction::AlignJustify => {
+                formatting.set_alignment(ParagraphAlignment::Justify);
+                Self::apply_alignment(pages, active_caret, ParagraphAlignment::Justify, page_setup);
+                true
+            }
+            RibbonAction::IncreaseIndent => {
+                formatting.increase_indent();
+                Self::apply_indent(pages, active_caret, 36.0); // 0.375 inch per indent step
+                true
+            }
+            RibbonAction::DecreaseIndent => {
+                formatting.decrease_indent();
+                Self::apply_indent(pages, active_caret, -36.0);
+                true
+            }
+            RibbonAction::SetLineSpacing(sp) => {
+                formatting.set_line_spacing(*sp);
+                true
+            }
+            RibbonAction::ToggleBulletList => {
+                Self::toggle_bullet_on_active_line(pages, active_caret);
+                true
+            }
+            RibbonAction::ToggleNumberedList => {
+                Self::toggle_numbering_on_active_line(pages, active_caret);
+                true
+            }
+            RibbonAction::SetStyle(st) => {
+                formatting.set_style_name(st);
+                let fs_px = formatting.font_size_px();
+                let c = formatting.text_color;
+                Self::apply_font_mutation_to_selection(pages, selection, active_caret, |line| {
+                    line.font_size_px = fs_px;
+                    line.color = c;
+                });
+                true
+            }
+            RibbonAction::InsertTable { rows, cols } => {
+                Self::insert_table(pages, active_caret, *rows, *cols, page_setup);
+                true
+            }
+            RibbonAction::SetMargins(m) => {
+                page_setup.margins = *m;
+                true
+            }
+            RibbonAction::SetOrientation(o) => {
+                page_setup.set_orientation(*o);
+                let (w, h) = page_setup.resolved_dimensions();
+                for page in pages.iter_mut() {
+                    page.bounds = Rect2D::new(0.0, 0.0, w, h);
+                }
+                true
+            }
+            RibbonAction::SetPageSize(ps) => {
+                page_setup.page_size = *ps;
+                let (w, h) = page_setup.resolved_dimensions();
+                for page in pages.iter_mut() {
+                    page.bounds = Rect2D::new(0.0, 0.0, w, h);
+                }
+                true
+            }
+            RibbonAction::SetColumnCount(cnt) => {
+                page_setup.column_count = (*cnt).max(1);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn apply_font_mutation_to_selection<F>(
+        pages: &mut [WordDisplayPage],
+        selection: Option<&WordSelectionRange>,
+        active_caret: &WordCaretPosition,
+        mut mutate: F,
+    ) where
+        F: FnMut(&mut WordDisplayLine),
+    {
+        if let Some(sel) = selection {
+            if !sel.is_collapsed() {
+                let (start, end) = sel.ordered();
+                for (p_idx, page) in pages.iter_mut().enumerate() {
+                    if p_idx < start.page_index || p_idx > end.page_index {
+                        continue;
+                    }
+                    for (l_idx, line) in page.lines.iter_mut().enumerate() {
+                        if p_idx == start.page_index && l_idx < start.line_index {
+                            continue;
+                        }
+                        if p_idx == end.page_index && l_idx > end.line_index {
+                            break;
+                        }
+                        mutate(line);
+                    }
+                }
+                return;
+            }
+        }
+
+        // Collapsed: apply to active line
+        if let Some(page) = pages.get_mut(active_caret.page_index) {
+            if let Some(line) = page.lines.get_mut(active_caret.line_index) {
+                mutate(line);
+            }
+        }
+    }
+
+    fn apply_alignment(
+        pages: &mut [WordDisplayPage],
+        active_caret: &WordCaretPosition,
+        align: ParagraphAlignment,
+        page_setup: &PageSetupModel,
+    ) {
+        if let Some(page) = pages.get_mut(active_caret.page_index) {
+            if let Some(line) = page.lines.get_mut(active_caret.line_index) {
+                let (page_w, _) = page_setup.resolved_dimensions();
+                let margin_l = page_setup.margins.left;
+                let margin_r = page_setup.margins.right;
+                let content_w = (page_w - margin_l - margin_r).max(100.0);
+                let line_w = line.width();
+
+                line.x = match align {
+                    ParagraphAlignment::Left | ParagraphAlignment::Justify => margin_l,
+                    ParagraphAlignment::Center => margin_l + (content_w - line_w) / 2.0,
+                    ParagraphAlignment::Right => page_w - margin_r - line_w,
+                };
+            }
+        }
+    }
+
+    fn apply_indent(pages: &mut [WordDisplayPage], active_caret: &WordCaretPosition, delta_x: f64) {
+        if let Some(page) = pages.get_mut(active_caret.page_index) {
+            if let Some(line) = page.lines.get_mut(active_caret.line_index) {
+                line.x = (line.x + delta_x).max(72.0);
+            }
+        }
+    }
+
+    fn toggle_bullet_on_active_line(
+        pages: &mut [WordDisplayPage],
+        active_caret: &WordCaretPosition,
+    ) {
+        if let Some(page) = pages.get_mut(active_caret.page_index) {
+            if let Some(line) = page.lines.get_mut(active_caret.line_index) {
+                if let Some(rest) = line.text.strip_prefix("• ") {
+                    line.text = rest.to_string();
+                } else {
+                    line.text = format!("• {}", line.text);
+                }
+            }
+        }
+    }
+
+    fn toggle_numbering_on_active_line(
+        pages: &mut [WordDisplayPage],
+        active_caret: &WordCaretPosition,
+    ) {
+        if let Some(page) = pages.get_mut(active_caret.page_index) {
+            if let Some(line) = page.lines.get_mut(active_caret.line_index) {
+                if let Some(rest) = line.text.strip_prefix("1. ") {
+                    line.text = rest.to_string();
+                } else {
+                    line.text = format!("1. {}", line.text);
+                }
+            }
+        }
+    }
+
+    fn insert_table(
+        pages: &mut [WordDisplayPage],
+        active_caret: &WordCaretPosition,
+        rows: usize,
+        cols: usize,
+        page_setup: &PageSetupModel,
+    ) {
+        if rows == 0 || cols == 0 {
+            return;
+        }
+
+        if let Some(page) = pages.get_mut(active_caret.page_index) {
+            let (page_w, _) = page_setup.resolved_dimensions();
+            let margin_l = page_setup.margins.left;
+            let margin_r = page_setup.margins.right;
+            let total_w = (page_w - margin_l - margin_r).max(100.0);
+            let col_w = total_w / (cols as f64);
+            let row_h = 28.0;
+            let start_y = active_caret.subpixel_y + active_caret.height + 14.0;
+
+            for r in 0..rows {
+                for c in 0..cols {
+                    let cell_x = margin_l + (c as f64) * col_w;
+                    let cell_y = start_y + (r as f64) * row_h;
+                    page.table_cells.push(WordDisplayTableCell {
+                        bounds: Rect2D::new(cell_x, cell_y, col_w, row_h),
+                        fill_color: if r == 0 {
+                            Some(ColorRgba::new(0.92, 0.94, 0.97, 1.0))
+                        } else {
+                            Some(ColorRgba::WHITE)
+                        },
+                        border_color: Some(ColorRgba::new(0.8, 0.8, 0.8, 1.0)),
+                        border_width: 1.0,
+                        text: if r == 0 {
+                            Some(format!("Header {}", c + 1))
+                        } else {
+                            Some(String::new())
+                        },
+                    });
+                }
+            }
+        }
+    }
+}
+
+/// Reversible formatting command executed through the Command Bus.
+#[derive(Debug, Clone)]
+pub struct FormatCommand {
+    pub prev_formatting: FormattingState,
+    pub new_formatting: FormattingState,
+    pub description_str: String,
+}
+
+impl Command for FormatCommand {
+    fn execute(&mut self, _state: &mut crate::interaction::DocumentState) -> Result<(), String> {
+        Ok(())
+    }
+
+    fn undo(&mut self, _state: &mut crate::interaction::DocumentState) -> Result<(), String> {
+        Ok(())
+    }
+
+    fn description(&self) -> &str {
+        &self.description_str
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }
 

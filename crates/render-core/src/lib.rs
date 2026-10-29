@@ -56,10 +56,11 @@ pub use primitive::{
 };
 pub use rasterizer::SoftwareRasterizer;
 pub use shell::{
-    AltKeytipStateMachine, DesktopSessionManager, DocumentTab, DocumentType, FormattingState,
-    FormulaBarEngine, FormulaToken, FormulaTokenType, HeadingNode, KeyCombination,
-    NavigationPaneEngine, RibbonModel, RibbonTabId, SessionSummary, ShellAction, ShortcutEngine,
-    SlideSorterEngine, TabBarModel, WordRulerConfig,
+    AltKeytipStateMachine, DesktopSessionManager, DocumentTab, DocumentType, FormatCommand,
+    FormattingState, FormulaBarEngine, FormulaToken, FormulaTokenType, HeadingNode, KeyCombination,
+    NavigationPaneEngine, PageOrientation, PageSetupModel, RibbonAction, RibbonModel, RibbonTabId,
+    SessionSummary, ShellAction, ShortcutEngine, SlideSorterEngine, TabBarModel,
+    WordRibbonController, WordRulerConfig,
 };
 pub use spatial::SpatialGrid;
 pub use text::ShapedTextEngine;

@@ -257,43 +257,20 @@ class UnifiedShellApp {
     const active = this.tabBar.getActiveTab();
     if (!active) return;
 
-    if (action === "Paste" || action === "Copy" || action === "Cut") {
-      console.log(`Clipboard action ${action}`);
+    if (this.currentDocType === "Word") {
+      writerState.execCommand(action, payload);
+      this.writerCanvas?.render();
+      this.tabBar.setDirty(active.id, true);
     } else if (action === "ToggleBold") {
-      if (this.currentDocType === "Word") {
-        writerState.execCommand("toggleBold");
-        this.writerCanvas?.render();
-      } else if (this.currentDocType === "Excel") {
+      if (this.currentDocType === "Excel") {
         const cell = calcState.cells.get(calcState.selectedCell);
         if (cell) cell.bold = !cell.bold;
         this.calcGridCanvas?.render();
       }
       this.tabBar.setDirty(active.id, true);
-    } else if (action === "ToggleItalic") {
-      if (this.currentDocType === "Word") {
-        writerState.execCommand("toggleItalic");
-        this.writerCanvas?.render();
-      }
-      this.tabBar.setDirty(active.id, true);
-    } else if (action === "SetFontFamily") {
-      if (this.currentDocType === "Word") {
-        writerState.execCommand("setFont", payload);
-        this.writerCanvas?.render();
-      }
-    } else if (action === "SetFontSize") {
-      if (this.currentDocType === "Word") {
-        writerState.execCommand("setFontSize", payload);
-        this.writerCanvas?.render();
-      }
     } else if (action === "SetFormField") {
       if (this.currentDocType === "PDF") {
         this.pdfViewerCanvas?.render();
-      }
-    } else if (action === "AlignLeft" || action === "AlignCenter" || action === "AlignRight" || action === "AlignJustify") {
-      if (this.currentDocType === "Word") {
-        const alignMode = action.replace("Align", "").toLowerCase() as "left" | "center" | "right" | "justify";
-        writerState.execCommand("setAlignment", alignMode);
-        this.writerCanvas?.render();
       }
     } else if (action === "StartShowBeginning") {
       if (this.currentDocType === "PowerPoint") {

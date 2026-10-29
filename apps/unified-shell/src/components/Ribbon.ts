@@ -194,19 +194,42 @@ export class Ribbon {
     fontRow2.appendChild(this.createButton("B", "B", () => this.emit("ToggleBold"), true));
     fontRow2.appendChild(this.createButton("I", "I", () => this.emit("ToggleItalic"), true));
     fontRow2.appendChild(this.createButton("U", "U", () => this.emit("ToggleUnderline"), true));
+    fontRow2.appendChild(this.createButton("S", "S", () => this.emit("ToggleStrikethrough"), true));
+    fontRow2.appendChild(this.createButton("A+", "A+", () => this.emit("IncreaseFontSize")));
+    fontRow2.appendChild(this.createButton("A-", "A-", () => this.emit("DecreaseFontSize")));
+    fontRow2.appendChild(this.createButton("Clear", "🧹", () => this.emit("ClearFormatting")));
     fontGroup.appendChild(fontRow2);
     body.appendChild(fontGroup);
 
     // Paragraph / Alignment Group
-    const alignGroup = this.createGroup("Alignment");
-    const alignRow = document.createElement("div");
-    alignRow.className = "ribbon-group-row";
-    alignRow.appendChild(this.createButton("Left", "Left", () => this.emit("AlignLeft")));
-    alignRow.appendChild(this.createButton("Center", "Center", () => this.emit("AlignCenter")));
-    alignRow.appendChild(this.createButton("Right", "Right", () => this.emit("AlignRight")));
-    alignRow.appendChild(this.createButton("Justify", "Justify", () => this.emit("AlignJustify")));
-    alignGroup.appendChild(alignRow);
+    const alignGroup = this.createGroup("Paragraph");
+    const paraRow1 = document.createElement("div");
+    paraRow1.className = "ribbon-group-row";
+    paraRow1.appendChild(this.createButton("Bullets", "•≡", () => this.emit("ToggleBulletList")));
+    paraRow1.appendChild(this.createButton("Numbering", "1≡", () => this.emit("ToggleNumberedList")));
+    paraRow1.appendChild(this.createButton("DecIndent", "⇤", () => this.emit("DecreaseIndent")));
+    paraRow1.appendChild(this.createButton("IncIndent", "⇥", () => this.emit("IncreaseIndent")));
+    alignGroup.appendChild(paraRow1);
+
+    const paraRow2 = document.createElement("div");
+    paraRow2.className = "ribbon-group-row";
+    paraRow2.appendChild(this.createButton("Left", "Left", () => this.emit("AlignLeft")));
+    paraRow2.appendChild(this.createButton("Center", "Center", () => this.emit("AlignCenter")));
+    paraRow2.appendChild(this.createButton("Right", "Right", () => this.emit("AlignRight")));
+    paraRow2.appendChild(this.createButton("Justify", "Justify", () => this.emit("AlignJustify")));
+    alignGroup.appendChild(paraRow2);
     body.appendChild(alignGroup);
+
+    // Styles Group
+    const stylesGroup = this.createGroup("Styles");
+    const stylesRow = document.createElement("div");
+    stylesRow.className = "ribbon-group-row";
+    stylesRow.appendChild(this.createButton("Normal", "Normal", () => this.emit("SetStyle", "Normal")));
+    stylesRow.appendChild(this.createButton("H1", "Heading 1", () => this.emit("SetStyle", "Heading 1")));
+    stylesRow.appendChild(this.createButton("H2", "Heading 2", () => this.emit("SetStyle", "Heading 2")));
+    stylesRow.appendChild(this.createButton("Title", "Title", () => this.emit("SetStyle", "Title")));
+    stylesGroup.appendChild(stylesRow);
+    body.appendChild(stylesGroup);
   }
 
   private renderInsertTab(body: HTMLElement) {
@@ -229,19 +252,29 @@ export class Ribbon {
 
   private renderLayoutTab(body: HTMLElement) {
     const pageGroup = this.createGroup("Page Setup");
-    const pageRow = document.createElement("div");
-    pageRow.className = "ribbon-group-row";
-    pageRow.appendChild(this.createButton("Margins", "📐 Margins", () => this.emit("SetMargins")));
-    pageRow.appendChild(this.createButton("Orientation", "📄 Orientation", () => this.emit("SetOrientation")));
-    pageRow.appendChild(this.createButton("Size", "📏 Size", () => this.emit("SetPageSize")));
-    pageGroup.appendChild(pageRow);
+    const pageRow1 = document.createElement("div");
+    pageRow1.className = "ribbon-group-row";
+    pageRow1.appendChild(this.createButton("Normal", "📐 Normal", () => this.emit("SetMargins", "normal")));
+    pageRow1.appendChild(this.createButton("Narrow", "📐 Narrow", () => this.emit("SetMargins", "narrow")));
+    pageRow1.appendChild(this.createButton("Wide", "📐 Wide", () => this.emit("SetMargins", "wide")));
+    pageGroup.appendChild(pageRow1);
+
+    const pageRow2 = document.createElement("div");
+    pageRow2.className = "ribbon-group-row";
+    pageRow2.appendChild(this.createButton("Portrait", "📄 Portrait", () => this.emit("SetOrientation", "portrait")));
+    pageRow2.appendChild(this.createButton("Landscape", "📃 Landscape", () => this.emit("SetOrientation", "landscape")));
+    pageRow2.appendChild(this.createButton("Letter", "Letter", () => this.emit("SetPageSize", "letter")));
+    pageRow2.appendChild(this.createButton("A4", "A4", () => this.emit("SetPageSize", "a4")));
+    pageGroup.appendChild(pageRow2);
     body.appendChild(pageGroup);
 
     const paraGroup = this.createGroup("Paragraph");
     const paraRow = document.createElement("div");
     paraRow.className = "ribbon-group-row";
-    paraRow.appendChild(this.createButton("Indent", "⏩ Indent", () => this.emit("Indent")));
-    paraRow.appendChild(this.createButton("Spacing", "↕️ Spacing", () => this.emit("LineSpacing")));
+    paraRow.appendChild(this.createButton("Indent", "⇥ Indent", () => this.emit("IncreaseIndent")));
+    paraRow.appendChild(this.createButton("Outdent", "⇤ Outdent", () => this.emit("DecreaseIndent")));
+    paraRow.appendChild(this.createButton("1.0", "1.0", () => this.emit("SetLineSpacing", 1.0)));
+    paraRow.appendChild(this.createButton("1.5", "1.5", () => this.emit("SetLineSpacing", 1.5)));
     paraGroup.appendChild(paraRow);
     body.appendChild(paraGroup);
   }
