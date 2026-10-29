@@ -1,0 +1,367 @@
+{
+  "subphase_id": "4.1.1",
+  "title": "SlideMaster -> SlideLayout -> Slide 3-Tier Inheritance Resolver",
+  "crate": "ppt-engine",
+  "created_at": "2026-10-29T09:15:00Z",
+  "total_vectors": 29,
+  "vectors": [
+    {
+      "id": "PPT-CASCADE-001",
+      "name": "Presentation XML Dimensions & ID Lists",
+      "category": "Presentation Parser",
+      "description": "Validates parsing of slide size (12192000 x 6858000 EMUs), notes size, master ID list, and slide ID list.",
+      "input": "Presentation XML with widescreen slide size and 2 slide references.",
+      "expected": {
+        "cx": 12192000,
+        "cy": 6858000,
+        "master_count": 1,
+        "slide_count": 2
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-002",
+      "name": "Slide Master Components",
+      "category": "Master Parser",
+      "description": "Validates slide master cSld, spTree, color map, slideLayoutIdLst, and txStyles.",
+      "input": "SlideMaster XML with color map and titleStyle lvl1pPr 44pt bold.",
+      "expected": {
+        "layout_count": 1,
+        "title_sz": 4400,
+        "title_align": "ctr"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-003",
+      "name": "Slide Layout Components",
+      "category": "Layout Parser",
+      "description": "Validates slide layout type, matchingName, preserve flag, shapes, and masterClrMapping override.",
+      "input": "SlideLayout XML of type 'title' with matchingName 'Title Slide'.",
+      "expected": {
+        "type": "title",
+        "preserve": true,
+        "color_map_override": "UseMaster"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-004",
+      "name": "Slide Shapes & Placeholders",
+      "category": "Slide Parser",
+      "description": "Validates slide cSld shape tree, non-visual properties, placeholder (type='title', idx=0), and text body.",
+      "input": "Slide XML with a title placeholder shape containing text 'Quarterly Results'.",
+      "expected": {
+        "shape_id": 2,
+        "ph_type": "title",
+        "text": "Quarterly Results"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-005",
+      "name": "Theme Color Scheme & Font Scheme",
+      "category": "Theme Parser",
+      "description": "Validates theme color scheme (12 theme colors) and font scheme (major and minor Latin fonts).",
+      "input": "Theme XML with Office theme colors and Aptos Display / Aptos fonts.",
+      "expected": {
+        "accent1": "156082",
+        "major_latin": "Aptos Display",
+        "minor_latin": "Aptos"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-006",
+      "name": "Placeholder Matching by Index (idx)",
+      "category": "Cascade Resolution",
+      "description": "Resolves slide placeholder to layout placeholder matching explicit index attribute.",
+      "input": "Slide shape with ph idx=1 matching layout shape with idx=1.",
+      "expected": {
+        "matched_layout_id": 20,
+        "inherited_x": 500,
+        "inherited_y": 600
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-007",
+      "name": "Placeholder Matching by Type",
+      "category": "Cascade Resolution",
+      "description": "Resolves slide placeholder to layout placeholder by ph_type='title' when idx is omitted.",
+      "input": "Slide shape with ph type='title' matching layout shape with type='title'.",
+      "expected": {
+        "matched_layout_id": 21,
+        "inherited_x": 1000,
+        "inherited_cx": 8000
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-008",
+      "name": "Placeholder Fallback: ctrTitle -> title",
+      "category": "Cascade Resolution",
+      "description": "Applies ECMA-376 fallback rule: centered title placeholder matches master title placeholder.",
+      "input": "Slide shape with ph type='ctrTitle' matched against master with type='title'.",
+      "expected": {
+        "fallback_matched": true,
+        "matched_master_id": 12
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-009",
+      "name": "Placeholder Fallback: subTitle -> body",
+      "category": "Cascade Resolution",
+      "description": "Applies ECMA-376 fallback rule: subtitle placeholder matches master body placeholder.",
+      "input": "Slide shape with ph type='subTitle' matched against master with type='body'.",
+      "expected": {
+        "fallback_matched": true,
+        "matched_master_id": 13
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-010",
+      "name": "Transform2D Coordinate Inheritance",
+      "category": "Property Cascade",
+      "description": "Inherits 2D affine transform (x, y, cx, cy in EMUs) through layout from master when unspecified on slide.",
+      "input": "Slide shape without xfrm inheriting from master shape with x=1234, y=5678, cx=91011, cy=121314.",
+      "expected": {
+        "x": 1234,
+        "y": 5678,
+        "cx": 91011,
+        "cy": 121314
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-011",
+      "name": "Preset Geometry Inheritance",
+      "category": "Property Cascade",
+      "description": "Inherits shape geometry (preset 'roundRect') through layout from master.",
+      "input": "Slide shape without geometry inheriting from master geometry 'roundRect'.",
+      "expected": {
+        "geometry": "roundRect"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-012",
+      "name": "Fill and Outline Stroke Inheritance",
+      "category": "Property Cascade",
+      "description": "Inherits solid fill and line properties through layout from master.",
+      "input": "Master shape with solid fill #156082 and 2pt dashed outline.",
+      "expected": {
+        "fill_rgb": "156082",
+        "line_w": 25400
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-013",
+      "name": "Text Styling: Master titleStyle",
+      "category": "Text Cascade",
+      "description": "Title placeholder inherits master titleStyle lvl1 formatting: 44pt font size, bold, centered.",
+      "input": "Slide title placeholder without direct formatting inheriting from master titleStyle.",
+      "expected": {
+        "font_size_pt": 44.0,
+        "bold": true,
+        "align": "ctr"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-014",
+      "name": "Text Styling: Master bodyStyle Multi-Level",
+      "category": "Text Cascade",
+      "description": "Body placeholder inherits multi-level list formatting (levels 0, 1, 2) with decreasing font sizes and margins.",
+      "input": "Slide body placeholder with 3 paragraphs at levels 0, 1, and 2.",
+      "expected": {
+        "lvl0_sz": 32.0,
+        "lvl1_sz": 28.0,
+        "lvl2_sz": 24.0,
+        "lvl0_mar_l": 288000,
+        "lvl1_mar_l": 576000,
+        "lvl2_mar_l": 864000
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-015",
+      "name": "Text Styling: Master otherStyle for Text Boxes",
+      "category": "Text Cascade",
+      "description": "Non-placeholder text box inherits master otherStyle default formatting.",
+      "input": "Arbitrary text box on slide inheriting 16pt from master otherStyle.",
+      "expected": {
+        "font_size_pt": 16.0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-016",
+      "name": "Text Styling: Presentation defaultTextStyle Fallback",
+      "category": "Text Cascade",
+      "description": "Falls back to presentation defaultTextStyle (22pt) when master styles do not specify run size.",
+      "input": "Slide text box falling back to presentation-level defaultTextStyle.",
+      "expected": {
+        "font_size_pt": 22.0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-017",
+      "name": "Direct Text Formatting Override",
+      "category": "Text Cascade",
+      "description": "Direct formatting on slide run and paragraph overrides master cascade completely.",
+      "input": "Slide run with explicit sz=5000 (50pt), bold=true, italic=true, align='r'.",
+      "expected": {
+        "font_size_pt": 50.0,
+        "bold": true,
+        "italic": true,
+        "align": "r"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-018",
+      "name": "Theme Color Mapping via p:clrMap",
+      "category": "Theme Resolution",
+      "description": "Maps scheme color token 'tx1' -> 'dk1' -> #000000 via master p:clrMap.",
+      "input": "ColorChoice::Scheme('tx1') with master color map bg1=lt1, tx1=dk1.",
+      "expected": {
+        "rgb": [0, 0, 0],
+        "alpha": 255
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-019",
+      "name": "Color Map Override via p:clrMapOvr",
+      "category": "Theme Resolution",
+      "description": "Layout color map override re-maps 'tx1' to 'accent1' (#156082).",
+      "input": "SlideLayout with overrideClrMapping tx1='accent1'.",
+      "expected": {
+        "rgb": [21, 96, 130]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-020",
+      "name": "Color Transform: Tint",
+      "category": "Color Transforms",
+      "description": "Applies linear tint towards white: (1 - t) * C + t * 255.",
+      "input": "Base RGB [100, 100, 100] with 50% tint (50000).",
+      "expected": {
+        "rgb": [178, 178, 178],
+        "alpha": 255
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-021",
+      "name": "Color Transform: Shade",
+      "category": "Color Transforms",
+      "description": "Applies linear shade towards black: s * C.",
+      "input": "Base RGB [200, 200, 200] with 50% shade (50000).",
+      "expected": {
+        "rgb": [100, 100, 100],
+        "alpha": 255
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-022",
+      "name": "Color Transform: Luminance Modulation",
+      "category": "Color Transforms",
+      "description": "Applies HSL luminance scaling by factor lumMod / 100000.",
+      "input": "Base RGB [128, 128, 128] with lumMod 80000.",
+      "expected": {
+        "luminance_reduced": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-023",
+      "name": "Color Transform: Alpha Opacity",
+      "category": "Color Transforms",
+      "description": "Scales alpha channel from 0..100000 to byte 0..255.",
+      "input": "Base RGB [255, 0, 0] with alpha 50000 (50%).",
+      "expected": {
+        "alpha": 127
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-024",
+      "name": "Theme Font Scheme Major Latin (+mj-lt)",
+      "category": "Font Resolution",
+      "description": "Resolves +mj-lt to Theme majorFont.latin ('Aptos Display').",
+      "input": "+mj-lt typeface reference.",
+      "expected": {
+        "resolved_font": "Aptos Display"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-025",
+      "name": "Theme Font Scheme Minor Latin (+mn-lt)",
+      "category": "Font Resolution",
+      "description": "Resolves +mn-lt to Theme minorFont.latin ('Aptos').",
+      "input": "+mn-lt typeface reference.",
+      "expected": {
+        "resolved_font": "Aptos"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-026",
+      "name": "Baseline PPTX Package Open & Structure",
+      "category": "Package Integration",
+      "description": "Opens baseline.pptx verifying 2 slides, slide master, slide layouts, and theme.",
+      "input": "specs/evidence/ppt/baseline.pptx",
+      "expected": {
+        "slide_count": 2,
+        "master_count": 1,
+        "layout_count_ge_10": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-027",
+      "name": "Baseline PPTX 3-Tier Slide Resolution",
+      "category": "Package Integration",
+      "description": "Resolves all shapes on slides in baseline.pptx extracting run text, font families, and sizes.",
+      "input": "Slide 0 in baseline.pptx with text 'OpenOfficeRS Unified Engine'.",
+      "expected": {
+        "contains_target_text": true,
+        "valid_font_metrics": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-028",
+      "name": "Baseline PPTX Lossless Round-Trip",
+      "category": "Package Integration",
+      "description": "Opens baseline.pptx, saves to byte stream, re-opens, and asserts full equality.",
+      "input": "baseline.pptx save and re-load cycle.",
+      "expected": {
+        "reloaded_slide_count": 2,
+        "reloaded_masters_equal": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-CASCADE-029",
+      "name": "Test Vectors Manifest Validation",
+      "category": "Manifest Gate",
+      "description": "Validates that specs/evidence/ppt/4.1.1_vectors.json exists, is valid JSON, and has >= 25 vectors.",
+      "input": "specs/evidence/ppt/4.1.1_vectors.json",
+      "expected": {
+        "subphase_id": "4.1.1",
+        "total_vectors_ge_25": true
+      },
+      "status": "PASS"
+    }
+  ]
+}
