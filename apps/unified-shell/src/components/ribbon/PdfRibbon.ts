@@ -145,10 +145,14 @@ export class PdfRibbon implements AppRibbonComponent {
     imgGroup.appendChild(imgRow);
     body.appendChild(imgGroup);
 
-    // 3. Links
-    const linkGroup = createRibbonGroup("Links");
-    linkGroup.appendChild(createRibbonButton("Add Web Link", "🔗 Web Link", () => emit("AddWebLink")));
-    linkGroup.appendChild(createRibbonButton("Page Jump Link", "📄 Page Link", () => emit("AddPageJumpLink")));
+    // 3. Watermark & Links
+    const linkGroup = createRibbonGroup("Watermark & Links");
+    const linkRow = document.createElement("div");
+    linkRow.className = "ribbon-group-row";
+    linkRow.appendChild(createRibbonButton("Add Watermark", "🌊 Watermark", () => emit("AddWatermark", "CONFIDENTIAL")));
+    linkRow.appendChild(createRibbonButton("Add Web Link", "🔗 Web Link", () => emit("AddWebLink")));
+    linkRow.appendChild(createRibbonButton("Page Jump Link", "📄 Page Link", () => emit("AddPageJumpLink")));
+    linkGroup.appendChild(linkRow);
     body.appendChild(linkGroup);
   }
 

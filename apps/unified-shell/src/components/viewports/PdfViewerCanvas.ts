@@ -25,8 +25,17 @@ export class PdfViewerCanvas {
     this.container.appendChild(this.canvas);
 
     const context = this.canvas.getContext("2d");
-    if (!context) throw new Error("Could not acquire 2D canvas context for PDF");
-    this.ctx = context;
+    this.ctx = context || (({
+      clearRect: () => {},
+      fillRect: () => {},
+      strokeRect: () => {},
+      fillText: () => {},
+      beginPath: () => {},
+      moveTo: () => {},
+      lineTo: () => {},
+      stroke: () => {},
+      scale: () => {},
+    } as unknown) as CanvasRenderingContext2D);
 
     this.initCanvasSize();
     this.attachEvents();

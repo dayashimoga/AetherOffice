@@ -1227,6 +1227,9 @@ export class UnifiedShellApp {
         this.calcGridCanvas?.render();
       }
     } else if (this.currentDocType === "PDF") {
+      if (action === "AddSignature" || action === "SignPdf") {
+        this.pdfWorkspace?.openSignModal();
+      }
       const changed = pdfState.execCommand(action, payload);
       if (changed) {
         this.pdfWorkspace?.render();
