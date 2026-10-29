@@ -495,9 +495,9 @@
                           "title":  "Calc Insert \u0026 View Ribbons: Live Charts (Bar, Line, Pie), Conditional Formatting \u0026 Freeze Panes",
                           "crate":  "excel-engine",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-10/subphase-10.2.2.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-29T14:48:25Z"
                       },
                       {
                           "id":  "11.1.1",

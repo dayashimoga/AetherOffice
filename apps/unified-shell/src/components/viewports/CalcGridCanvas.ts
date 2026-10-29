@@ -778,6 +778,11 @@ export class CalcGridCanvas {
 
     // 2. Grid lines and Cells
     const activeSheet = this.state.getActiveSheet();
+    const showHeadings = activeSheet.showHeadings !== false;
+    const showGridlines = activeSheet.showGridlines !== false;
+    const fp = activeSheet.freezePanes || { row: 0, col: 0 };
+    const curHeaderW = showHeadings ? this.headerWidth : 0;
+    const curHeaderH = showHeadings ? this.headerHeight : 0;
     const isFilterOn = !!activeSheet.filterActive;
     const filterRange = activeSheet.filterRange;
 
@@ -785,28 +790,42 @@ export class CalcGridCanvas {
       if (activeSheet.hiddenRows?.has(r)) {
         continue;
       }
-      const y = this.headerHeight + this.state.getRowOffset(r) - this.scrollY;
+      const isRowFrozen = r < fp.row;
+      const y = curHeaderH + this.state.getRowOffset(r) - (isRowFrozen ? 0 : this.scrollY);
       const rowHeight = this.state.getRowHeight(r);
       const rowNum = r + 1;
 
       for (let c = 0; c < colsInView; c++) {
-        const x = this.headerWidth + this.state.getColOffset(c) - this.scrollX;
+        const isColFrozen = c < fp.col;
+        const x = curHeaderW + this.state.getColOffset(c) - (isColFrozen ? 0 : this.scrollX);
         const colWidth = this.state.getColWidth(c);
         const colLetter = this.state.colIndexToLetter(c);
         const coord = `${colLetter}${rowNum}`;
 
         const cellData = this.state.cells.get(coord);
+        const condStyle = this.state.getConditionalStyleForCell(coord, r, c);
 
-        // Custom Cell Background Fill
-        if (cellData?.bgColor) {
+        // Custom Cell Background Fill or Conditional Format Background
+        if (condStyle?.bgColor) {
+          ctx.fillStyle = condStyle.bgColor;
+          ctx.fillRect(x, y, colWidth, rowHeight);
+        } else if (cellData?.bgColor) {
           ctx.fillStyle = cellData.bgColor;
           ctx.fillRect(x, y, colWidth, rowHeight);
         }
 
+        // Conditional Data Bar
+        if (condStyle?.dataBarRatio !== undefined) {
+          ctx.fillStyle = condStyle.barColor || "rgba(96, 165, 250, 0.4)";
+          ctx.fillRect(x + 1, y + 2, (colWidth - 2) * condStyle.dataBarRatio, rowHeight - 4);
+        }
+
         // Cell border (default or styled borders)
-        ctx.strokeStyle = "#e1dfdd";
-        ctx.lineWidth = 1;
-        ctx.strokeRect(x, y, colWidth, rowHeight);
+        if (showGridlines) {
+          ctx.strokeStyle = "#e1dfdd";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x, y, colWidth, rowHeight);
+        }
 
         if (cellData?.borders === "all" || cellData?.borders === "box") {
           ctx.strokeStyle = "#1b1b1b";
@@ -828,7 +847,7 @@ export class CalcGridCanvas {
           ctx.rect(x + 2, y, colWidth - 4, rowHeight);
           ctx.clip();
 
-          ctx.fillStyle = cellData.color || "#1b1b1b";
+          ctx.fillStyle = condStyle?.color || cellData.color || "#1b1b1b";
           const fontStyle = cellData.italic ? "italic " : "";
           const fontWeight = cellData.bold ? "bold " : "";
           ctx.font = `${fontStyle}${fontWeight}12px Calibri, sans-serif`;
@@ -1004,68 +1023,94 @@ export class CalcGridCanvas {
       ctx.restore();
     }
 
-    // 6. Column Headers
-    ctx.fillStyle = "#f3f2f1";
-    ctx.fillRect(0, 0, w, this.headerHeight);
-
-    const primaryRange = this.state.selectedRanges[this.state.selectedRanges.length - 1];
-    const activeCol = primaryRange ? primaryRange.maxCol : 0;
-    const activeRow = primaryRange ? primaryRange.maxRow : 0;
-
-    for (let c = 0; c < colsInView; c++) {
-      const x = this.headerWidth + this.state.getColOffset(c) - this.scrollX;
-      const colWidth = this.state.getColWidth(c);
-      const isColActive = c === activeCol;
-
-      if (isColActive) {
-        ctx.fillStyle = "#caead8";
-        ctx.fillRect(x, 0, colWidth, this.headerHeight);
-      }
-
-      ctx.strokeStyle = "#d2d0ce";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(x, 0, colWidth, this.headerHeight);
-
-      ctx.fillStyle = isColActive ? "#107c41" : "#494745";
-      ctx.font = isColActive ? "bold 11px Calibri, sans-serif" : "11px Calibri, sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(this.state.colIndexToLetter(c), x + colWidth / 2, 17);
+    // 5c. Freeze Pane Separator Lines
+    if (fp.row > 0) {
+      const fy = curHeaderH + this.state.getRowOffset(fp.row);
+      ctx.save();
+      ctx.strokeStyle = "#107c41";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(0, fy);
+      ctx.lineTo(w, fy);
+      ctx.stroke();
+      ctx.restore();
+    }
+    if (fp.col > 0) {
+      const fx = curHeaderW + this.state.getColOffset(fp.col);
+      ctx.save();
+      ctx.strokeStyle = "#107c41";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(fx, 0);
+      ctx.lineTo(fx, h);
+      ctx.stroke();
+      ctx.restore();
     }
 
-    // 7. Row Headers
-    ctx.fillStyle = "#f3f2f1";
-    ctx.fillRect(0, 0, this.headerWidth, h);
+    if (showHeadings) {
+      // 6. Column Headers
+      ctx.fillStyle = "#f3f2f1";
+      ctx.fillRect(0, 0, w, this.headerHeight);
 
-    for (let r = 0; r < rowsInView; r++) {
-      const y = this.headerHeight + this.state.getRowOffset(r) - this.scrollY;
-      const rowHeight = this.state.getRowHeight(r);
-      const isRowActive = r === activeRow;
+      const primaryRange = this.state.selectedRanges[this.state.selectedRanges.length - 1];
+      const activeCol = primaryRange ? primaryRange.maxCol : 0;
+      const activeRow = primaryRange ? primaryRange.maxRow : 0;
 
-      if (isRowActive) {
-        ctx.fillStyle = "#caead8";
-        ctx.fillRect(0, y, this.headerWidth, rowHeight);
+      for (let c = 0; c < colsInView; c++) {
+        const x = this.headerWidth + this.state.getColOffset(c) - this.scrollX;
+        const colWidth = this.state.getColWidth(c);
+        const isColActive = c === activeCol;
+
+        if (isColActive) {
+          ctx.fillStyle = "#caead8";
+          ctx.fillRect(x, 0, colWidth, this.headerHeight);
+        }
+
+        ctx.strokeStyle = "#d2d0ce";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, 0, colWidth, this.headerHeight);
+
+        ctx.fillStyle = isColActive ? "#107c41" : "#494745";
+        ctx.font = isColActive ? "bold 11px Calibri, sans-serif" : "11px Calibri, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(this.state.colIndexToLetter(c), x + colWidth / 2, 17);
       }
 
-      ctx.strokeStyle = "#d2d0ce";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(0, y, this.headerWidth, rowHeight);
+      // 7. Row Headers
+      ctx.fillStyle = "#f3f2f1";
+      ctx.fillRect(0, 0, this.headerWidth, h);
 
-      ctx.fillStyle = isRowActive ? "#107c41" : "#494745";
-      ctx.font = isRowActive ? "bold 11px Calibri, sans-serif" : "11px Calibri, sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(String(r + 1), this.headerWidth / 2, y + rowHeight / 2 + 4);
+      for (let r = 0; r < rowsInView; r++) {
+        const y = this.headerHeight + this.state.getRowOffset(r) - this.scrollY;
+        const rowHeight = this.state.getRowHeight(r);
+        const isRowActive = r === activeRow;
+
+        if (isRowActive) {
+          ctx.fillStyle = "#caead8";
+          ctx.fillRect(0, y, this.headerWidth, rowHeight);
+        }
+
+        ctx.strokeStyle = "#d2d0ce";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0, y, this.headerWidth, rowHeight);
+
+        ctx.fillStyle = isRowActive ? "#107c41" : "#494745";
+        ctx.font = isRowActive ? "bold 11px Calibri, sans-serif" : "11px Calibri, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(String(r + 1), this.headerWidth / 2, y + rowHeight / 2 + 4);
+      }
+
+      // 8. Top-left Select-all box
+      ctx.fillStyle = "#e1dfdd";
+      ctx.fillRect(0, 0, this.headerWidth, this.headerHeight);
+      ctx.strokeStyle = "#c8c6c4";
+      ctx.strokeRect(0, 0, this.headerWidth, this.headerHeight);
+      ctx.beginPath();
+      ctx.moveTo(this.headerWidth - 10, this.headerHeight - 2);
+      ctx.lineTo(this.headerWidth - 2, this.headerHeight - 10);
+      ctx.lineTo(this.headerWidth - 2, this.headerHeight - 2);
+      ctx.fillStyle = "#979593";
+      ctx.fill();
     }
-
-    // 8. Top-left Select-all box
-    ctx.fillStyle = "#e1dfdd";
-    ctx.fillRect(0, 0, this.headerWidth, this.headerHeight);
-    ctx.strokeStyle = "#c8c6c4";
-    ctx.strokeRect(0, 0, this.headerWidth, this.headerHeight);
-    ctx.beginPath();
-    ctx.moveTo(this.headerWidth - 10, this.headerHeight - 2);
-    ctx.lineTo(this.headerWidth - 2, this.headerHeight - 10);
-    ctx.lineTo(this.headerWidth - 2, this.headerHeight - 2);
-    ctx.fillStyle = "#979593";
-    ctx.fill();
   }
 }

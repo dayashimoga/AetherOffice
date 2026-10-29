@@ -21,6 +21,37 @@ export interface GridRange {
   maxCol: number;
 }
 
+export interface SheetChart {
+  id: string;
+  type: "column" | "bar" | "line" | "pie";
+  title: string;
+  dataRange: GridRange;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export type ConditionalFormatType =
+  | "greaterThan"
+  | "lessThan"
+  | "between"
+  | "equalTo"
+  | "duplicateValues"
+  | "dataBar"
+  | "colorScale";
+
+export interface ConditionalFormatRule {
+  id: string;
+  type: ConditionalFormatType;
+  range: GridRange;
+  value1?: number | string;
+  value2?: number | string;
+  bgColor?: string;
+  color?: string;
+  barColor?: string;
+}
+
 export interface SheetData {
   id: string;
   name: string;
@@ -33,6 +64,12 @@ export interface SheetData {
   filterRange?: GridRange | null;
   hiddenRows?: Set<number>;
   mergedRanges?: GridRange[];
+  charts?: SheetChart[];
+  conditionalFormats?: ConditionalFormatRule[];
+  freezePanes?: { row: number; col: number };
+  showGridlines?: boolean;
+  showHeadings?: boolean;
+  showFormulaBar?: boolean;
 }
 
 export function formatCellValue(cell: CellData): string {
@@ -177,6 +214,12 @@ export class CalcState {
       rowHeights: new Map<number, number>(),
       selectedCell: "A1",
       selectedRanges: [{ minRow: 0, maxRow: 0, minCol: 0, maxCol: 0 }],
+      charts: [],
+      conditionalFormats: [],
+      freezePanes: { row: 0, col: 0 },
+      showGridlines: true,
+      showHeadings: true,
+      showFormulaBar: true,
     },
   ];
 
@@ -221,6 +264,12 @@ export class CalcState {
       rowHeights: new Map(),
       selectedCell: "A1",
       selectedRanges: [{ minRow: 0, maxRow: 0, minCol: 0, maxCol: 0 }],
+      charts: [],
+      conditionalFormats: [],
+      freezePanes: { row: 0, col: 0 },
+      showGridlines: true,
+      showHeadings: true,
+      showFormulaBar: true,
     };
     this.sheets.push(fallback);
     return fallback;
@@ -249,6 +298,12 @@ export class CalcState {
       rowHeights: new Map(),
       selectedCell: "A1",
       selectedRanges: [{ minRow: 0, maxRow: 0, minCol: 0, maxCol: 0 }],
+      charts: [],
+      conditionalFormats: [],
+      freezePanes: { row: 0, col: 0 },
+      showGridlines: true,
+      showHeadings: true,
+      showFormulaBar: true,
     };
 
     this.sheets.push(newSheet);
@@ -1388,6 +1443,289 @@ export class CalcState {
 
     this.recalculateAll();
     return removed;
+  }
+
+  public insertChart(
+    type: "column" | "bar" | "line" | "pie" = "column",
+    range?: GridRange,
+    title?: string
+  ): SheetChart {
+    const sheet = this.getActiveSheet();
+    sheet.charts = sheet.charts || [];
+    const targetRange = this.getTargetRange(range);
+
+    let chartTitle = title;
+    if (!chartTitle) {
+      const topCell = this.cells.get(`${this.colIndexToLetter(targetRange.minCol)}${targetRange.minRow + 1}`);
+      chartTitle = topCell && topCell.raw ? String(topCell.computed || topCell.raw) : `${type.toUpperCase()} Chart`;
+    }
+
+    const x = 40 + ((sheet.charts.length * 30) % 240);
+    const y = 60 + ((sheet.charts.length * 30) % 240);
+
+    const chart: SheetChart = {
+      id: `chart-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      type,
+      title: chartTitle,
+      dataRange: targetRange,
+      x,
+      y,
+      width: 360,
+      height: 240,
+    };
+
+    sheet.charts.push(chart);
+    return chart;
+  }
+
+  public deleteChart(chartId: string): boolean {
+    const sheet = this.getActiveSheet();
+    if (!sheet.charts) return false;
+    const idx = sheet.charts.findIndex((c) => c.id === chartId);
+    if (idx >= 0) {
+      sheet.charts.splice(idx, 1);
+      return true;
+    }
+    return false;
+  }
+
+  public getCharts(): SheetChart[] {
+    const sheet = this.getActiveSheet();
+    return sheet.charts || [];
+  }
+
+  public getChartData(chart: SheetChart): {
+    categories: string[];
+    series: { name: string; values: number[] }[];
+  } {
+    const range = chart.dataRange;
+    const numCols = range.maxCol - range.minCol + 1;
+
+    if (numCols === 1) {
+      const values: number[] = [];
+      const categories: string[] = [];
+      for (let r = range.minRow; r <= range.maxRow; r++) {
+        const coord = `${this.colIndexToLetter(range.minCol)}${r + 1}`;
+        const cell = this.cells.get(coord);
+        const val = Number(cell?.computed !== undefined ? cell.computed : cell?.raw);
+        values.push(isNaN(val) ? 0 : val);
+        categories.push(`Row ${r + 1}`);
+      }
+      return {
+        categories,
+        series: [{ name: chart.title, values }],
+      };
+    }
+
+    const firstDataRowCell = this.cells.get(`${this.colIndexToLetter(range.minCol + 1)}${range.minRow + 1}`);
+    const hasHeaderRow = isNaN(Number(firstDataRowCell?.raw)) && firstDataRowCell?.raw !== "";
+    const startRow = hasHeaderRow ? range.minRow + 1 : range.minRow;
+
+    const categories: string[] = [];
+    for (let r = startRow; r <= range.maxRow; r++) {
+      const coord = `${this.colIndexToLetter(range.minCol)}${r + 1}`;
+      const cell = this.cells.get(coord);
+      categories.push(cell?.raw ? String(cell.computed || cell.raw) : `R${r + 1}`);
+    }
+
+    const series: { name: string; values: number[] }[] = [];
+    for (let c = range.minCol + 1; c <= range.maxCol; c++) {
+      let seriesName = `Series ${c - range.minCol}`;
+      if (hasHeaderRow) {
+        const headerCoord = `${this.colIndexToLetter(c)}${range.minRow + 1}`;
+        const headerCell = this.cells.get(headerCoord);
+        if (headerCell?.raw) seriesName = String(headerCell.computed || headerCell.raw);
+      }
+
+      const values: number[] = [];
+      for (let r = startRow; r <= range.maxRow; r++) {
+        const coord = `${this.colIndexToLetter(c)}${r + 1}`;
+        const cell = this.cells.get(coord);
+        const num = Number(cell?.computed !== undefined ? cell.computed : cell?.raw);
+        values.push(isNaN(num) ? 0 : num);
+      }
+      series.push({ name: seriesName, values });
+    }
+
+    return { categories, series };
+  }
+
+  public addConditionalFormat(rule: Omit<ConditionalFormatRule, "id">): ConditionalFormatRule {
+    const sheet = this.getActiveSheet();
+    sheet.conditionalFormats = sheet.conditionalFormats || [];
+    const newRule: ConditionalFormatRule = {
+      ...rule,
+      id: `cf-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+    };
+    sheet.conditionalFormats.push(newRule);
+    return newRule;
+  }
+
+  public clearConditionalFormats(range?: GridRange): void {
+    const sheet = this.getActiveSheet();
+    if (!range) {
+      sheet.conditionalFormats = [];
+    } else {
+      const target = this.getTargetRange(range);
+      sheet.conditionalFormats = (sheet.conditionalFormats || []).filter(
+        (f) =>
+          !(
+            f.range.minRow === target.minRow &&
+            f.range.maxRow === target.maxRow &&
+            f.range.minCol === target.minCol &&
+            f.range.maxCol === target.maxCol
+          )
+      );
+    }
+  }
+
+  public getConditionalStyleForCell(
+    coord: string,
+    row: number,
+    col: number
+  ): { bgColor?: string; color?: string; dataBarRatio?: number; barColor?: string } | null {
+    const sheet = this.getActiveSheet();
+    if (!sheet.conditionalFormats || sheet.conditionalFormats.length === 0) return null;
+
+    const cell = this.cells.get(coord);
+    const val = cell?.computed !== undefined ? cell.computed : cell?.raw;
+    const numVal = Number(val);
+    const isNum = !isNaN(numVal) && val !== "" && val !== undefined;
+
+    for (const rule of sheet.conditionalFormats) {
+      const r = rule.range;
+      if (row >= r.minRow && row <= r.maxRow && col >= r.minCol && col <= r.maxCol) {
+        switch (rule.type) {
+          case "greaterThan": {
+            if (isNum && numVal > Number(rule.value1)) {
+              return { bgColor: rule.bgColor || "#fee2e2", color: rule.color || "#991b1b" };
+            }
+            break;
+          }
+          case "lessThan": {
+            if (isNum && numVal < Number(rule.value1)) {
+              return { bgColor: rule.bgColor || "#dcfce7", color: rule.color || "#15803d" };
+            }
+            break;
+          }
+          case "between": {
+            if (isNum && numVal >= Number(rule.value1) && numVal <= Number(rule.value2)) {
+              return { bgColor: rule.bgColor || "#fef3c7", color: rule.color || "#92400e" };
+            }
+            break;
+          }
+          case "equalTo": {
+            if (String(val) === String(rule.value1)) {
+              return { bgColor: rule.bgColor || "#e0e7ff", color: rule.color || "#3730a3" };
+            }
+            break;
+          }
+          case "duplicateValues": {
+            let count = 0;
+            for (let checkR = r.minRow; checkR <= r.maxRow; checkR++) {
+              for (let checkC = r.minCol; checkC <= r.maxCol; checkC++) {
+                const checkCoord = `${this.colIndexToLetter(checkC)}${checkR + 1}`;
+                const cCell = this.cells.get(checkCoord);
+                const cVal = cCell?.computed !== undefined ? cCell.computed : cCell?.raw;
+                if (cVal !== undefined && cVal !== "" && String(cVal) === String(val)) {
+                  count++;
+                }
+              }
+            }
+            if (count > 1) {
+              return { bgColor: rule.bgColor || "#fee2e2", color: rule.color || "#991b1b" };
+            }
+            break;
+          }
+          case "dataBar": {
+            if (isNum) {
+              let min = Infinity;
+              let max = -Infinity;
+              for (let checkR = r.minRow; checkR <= r.maxRow; checkR++) {
+                for (let checkC = r.minCol; checkC <= r.maxCol; checkC++) {
+                  const cCell = this.cells.get(`${this.colIndexToLetter(checkC)}${checkR + 1}`);
+                  const n = Number(cCell?.computed !== undefined ? cCell.computed : cCell?.raw);
+                  if (!isNaN(n)) {
+                    if (n < min) min = n;
+                    if (n > max) max = n;
+                  }
+                }
+              }
+              const ratio = max > min ? Math.max(0, Math.min(1, (numVal - min) / (max - min))) : 1;
+              return { dataBarRatio: ratio, barColor: rule.barColor || "#60a5fa" };
+            }
+            break;
+          }
+          case "colorScale": {
+            if (isNum) {
+              let min = Infinity;
+              let max = -Infinity;
+              for (let checkR = r.minRow; checkR <= r.maxRow; checkR++) {
+                for (let checkC = r.minCol; checkC <= r.maxCol; checkC++) {
+                  const cCell = this.cells.get(`${this.colIndexToLetter(checkC)}${checkR + 1}`);
+                  const n = Number(cCell?.computed !== undefined ? cCell.computed : cCell?.raw);
+                  if (!isNaN(n)) {
+                    if (n < min) min = n;
+                    if (n > max) max = n;
+                  }
+                }
+              }
+              const ratio = max > min ? Math.max(0, Math.min(1, (numVal - min) / (max - min))) : 0.5;
+              let rCol: number, gCol: number, bCol: number;
+              if (ratio < 0.5) {
+                const factor = ratio * 2;
+                rCol = Math.round(99 + factor * (254 - 99));
+                gCol = Math.round(190 + factor * (243 - 190));
+                bCol = Math.round(123 + factor * (199 - 123));
+              } else {
+                const factor = (ratio - 0.5) * 2;
+                rCol = Math.round(254 - factor * (254 - 248));
+                gCol = Math.round(243 - factor * (243 - 113));
+                bCol = Math.round(199 - factor * (199 - 113));
+              }
+              return { bgColor: `rgb(${rCol},${gCol},${bCol})` };
+            }
+            break;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  public freezeTopRow(): void {
+    this.getActiveSheet().freezePanes = { row: 1, col: 0 };
+  }
+
+  public freezeFirstColumn(): void {
+    this.getActiveSheet().freezePanes = { row: 0, col: 1 };
+  }
+
+  public freezePanesAtSelection(range?: GridRange): void {
+    const target = this.getTargetRange(range);
+    this.getActiveSheet().freezePanes = { row: target.minRow, col: target.minCol };
+  }
+
+  public unfreezePanes(): void {
+    this.getActiveSheet().freezePanes = { row: 0, col: 0 };
+  }
+
+  public toggleGridlines(): boolean {
+    const sheet = this.getActiveSheet();
+    sheet.showGridlines = sheet.showGridlines !== undefined ? !sheet.showGridlines : false;
+    return sheet.showGridlines;
+  }
+
+  public toggleHeadings(): boolean {
+    const sheet = this.getActiveSheet();
+    sheet.showHeadings = sheet.showHeadings !== undefined ? !sheet.showHeadings : false;
+    return sheet.showHeadings;
+  }
+
+  public toggleFormulaBar(): boolean {
+    const sheet = this.getActiveSheet();
+    sheet.showFormulaBar = sheet.showFormulaBar !== undefined ? !sheet.showFormulaBar : false;
+    return sheet.showFormulaBar;
   }
 }
 
