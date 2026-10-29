@@ -114,6 +114,13 @@ impl Paragraph {
     }
 }
 
+/// Numbering reference in paragraph properties: `<w:numPr>`.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct NumberingProperty {
+    pub num_id: u32,
+    pub ilvl: u32,
+}
+
 /// Paragraph formatting properties: `<w:pPr>`.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct ParagraphProperties {
@@ -122,6 +129,7 @@ pub struct ParagraphProperties {
     pub spacing: Option<Spacing>,
     pub indentation: Option<Indentation>,
     pub r_pr: Option<RunProperties>,
+    pub num_pr: Option<NumberingProperty>,
     pub raw_elements: Vec<RawXmlNode>,
 }
 

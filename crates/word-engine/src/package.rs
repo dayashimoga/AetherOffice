@@ -1,14 +1,18 @@
 //! OpenOfficeRS Word Engine - Word Package Integration.
 //! Strictly conforms to GEC-v1.0 Article II (Zero-Loss ECMA-376 Round-Trip Fidelity),
 //! Article III (Startup & Performance SLAs), and Article IV (zero panics, typed EngineError, #[forbid(unsafe_code)]).
-//! Integrates `ooxml-opc` `PackageReader`/`PackageWriter` with WordprocessingML DOM and sub-documents.
+//! Integrates `ooxml-opc` `PackageReader`/`PackageWriter` with WordprocessingML DOM, sub-documents,
+//! styles cascade resolver, and numbering engine.
 
 use crate::model::Document;
+use crate::numbering::Numbering;
 use crate::piece_tree::PieceTree;
+use crate::section::SectionGeometry;
 use crate::serializer::{
     serialize_comments, serialize_document, serialize_endnotes, serialize_footer,
     serialize_footnotes, serialize_header,
 };
+use crate::styles::{StyleCascadeResolver, StyleSheet};
 use crate::sub_documents::{
     CommentsDocument, EndnotesDocument, FooterDocument, FootnotesDocument, HeaderDocument,
 };
@@ -16,7 +20,7 @@ use ooxml_opc::content_types::ContentTypes;
 use ooxml_opc::error::{EngineError, Result};
 use ooxml_opc::package::{PackageReader, PackageWriter};
 use ooxml_opc::relationships::Relationships;
-use ooxml_opc::unparsed::UnparsedPartStore;
+use ooxml_opc::unparsed::{UnparsedPart, UnparsedPartStore};
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{Cursor, Read, Seek, Write};
@@ -35,6 +39,10 @@ pub const ENDNOTES_TYPE: &str =
     "application/vnd.openxmlformats-officedocument.wordprocessingml.endnotes+xml";
 pub const COMMENTS_TYPE: &str =
     "application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml";
+pub const STYLES_TYPE: &str =
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml";
+pub const NUMBERING_TYPE: &str =
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml";
 
 /// ECMA-376 Relationship Types
 pub const DOCUMENT_REL_TYPE: &str =
@@ -44,6 +52,8 @@ pub const DOCUMENT_REL_TYPE: &str =
 #[derive(Debug, Clone)]
 pub struct WordPackage {
     pub document: Document,
+    pub styles: StyleSheet,
+    pub numbering: Option<Numbering>,
     pub headers: Vec<(String, HeaderDocument)>,
     pub footers: Vec<(String, FooterDocument)>,
     pub footnotes: Option<FootnotesDocument>,
@@ -68,6 +78,7 @@ impl WordPackage {
         content_types.add_default("rels", ooxml_opc::content_types::RELATIONSHIPS_TYPE);
         content_types.add_default("xml", ooxml_opc::content_types::XML_DEFAULT_TYPE);
         content_types.add_override("word/document.xml", DOCUMENT_MAIN_TYPE);
+        content_types.add_override("word/styles.xml", STYLES_TYPE);
 
         let mut package_relationships = Relationships::new();
         package_relationships.add(
@@ -104,6 +115,8 @@ impl WordPackage {
 
         Self {
             document,
+            styles: StyleSheet::new(),
+            numbering: None,
             headers: Vec::new(),
             footers: Vec::new(),
             footnotes: None,
@@ -132,7 +145,7 @@ impl WordPackage {
         let doc_bytes = pkg_reader.read_part(doc_part_name)?;
         let document = crate::parser::parse_document(&doc_bytes)?;
 
-        // 2. Discover and parse auxiliary sub-documents (headers, footers, footnotes, endnotes, comments)
+        // 2. Discover and parse auxiliary sub-documents
         let part_names = pkg_reader.part_names().to_vec();
         let mut headers = Vec::new();
         let mut footers = Vec::new();
@@ -177,21 +190,54 @@ impl WordPackage {
             }
         }
 
-        // 3. Preserve root content types
+        // 3. Parse styles.xml
+        let styles = if pkg_reader.contains_part("word/styles.xml") {
+            let bytes = pkg_reader.read_part("word/styles.xml")?;
+            StyleSheet::from_xml_str(
+                std::str::from_utf8(&bytes)
+                    .map_err(|e| EngineError::MalformedPackage(e.to_string()))?,
+            )?
+        } else if pkg_reader.contains_part("/word/styles.xml") {
+            let bytes = pkg_reader.read_part("/word/styles.xml")?;
+            StyleSheet::from_xml_str(
+                std::str::from_utf8(&bytes)
+                    .map_err(|e| EngineError::MalformedPackage(e.to_string()))?,
+            )?
+        } else {
+            StyleSheet::new()
+        };
+
+        // 4. Parse numbering.xml
+        let numbering = if pkg_reader.contains_part("word/numbering.xml") {
+            let bytes = pkg_reader.read_part("word/numbering.xml")?;
+            Some(Numbering::from_xml_str(
+                std::str::from_utf8(&bytes)
+                    .map_err(|e| EngineError::MalformedPackage(e.to_string()))?,
+            )?)
+        } else if pkg_reader.contains_part("/word/numbering.xml") {
+            let bytes = pkg_reader.read_part("/word/numbering.xml")?;
+            Some(Numbering::from_xml_str(
+                std::str::from_utf8(&bytes)
+                    .map_err(|e| EngineError::MalformedPackage(e.to_string()))?,
+            )?)
+        } else {
+            None
+        };
+
+        // 5. Preserve root content types
         let content_types = pkg_reader.get_content_types()?.clone();
 
-        // 4. Preserve package relationships (_rels/.rels)
+        // 6. Preserve package relationships (_rels/.rels)
         let package_relationships = match pkg_reader.get_relationships(None) {
             Ok(rels) => rels.clone(),
             Err(_) => Relationships::new(),
         };
 
-        // 5. Preserve part-level relationships (e.g. word/_rels/document.xml.rels and sub-document rels)
+        // 7. Preserve part-level relationships
         let mut part_relationships = BTreeMap::new();
         for name in &part_names {
             let clean = name.trim_start_matches('/');
             if clean.ends_with(".rels") && clean != "_rels/.rels" {
-                // Determine source part
                 let source_part = if let Some(idx) = clean.find("/_rels/") {
                     let dir = &clean[..idx];
                     let file = &clean[idx + 7..clean.len() - 5];
@@ -208,12 +254,14 @@ impl WordPackage {
             }
         }
 
-        // 6. Extract unmodeled parts (styles, settings, fontTable, webSettings, docProps, etc.)
+        // 8. Extract unmodeled parts (theme, settings, fontTable, webSettings, docProps, etc.)
         let modeled_refs: Vec<&str> = modeled_parts.iter().map(|s| s.as_str()).collect();
         let unparsed_store = pkg_reader.extract_unparsed_store(&modeled_refs)?;
 
         Ok(Self {
             document,
+            styles,
+            numbering,
             headers,
             footers,
             footnotes,
@@ -235,6 +283,20 @@ impl WordPackage {
     /// Loads a `.docx` package directly from a byte slice.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         Self::open(Cursor::new(bytes))
+    }
+
+    /// Returns a style cascade resolver bound to this package's stylesheet.
+    pub fn cascade_resolver(&self) -> StyleCascadeResolver<'_> {
+        StyleCascadeResolver::new(&self.styles)
+    }
+
+    /// Returns resolved section geometry for the document body.
+    pub fn section_geometry(&self) -> SectionGeometry {
+        if let Some(ref sect) = self.document.body.sect_pr {
+            SectionGeometry::from_section_properties(sect)
+        } else {
+            SectionGeometry::default()
+        }
     }
 
     /// Extracts plaintext from the entire main document body.
@@ -262,46 +324,66 @@ impl WordPackage {
             pkg_writer.set_part_relationships(source_part, rels.clone());
         }
 
-        // 4. Write all unmodeled parts and extensions
-        pkg_writer.write_unparsed_store(&self.unparsed_store)?;
+        // 4. Update unparsed store with serialized styles.xml and numbering.xml if present
+        let mut store = self.unparsed_store.clone();
+        let styles_xml = self.styles.to_xml_string()?;
+        store.insert(UnparsedPart::new(
+            "word/styles.xml",
+            styles_xml.into_bytes(),
+            Some(STYLES_TYPE.to_string()),
+            None,
+        ));
 
-        // 5. Serialize and write root document.xml
+        if let Some(ref num) = self.numbering {
+            let num_xml = num.to_xml_string()?;
+            store.insert(UnparsedPart::new(
+                "word/numbering.xml",
+                num_xml.into_bytes(),
+                Some(NUMBERING_TYPE.to_string()),
+                None,
+            ));
+        }
+
+        // 5. Write all unmodeled parts and extensions
+        pkg_writer.write_unparsed_store(&store)?;
+
+        // 6. Serialize and write root document.xml
         let doc_xml = serialize_document(&self.document)?;
         pkg_writer.write_part("word/document.xml", &doc_xml, Some(DOCUMENT_MAIN_TYPE))?;
 
-        // 6. Serialize and write headers
+        // 7. Serialize and write headers
         for (part_name, header) in &self.headers {
             let header_xml = serialize_header(header)?;
             let clean = part_name.trim_start_matches('/');
             pkg_writer.write_part(clean, &header_xml, Some(HEADER_TYPE))?;
         }
 
-        // 7. Serialize and write footers
+        // 8. Serialize and write footers
         for (part_name, footer) in &self.footers {
             let footer_xml = serialize_footer(footer)?;
             let clean = part_name.trim_start_matches('/');
             pkg_writer.write_part(clean, &footer_xml, Some(FOOTER_TYPE))?;
         }
 
-        // 8. Serialize and write footnotes
+        // 9. Serialize and write footnotes
         if let Some(ref fn_doc) = self.footnotes {
             let fn_xml = serialize_footnotes(fn_doc)?;
             pkg_writer.write_part("word/footnotes.xml", &fn_xml, Some(FOOTNOTES_TYPE))?;
         }
 
-        // 9. Serialize and write endnotes
+        // 10. Serialize and write endnotes
         if let Some(ref en_doc) = self.endnotes {
             let en_xml = serialize_endnotes(en_doc)?;
             pkg_writer.write_part("word/endnotes.xml", &en_xml, Some(ENDNOTES_TYPE))?;
         }
 
-        // 10. Serialize and write comments
+        // 11. Serialize and write comments
         if let Some(ref cm_doc) = self.comments {
             let cm_xml = serialize_comments(cm_doc)?;
             pkg_writer.write_part("word/comments.xml", &cm_xml, Some(COMMENTS_TYPE))?;
         }
 
-        // 11. Finalize OPC package
+        // 12. Finalize OPC package
         pkg_writer.finish()?;
         Ok(())
     }

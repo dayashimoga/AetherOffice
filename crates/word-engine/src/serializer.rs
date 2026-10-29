@@ -335,7 +335,7 @@ fn serialize_paragraph<W: std::io::Write>(writer: &mut Writer<W>, para: &Paragra
     Ok(())
 }
 
-fn serialize_paragraph_properties<W: std::io::Write>(
+pub(crate) fn serialize_paragraph_properties<W: std::io::Write>(
     writer: &mut Writer<W>,
     p_pr: &ParagraphProperties,
 ) -> Result<()> {
@@ -401,6 +401,29 @@ fn serialize_paragraph_properties<W: std::io::Write>(
         }
         writer
             .write_event(Event::Empty(ind_tag))
+            .map_err(EngineError::Io)?;
+    }
+
+    if let Some(ref num) = p_pr.num_pr {
+        writer
+            .write_event(Event::Start(BytesStart::new("w:numPr")))
+            .map_err(EngineError::Io)?;
+        let mut ilvl_tag = BytesStart::new("w:ilvl");
+        let ilvl_str = num.ilvl.to_string();
+        ilvl_tag.push_attribute(("w:val", ilvl_str.as_str()));
+        writer
+            .write_event(Event::Empty(ilvl_tag))
+            .map_err(EngineError::Io)?;
+
+        let mut num_tag = BytesStart::new("w:numId");
+        let num_str = num.num_id.to_string();
+        num_tag.push_attribute(("w:val", num_str.as_str()));
+        writer
+            .write_event(Event::Empty(num_tag))
+            .map_err(EngineError::Io)?;
+
+        writer
+            .write_event(Event::End(BytesEnd::new("w:numPr")))
             .map_err(EngineError::Io)?;
     }
 
@@ -666,7 +689,7 @@ fn serialize_run<W: std::io::Write>(writer: &mut Writer<W>, run: &Run) -> Result
     Ok(())
 }
 
-fn serialize_run_properties<W: std::io::Write>(
+pub(crate) fn serialize_run_properties<W: std::io::Write>(
     writer: &mut Writer<W>,
     r_pr: &RunProperties,
 ) -> Result<()> {

@@ -1,0 +1,396 @@
+{
+  "subphase_id": "3.1.2",
+  "title": "ECMA-376 Style Cascade, Numbering Lists & Section Geometry",
+  "crate": "word-engine",
+  "created_at": "2026-10-29T08:15:00Z",
+  "total_vectors": 32,
+  "vectors": [
+    {
+      "id": "WORD-STYLE-001",
+      "name": "DocDefaults Resolution",
+      "category": "Style Cascade",
+      "description": "Validates default run and paragraph properties resolution from w:docDefaults.",
+      "input": "DocDefaults with font Calibri 22pt (11pt), color 333333, line spacing 240, after spacing 120.",
+      "expected": {
+        "font_ascii": "Calibri",
+        "sz": 22,
+        "color": "333333",
+        "spacing_line": 240,
+        "spacing_after": 120
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-STYLE-002",
+      "name": "Paragraph Style Inheritance Chain",
+      "category": "Style Cascade",
+      "description": "Validates multi-level paragraph style inheritance via w:basedOn chains.",
+      "input": "Base paragraph style -> Derived paragraph style with partial overrides.",
+      "expected": {
+        "jc": "center",
+        "font_ascii": "Arial",
+        "sz": 32,
+        "bold": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-STYLE-003",
+      "name": "Character Style Inheritance Chain",
+      "category": "Style Cascade",
+      "description": "Validates character style inheritance chain via w:basedOn.",
+      "input": "Base character style (sz=24, color=FF0000) -> Derived character style (italic=true).",
+      "expected": {
+        "sz": 24,
+        "color": "FF0000",
+        "italic": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-STYLE-004",
+      "name": "Cyclic BasedOn Style Safety",
+      "category": "Style Cascade",
+      "description": "Verifies cycle detection and termination in circular w:basedOn chains (A -> B -> A).",
+      "input": "Style A basedOn B, Style B basedOn A.",
+      "expected": {
+        "cycle_terminated": true,
+        "font_ascii": "Calibri"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-STYLE-005",
+      "name": "Direct Paragraph Formatting Override",
+      "category": "Style Cascade",
+      "description": "Validates that direct w:pPr overrides style and docDefaults formatting.",
+      "input": "Paragraph style (jc=left, space_after=100) with direct w:pPr (jc=right, space_after=200).",
+      "expected": {
+        "jc": "right",
+        "spacing_after": 200
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-STYLE-006",
+      "name": "Direct Run Formatting Override",
+      "category": "Style Cascade",
+      "description": "Validates that direct w:rPr overrides character and paragraph styles.",
+      "input": "Character style (color=00FF00, sz=28) with direct w:rPr (color=0000FF, sz=36).",
+      "expected": {
+        "color": "0000FF",
+        "sz": 36
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-STYLE-007",
+      "name": "Toggle Property Bold Inversion",
+      "category": "Toggle Properties",
+      "description": "Validates ECMA-376 §17.7.3 toggle property bold inversion on direct formatting.",
+      "input": "Bold in style: true, direct w:b: inverted to false; Bold in style: false, direct w:b: inverted to true.",
+      "expected": {
+        "case_1_bold": false,
+        "case_2_bold": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-STYLE-008",
+      "name": "Toggle Property Italic Inversion",
+      "category": "Toggle Properties",
+      "description": "Validates ECMA-376 §17.7.3 toggle property italic inversion on direct formatting.",
+      "input": "Italic in style: true, direct w:i: inverted to false; Italic in style: false, direct w:i: inverted to true.",
+      "expected": {
+        "case_1_italic": false,
+        "case_2_italic": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-STYLE-009",
+      "name": "Toggle Property Strike Inversion",
+      "category": "Toggle Properties",
+      "description": "Validates ECMA-376 §17.7.3 toggle property strikethrough inversion on direct formatting.",
+      "input": "Strike in style: true, direct w:strike: inverted to false; Strike in style: false, direct w:strike: inverted to true.",
+      "expected": {
+        "case_1_strike": false,
+        "case_2_strike": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-STYLE-010",
+      "name": "Table Style Whole Table Resolution",
+      "category": "Table Style Cascade",
+      "description": "Validates whole table formatting resolution from w:tblStylePr type='wholeTable'.",
+      "input": "Table style with wholeTable shd=F0F0F0 and bold=false.",
+      "expected": {
+        "shading_fill": "F0F0F0",
+        "bold": false
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-STYLE-011",
+      "name": "Table Style First Row Override",
+      "category": "Table Style Cascade",
+      "description": "Validates conditional table formatting for first row (header) cells.",
+      "input": "Table style with firstRow override bold=true, color=FFFFFF, shd=003366.",
+      "expected": {
+        "bold": true,
+        "color": "FFFFFF",
+        "shading_fill": "003366"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-STYLE-012",
+      "name": "Table Style Last Row Override",
+      "category": "Table Style Cascade",
+      "description": "Validates conditional table formatting for last row (total) cells.",
+      "input": "Table style with lastRow override bold=true, shd=E0E0E0.",
+      "expected": {
+        "bold": true,
+        "shading_fill": "E0E0E0"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-STYLE-013",
+      "name": "Table Style Horizontal Banding",
+      "category": "Table Style Cascade",
+      "description": "Validates alternating row shading from band1Horz conditional table formatting.",
+      "input": "Table style with band1Horz shd=FAFAFA on alternating rows.",
+      "expected": {
+        "odd_row_shading": "FAFAFA",
+        "even_row_shading": "F0F0F0"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-STYLE-014",
+      "name": "Table Style Vertical Banding",
+      "category": "Table Style Cascade",
+      "description": "Validates alternating column shading from band1Vert conditional table formatting.",
+      "input": "Table style with band1Vert shd=F5F5F5 on alternating columns.",
+      "expected": {
+        "odd_col_shading": "F5F5F5",
+        "even_col_shading": "F0F0F0"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-STYLE-015",
+      "name": "Table Style Corner Cell Overrides",
+      "category": "Table Style Cascade",
+      "description": "Validates corner cell conditional overrides: nwCell, neCell, swCell, seCell.",
+      "input": "Table style with nwCell and seCell distinct shading colors.",
+      "expected": {
+        "nw_cell_shading": "111111",
+        "se_cell_shading": "999999"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-NUM-016",
+      "name": "Numbering Decimal Format",
+      "category": "Numbering",
+      "description": "Validates standard decimal counter formatting (1, 2, 3, ...).",
+      "input": "Sequence of 5 items with numFmt='decimal'.",
+      "expected": {
+        "sequence": ["1", "2", "3", "4", "5"]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-NUM-017",
+      "name": "Numbering Lower Letter Format",
+      "category": "Numbering",
+      "description": "Validates lower-case alphabetical counter formatting (a, b, ..., z, aa, ab, ...).",
+      "input": "Counter values 1, 2, 26, 27, 28 with numFmt='lowerLetter'.",
+      "expected": {
+        "values": ["a", "b", "z", "aa", "ab"]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-NUM-018",
+      "name": "Numbering Upper Letter Format",
+      "category": "Numbering",
+      "description": "Validates upper-case alphabetical counter formatting (A, B, ..., Z, AA, AB, ...).",
+      "input": "Counter values 1, 2, 26, 27 with numFmt='upperLetter'.",
+      "expected": {
+        "values": ["A", "B", "Z", "AA"]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-NUM-019",
+      "name": "Numbering Lower Roman Format",
+      "category": "Numbering",
+      "description": "Validates lower-case Roman numeral counter formatting (i, iv, v, ix, x, xl, l, xc, c, cd, d, cm, m).",
+      "input": "Values 1, 4, 9, 14, 40, 90, 400, 900, 1994 with numFmt='lowerRoman'.",
+      "expected": {
+        "values": ["i", "iv", "ix", "xiv", "xl", "xc", "cd", "cm", "mcmxciv"]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-NUM-020",
+      "name": "Numbering Upper Roman Format",
+      "category": "Numbering",
+      "description": "Validates upper-case Roman numeral counter formatting.",
+      "input": "Values 1, 4, 9, 14, 2024 with numFmt='upperRoman'.",
+      "expected": {
+        "values": ["I", "IV", "IX", "XIV", "MMXXIV"]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-NUM-021",
+      "name": "Numbering Bullet Format",
+      "category": "Numbering",
+      "description": "Validates bullet glyph format constant string output.",
+      "input": "Level template with bullet character '•' (U+2022) and numFmt='bullet'.",
+      "expected": {
+        "glyph": "•"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-NUM-022",
+      "name": "Numbering Ordinal Format",
+      "category": "Numbering",
+      "description": "Validates English ordinal number suffix formatting (1st, 2nd, 3rd, 4th, 11th, 21st).",
+      "input": "Values 1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 101 with numFmt='ordinal'.",
+      "expected": {
+        "values": ["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "23rd", "101st"]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-NUM-023",
+      "name": "Numbering Cardinal Text Format",
+      "category": "Numbering",
+      "description": "Validates English cardinal number words (one, twelve, twenty-one).",
+      "input": "Values 1, 12, 25, 105 with numFmt='cardinalText'.",
+      "expected": {
+        "values": ["one", "twelve", "twenty-five", "one hundred five"]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-NUM-024",
+      "name": "Multi-Level List Template Interpolation",
+      "category": "Numbering",
+      "description": "Validates multi-level list template placeholder substitution (%1.%2.%3).",
+      "input": "Level 0: %1., Level 1: %1.%2., Level 2: %1.%2.%3.",
+      "expected": {
+        "prefix_l0": "1.",
+        "prefix_l1": "1.1.",
+        "prefix_l2": "1.1.1."
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-NUM-025",
+      "name": "Multi-Level List Hybrid Formatting",
+      "category": "Numbering",
+      "description": "Validates hybrid formatting across levels (Upper Roman -> Upper Letter -> Decimal).",
+      "input": "Level 0 (upperRoman): %1., Level 1 (upperLetter): %1.(%2), Level 2 (decimal): %1.(%2).%3.",
+      "expected": {
+        "prefix_l0": "I.",
+        "prefix_l1": "I.(A)",
+        "prefix_l2": "I.(A).1"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-NUM-026",
+      "name": "Numbering Level Restart on Parent Increment",
+      "category": "Numbering",
+      "description": "Validates child level counter resets to start value when parent level increments.",
+      "input": "Parent 1 -> Child 1, Child 2 -> Parent 2 -> Child (should restart at 1).",
+      "expected": {
+        "item1": "1.1",
+        "item2": "1.2",
+        "item3": "2.1"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-NUM-027",
+      "name": "Numbering Level Override Start",
+      "category": "Numbering",
+      "description": "Validates w:lvlOverride / w:startOverride overriding starting number counter.",
+      "input": "Instance numId overriding level 0 start to 5.",
+      "expected": {
+        "first_prefix": "5.",
+        "second_prefix": "6."
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-SECT-028",
+      "name": "Section Geometry Margins and Content Box",
+      "category": "Section Geometry",
+      "description": "Validates SectionGeometry page dimensions, margins, and content box computation in twips.",
+      "input": "Page 12240 x 15840 twips (US Letter), top=1440, bottom=1440, left=1440, right=1440.",
+      "expected": {
+        "content_width_twips": 9360,
+        "content_height_twips": 12960
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-SECT-029",
+      "name": "Section Multi-Column Division",
+      "category": "Section Geometry",
+      "description": "Validates multi-column layout division with equal and unequal column widths and spacing.",
+      "input": "Content width 9360 twips, 3 columns, spacing 360 twips.",
+      "expected": {
+        "column_width": 2880,
+        "num_columns": 3
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-SECT-030",
+      "name": "Section Geometry Unit Conversions",
+      "category": "Section Geometry",
+      "description": "Validates bidirectional conversions between twips, points, inches, and millimeters.",
+      "input": "1440 twips = 72 pt = 1.0 inch = 25.4 mm.",
+      "expected": {
+        "twips_to_pt": 72.0,
+        "twips_to_inches": 1.0,
+        "twips_to_mm": 25.4
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-PKG-031",
+      "name": "WordPackage Styles Round-Trip",
+      "category": "Package Integration",
+      "description": "Validates WordPackage parses styles.xml into StyleSheet DOM, preserves it, and serializes accurately.",
+      "input": "baseline.docx open -> parse styles -> serialize -> reload.",
+      "expected": {
+        "styles_preserved": true,
+        "style_count_match": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "WORD-GATE-032",
+      "name": "Subphase 3.1.2 Test Vectors Manifest Validation",
+      "category": "Manifest Gate",
+      "description": "Asserts synchronization between test suite and evidence vector manifest with >= 30 vectors.",
+      "input": "specs/evidence/word/3.1.2_vectors.json.",
+      "expected": {
+        "min_vectors": 30,
+        "actual_vectors": 32
+      },
+      "status": "PASS"
+    }
+  ]
+}

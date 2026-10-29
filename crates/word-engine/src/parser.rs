@@ -450,7 +450,7 @@ fn extract_paragraph_attributes(e: &BytesStart, para: &mut Paragraph) {
     }
 }
 
-fn parse_paragraph_properties<R: std::io::BufRead>(
+pub(crate) fn parse_paragraph_properties<R: std::io::BufRead>(
     reader: &mut Reader<R>,
 ) -> Result<ParagraphProperties> {
     let mut p_pr = ParagraphProperties::default();
@@ -462,6 +462,39 @@ fn parse_paragraph_properties<R: std::io::BufRead>(
                 let name = local_name(e.name().into_inner());
                 match name {
                     "rPr" => p_pr.r_pr = Some(parse_run_properties(reader)?),
+                    "numPr" => {
+                        let mut num_id = 0;
+                        let mut ilvl = 0;
+                        let mut np_buf = Vec::new();
+                        loop {
+                            match reader
+                                .read_event_into(&mut np_buf)
+                                .map_err(EngineError::Xml)?
+                            {
+                                Event::Empty(ref ne) => {
+                                    let nname = local_name(ne.name().into_inner());
+                                    if nname == "numId" {
+                                        num_id = get_attr_val(ne, "val")
+                                            .and_then(|s| s.parse::<u32>().ok())
+                                            .unwrap_or(0);
+                                    } else if nname == "ilvl" {
+                                        ilvl = get_attr_val(ne, "val")
+                                            .and_then(|s| s.parse::<u32>().ok())
+                                            .unwrap_or(0);
+                                    }
+                                }
+                                Event::End(ref ne)
+                                    if local_name(ne.name().into_inner()) == "numPr" =>
+                                {
+                                    break
+                                }
+                                Event::Eof => break,
+                                _ => {}
+                            }
+                            np_buf.clear();
+                        }
+                        p_pr.num_pr = Some(NumberingProperty { num_id, ilvl });
+                    }
                     _ => p_pr.raw_elements.push(parse_raw_xml_node(reader, e)?),
                 }
             }
@@ -593,7 +626,9 @@ fn parse_empty_run(e: &BytesStart) -> Result<Run> {
     Ok(run)
 }
 
-fn parse_run_properties<R: std::io::BufRead>(reader: &mut Reader<R>) -> Result<RunProperties> {
+pub(crate) fn parse_run_properties<R: std::io::BufRead>(
+    reader: &mut Reader<R>,
+) -> Result<RunProperties> {
     let mut r_pr = RunProperties::default();
     let mut buf = Vec::new();
 
