@@ -20,6 +20,38 @@ export interface FormattingCommand {
   font_size_pt?: number;
 }
 
+export interface UiDispatchResult {
+  session_id: string;
+  description: string;
+  undo_stack_depth: number;
+  redo_stack_depth: number;
+  is_dirty: boolean;
+}
+
+export type UiActionEvent =
+  | { type: "ToggleBold" }
+  | { type: "ToggleItalic" }
+  | { type: "ToggleUnderline" }
+  | { type: "ToggleStrikethrough" }
+  | { type: "SetFontFamily"; payload: string }
+  | { type: "SetFontSize"; payload: number }
+  | { type: "InsertText"; payload: { text: string } }
+  | { type: "DeleteTextRange"; payload: { offset: number; length: number } }
+  | { type: "SetCellFormula"; payload: { coord: string; formula: string } }
+  | { type: "SetCellValue"; payload: { coord: string; value: string } }
+  | { type: "AddSheet"; payload: { title: string } }
+  | { type: "EditRowCardField"; payload: { row: number; col: number; field_name: string; new_value: string } }
+  | { type: "NewSlide"; payload: { layout: string } }
+  | { type: "SetFormField"; payload: { field_name: string; value: string } }
+  | { type: "RotatePdfPage"; payload: { page: number; angle_deg: number } }
+  | { type: "ClearAllInk" }
+  | { type: "Cut" }
+  | { type: "Copy" }
+  | { type: "Paste"; payload: { content: string } }
+  | { type: "Undo" }
+  | { type: "Redo" }
+  | { type: "MarkSaved" };
+
 // Fallback when running outside Tauri desktop container (e.g. Vite dev preview)
 const hasTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -64,5 +96,8 @@ export const IPC = {
 
   exportSvg: (sessionId: string): Promise<string> =>
     invokeTauri("export_svg", { session_id: sessionId }),
+
+  dispatchUiAction: (sessionId: string, action: UiActionEvent): Promise<UiDispatchResult> =>
+    invokeTauri("dispatch_ui_action", { session_id: sessionId, action }),
 };
 

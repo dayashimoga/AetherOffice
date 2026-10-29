@@ -16,10 +16,17 @@ pub mod compositor;
 pub mod interaction;
 pub mod primitive;
 pub mod rasterizer;
+pub mod release_matrix;
 pub mod shell;
 pub mod spatial;
 pub mod text;
+pub mod ui_dispatcher;
 pub mod window;
+
+pub use release_matrix::{
+    PackagingBundle, PlatformReleaseTarget, ReleaseMatrix, TargetArch, TargetOs,
+};
+pub use ui_dispatcher::{UiActionEvent, UiCommandDispatcher, UiDispatchResult};
 
 pub use adaptive::{
     AdaptiveShellController, AddInkStrokeTransaction, BottomSheetState, BottomSheetStateMachine,

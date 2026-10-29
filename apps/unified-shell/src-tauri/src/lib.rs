@@ -8,7 +8,8 @@
 
 use render_core::{
     AdaptiveShellController, DesktopSessionManager, DocumentType, FormFactor, FormattingState,
-    PointerModality, RibbonModel, RibbonTabId, SessionSummary, TabBarModel,
+    PointerModality, ReleaseMatrix, RibbonModel, RibbonTabId, SessionSummary, TabBarModel,
+    UiActionEvent, UiCommandDispatcher, UiDispatchResult,
 };
 use std::sync::Mutex;
 
@@ -244,6 +245,22 @@ pub fn get_form_factor(state: &ShellState) -> Result<FormFactor, String> {
     Ok(ctrl.form_factor())
 }
 
+pub fn dispatch_ui_action(
+    state: &ShellState,
+    session_id: &str,
+    action: UiActionEvent,
+) -> Result<UiDispatchResult, String> {
+    let mut mgr = state
+        .session_manager
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    UiCommandDispatcher::dispatch(&mut mgr, session_id, action)
+}
+
+pub fn get_release_matrix() -> ReleaseMatrix {
+    ReleaseMatrix::default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -350,5 +367,50 @@ mod tests {
                 .tab_count(),
             2
         );
+    }
+
+    #[test]
+    fn test_ui_action_dispatch_routes_to_command_bus() {
+        let state = ShellState::new();
+        let session = create_session(&state, DocumentType::Word, "Document.docx").unwrap();
+
+        // 1. Dispatch text insertion action
+        let res1 = dispatch_ui_action(
+            &state,
+            &session.session_id,
+            UiActionEvent::InsertText {
+                text: "Hello OpenOfficeRS!".to_string(),
+            },
+        )
+        .expect("Dispatch insert text");
+        assert_eq!(res1.undo_stack_depth, 1);
+        assert!(res1.is_dirty);
+        assert!(is_document_dirty(&state, &session.session_id).unwrap());
+
+        // 2. Dispatch formatting action
+        let res2 = dispatch_ui_action(&state, &session.session_id, UiActionEvent::ToggleBold)
+            .expect("Dispatch toggle bold");
+        assert_eq!(res2.undo_stack_depth, 2);
+
+        // 3. Dispatch Undo action
+        let res3 = dispatch_ui_action(&state, &session.session_id, UiActionEvent::Undo)
+            .expect("Dispatch undo");
+        assert_eq!(res3.undo_stack_depth, 1);
+        assert_eq!(res3.redo_stack_depth, 1);
+
+        // 4. Dispatch Save / Mark Clean action
+        let res4 = dispatch_ui_action(&state, &session.session_id, UiActionEvent::MarkSaved)
+            .expect("Dispatch save");
+        assert!(!res4.is_dirty);
+        assert!(!is_document_dirty(&state, &session.session_id).unwrap());
+    }
+
+    #[test]
+    fn test_release_matrix_ci_cd_targets() {
+        let matrix = get_release_matrix();
+        assert_eq!(matrix.app_name, "OpenOfficeRS");
+        assert!(matrix.targets.len() >= 8);
+        assert!(matrix.validate_full_coverage().is_ok());
+        assert!(matrix.validate_triplets().is_ok());
     }
 }
