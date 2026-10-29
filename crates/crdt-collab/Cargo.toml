@@ -1,0 +1,12 @@
+[package]
+name = "crdt-collab"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+word-engine = { path = "../word-engine" }
+
+[dev-dependencies]

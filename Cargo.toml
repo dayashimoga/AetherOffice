@@ -7,12 +7,14 @@ members = [
     "crates/ppt-engine",
     "crates/pdf-engine",
     "crates/render-core",
+    "crates/crdt-collab",
     "apps/unified-shell/src-tauri"
 ]
 
 [workspace.dependencies]
 ooxml-opc = { path = "crates/ooxml-opc" }
 pdf-engine = { path = "crates/pdf-engine" }
+crdt-collab = { path = "crates/crdt-collab" }
 quick-xml = { version = "0.37", features = ["serialize", "async-tokio"] }
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
 serde = { version = "1.0", features = ["derive"] }
