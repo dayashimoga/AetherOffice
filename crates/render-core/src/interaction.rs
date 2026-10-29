@@ -94,7 +94,7 @@ pub enum ExcelHitTarget {
 }
 
 /// 8 Bounding box resize handles for PowerPoint shapes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ResizeHandle {
     TopLeft,
     Top,
@@ -104,6 +104,26 @@ pub enum ResizeHandle {
     Bottom,
     BottomLeft,
     Left,
+}
+
+impl ResizeHandle {
+    /// Return the standard CSS cursor for this handle.
+    pub fn cursor_name(&self) -> &'static str {
+        match self {
+            Self::TopLeft | Self::BottomRight => "nwse-resize",
+            Self::TopRight | Self::BottomLeft => "nesw-resize",
+            Self::Top | Self::Bottom => "ns-resize",
+            Self::Left | Self::Right => "ew-resize",
+        }
+    }
+
+    /// Whether this handle represents one of the four corners.
+    pub fn is_corner(&self) -> bool {
+        matches!(
+            self,
+            Self::TopLeft | Self::TopRight | Self::BottomLeft | Self::BottomRight
+        )
+    }
 }
 
 /// Resolved hit target within a PowerPoint slide.

@@ -35,7 +35,12 @@ pub use compiler::{
         COL_HEADER_HEIGHT, DEFAULT_COL_WIDTH, DEFAULT_ROW_HEIGHT, MAX_EXCEL_COLS, MAX_EXCEL_ROWS,
         ROW_HEADER_WIDTH,
     },
-    ppt::{PptDisplayCompiler, SlideCanvasConfig},
+    ppt::{
+        generate_preset_path, PptDisplayCompiler, PptGizmoHit, PptGizmoModel, PptStageController,
+        PptViewportTransform, PresetShapeType, SlideAddShapeCommand, SlideAspectRatio,
+        SlideCanvasConfig, SlideDeleteShapeCommand, SlideShapeModel, SlideStageModel,
+        SlideTransformCommand, SlideTransformEngine, ZOrderAction,
+    },
     word::{
         CaretNavDirection, PageLayoutMode, PageMargins, PageSize, ParagraphAlignment,
         SubpixelTextLayout, UnderlineStyle, WordCaretModel, WordCaretPosition, WordDisplayCompiler,

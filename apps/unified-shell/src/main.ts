@@ -225,6 +225,7 @@ class UnifiedShellApp {
         });
       } else if (tab.docType === "PowerPoint") {
         this.slideStageCanvas = new SlideStageCanvas(viewportContainer, slidesState);
+        this.slideStageCanvas.setOnDirty(() => this.tabBar.setDirty(tab.id, true));
       } else if (tab.docType === "PDF") {
         this.pdfViewerCanvas = new PdfViewerCanvas(viewportContainer, pdfState);
       }
@@ -261,6 +262,20 @@ class UnifiedShellApp {
       writerState.execCommand(action, payload);
       this.writerCanvas?.render();
       this.tabBar.setDirty(active.id, true);
+    } else if (this.currentDocType === "PowerPoint") {
+      if (action === "StartShowBeginning") {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      } else {
+        const changed = slidesState.execCommand(action, payload);
+        if (changed) {
+          this.slideStageCanvas?.render();
+          this.tabBar.setDirty(active.id, true);
+        }
+      }
     } else if (action === "ToggleBold") {
       if (this.currentDocType === "Excel") {
         const cell = calcState.cells.get(calcState.selectedCell);
@@ -271,14 +286,6 @@ class UnifiedShellApp {
     } else if (action === "SetFormField") {
       if (this.currentDocType === "PDF") {
         this.pdfViewerCanvas?.render();
-      }
-    } else if (action === "StartShowBeginning") {
-      if (this.currentDocType === "PowerPoint") {
-        if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen().catch(() => {});
-        } else {
-          document.exitFullscreen().catch(() => {});
-        }
       }
     } else if (action === "Recalculate") {
       if (this.currentDocType === "Excel") {
@@ -307,10 +314,20 @@ class UnifiedShellApp {
         this.tabBar.prevTab();
         break;
       case "Undo":
-        IPC.executeUndo(active.id);
+        if (this.currentDocType === "PowerPoint") {
+          slidesState.undo();
+          this.slideStageCanvas?.render();
+        } else {
+          IPC.executeUndo(active.id);
+        }
         break;
       case "Redo":
-        IPC.executeRedo(active.id);
+        if (this.currentDocType === "PowerPoint") {
+          slidesState.redo();
+          this.slideStageCanvas?.render();
+        } else {
+          IPC.executeRedo(active.id);
+        }
         break;
       case "Save":
         IPC.saveDocument(active.id);

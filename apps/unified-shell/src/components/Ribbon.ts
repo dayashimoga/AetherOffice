@@ -230,6 +230,32 @@ export class Ribbon {
     stylesRow.appendChild(this.createButton("Title", "Title", () => this.emit("SetStyle", "Title")));
     stylesGroup.appendChild(stylesRow);
     body.appendChild(stylesGroup);
+
+    // Drawing & Arrange Group (PowerPoint)
+    if (this.docType === "PowerPoint") {
+      const drawGroup = this.createGroup("Drawing & Arrange");
+      const drawRow1 = document.createElement("div");
+      drawRow1.className = "ribbon-group-row";
+      drawRow1.appendChild(this.createButton("Rect", "⬛ Rect", () => this.emit("InsertShape", "rect")));
+      drawRow1.appendChild(this.createButton("Round", "▢ Round", () => this.emit("InsertShape", "roundRect")));
+      drawRow1.appendChild(this.createButton("Ellipse", "⚪ Circle", () => this.emit("InsertShape", "ellipse")));
+      drawRow1.appendChild(this.createButton("Triangle", "▲ Tri", () => this.emit("InsertShape", "triangle")));
+      drawRow1.appendChild(this.createButton("Arrow", "➔ Arrow", () => this.emit("InsertShape", "arrow")));
+      drawRow1.appendChild(this.createButton("Star", "★ Star", () => this.emit("InsertShape", "star")));
+      drawGroup.appendChild(drawRow1);
+
+      const drawRow2 = document.createElement("div");
+      drawRow2.className = "ribbon-group-row";
+      drawRow2.appendChild(this.createButton("Front", "⬆ Front", () => this.emit("BringToFront")));
+      drawRow2.appendChild(this.createButton("Back", "⬇ Back", () => this.emit("SendToBack")));
+      drawRow2.appendChild(this.createButton("Duplicate", "📋 Dup", () => this.emit("DuplicateShape")));
+      drawRow2.appendChild(this.createButton("Delete", "🗑 Del", () => this.emit("DeleteShape")));
+      drawRow2.appendChild(this.createButton("Blue", "🟦 Blue", () => this.emit("SetFillColor", "#2563eb")));
+      drawRow2.appendChild(this.createButton("Red", "🟥 Red", () => this.emit("SetFillColor", "#c43e1c")));
+      drawRow2.appendChild(this.createButton("Green", "🟩 Green", () => this.emit("SetFillColor", "#10b981")));
+      drawGroup.appendChild(drawRow2);
+      body.appendChild(drawGroup);
+    }
   }
 
   private renderInsertTab(body: HTMLElement) {
@@ -237,12 +263,22 @@ export class Ribbon {
     tableGroup.appendChild(this.createButton("Insert Table", "📊 Table", () => this.emit("InsertTable", { rows: 3, cols: 3 })));
     body.appendChild(tableGroup);
 
-    const illustGroup = this.createGroup("Illustrations");
-    const illustRow = document.createElement("div");
-    illustRow.className = "ribbon-group-row";
-    illustRow.appendChild(this.createButton("Picture", "🖼️ Picture", () => this.emit("InsertPicture")));
-    illustRow.appendChild(this.createButton("Shapes", "🔷 Shapes", () => this.emit("InsertShape", "rect")));
-    illustGroup.appendChild(illustRow);
+    const illustGroup = this.createGroup("Illustrations & Shapes");
+    const illustRow1 = document.createElement("div");
+    illustRow1.className = "ribbon-group-row";
+    illustRow1.appendChild(this.createButton("Picture", "🖼️ Picture", () => this.emit("InsertPicture")));
+    illustRow1.appendChild(this.createButton("Rectangle", "⬛ Rect", () => this.emit("InsertShape", "rect")));
+    illustRow1.appendChild(this.createButton("Rounded", "▢ Round", () => this.emit("InsertShape", "roundRect")));
+    illustRow1.appendChild(this.createButton("Ellipse", "⚪ Ellipse", () => this.emit("InsertShape", "ellipse")));
+    illustGroup.appendChild(illustRow1);
+
+    const illustRow2 = document.createElement("div");
+    illustRow2.className = "ribbon-group-row";
+    illustRow2.appendChild(this.createButton("Triangle", "▲ Triangle", () => this.emit("InsertShape", "triangle")));
+    illustRow2.appendChild(this.createButton("Arrow", "➔ Arrow", () => this.emit("InsertShape", "arrow")));
+    illustRow2.appendChild(this.createButton("Star", "★ Star", () => this.emit("InsertShape", "star")));
+    illustRow2.appendChild(this.createButton("Diamond", "⬥ Diamond", () => this.emit("InsertShape", "diamond")));
+    illustGroup.appendChild(illustRow2);
     body.appendChild(illustGroup);
 
     const textGroup = this.createGroup("Text");
