@@ -11,6 +11,7 @@
 //! - Desktop keyboard shortcut engine (Accelerators & Alt Keytip state machine)
 //! - Desktop Session Manager coordinating CommandBus instances
 
+use crate::commands::{GlobalClipboard, GlobalCommandBus, GlobalOfficeState, OfficeTransaction};
 use crate::compiler::excel::ExcelSelectionRange;
 use crate::compiler::word::{
     PageMargins, PageSize, ParagraphAlignment, WordCaretPosition, WordDisplayLine, WordDisplayPage,
@@ -30,6 +31,7 @@ pub enum DocumentType {
     Word,
     Excel,
     PowerPoint,
+    Pdf,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -221,6 +223,13 @@ impl RibbonModel {
                 RibbonTabId::Transitions,
                 RibbonTabId::Animations,
                 RibbonTabId::SlideShow,
+                RibbonTabId::Review,
+                RibbonTabId::View,
+            ],
+            DocumentType::Pdf => vec![
+                RibbonTabId::File,
+                RibbonTabId::Home,
+                RibbonTabId::Insert,
                 RibbonTabId::Review,
                 RibbonTabId::View,
             ],
@@ -1328,6 +1337,9 @@ pub struct SessionSummary {
 pub struct DesktopSessionManager {
     pub tab_bar: TabBarModel,
     pub command_buses: HashMap<String, CommandBus>,
+    pub global_command_buses: HashMap<String, GlobalCommandBus>,
+    pub office_states: HashMap<String, GlobalOfficeState>,
+    pub clipboard: GlobalClipboard,
     next_session_counter: usize,
 }
 
@@ -1336,6 +1348,9 @@ impl DesktopSessionManager {
         Self {
             tab_bar: TabBarModel::new(),
             command_buses: HashMap::new(),
+            global_command_buses: HashMap::new(),
+            office_states: HashMap::new(),
+            clipboard: GlobalClipboard::new(),
             next_session_counter: 1,
         }
     }
@@ -1347,6 +1362,8 @@ impl DesktopSessionManager {
             DocumentType::Excel
         } else if lower.ends_with(".pptx") || lower.ends_with(".pptm") {
             DocumentType::PowerPoint
+        } else if lower.ends_with(".pdf") {
+            DocumentType::Pdf
         } else {
             DocumentType::Word
         }
@@ -1361,6 +1378,10 @@ impl DesktopSessionManager {
         self.tab_bar.add_tab(tab);
         self.command_buses
             .insert(session_id.clone(), CommandBus::new());
+        self.global_command_buses
+            .insert(session_id.clone(), GlobalCommandBus::new());
+        self.office_states
+            .insert(session_id.clone(), GlobalOfficeState::new());
 
         SessionSummary {
             session_id,
@@ -1397,6 +1418,8 @@ impl DesktopSessionManager {
     ) -> Result<Option<String>, &'static str> {
         let next_active = self.tab_bar.close_tab(session_id, force)?;
         self.command_buses.remove(session_id);
+        self.global_command_buses.remove(session_id);
+        self.office_states.remove(session_id);
         Ok(next_active)
     }
 
@@ -1405,5 +1428,82 @@ impl DesktopSessionManager {
         if let Some(tab) = self.tab_bar.active_tab_mut() {
             tab.is_dirty = is_dirty;
         }
+    }
+
+    /// Execute an OfficeTransaction through the session's GlobalCommandBus and update tab dirty state.
+    pub fn execute_office_transaction(
+        &mut self,
+        session_id: &str,
+        tx: Box<dyn OfficeTransaction>,
+    ) -> Result<(), String> {
+        let bus = self
+            .global_command_buses
+            .get_mut(session_id)
+            .ok_or_else(|| format!("Session '{session_id}' not found"))?;
+        let state = self
+            .office_states
+            .get_mut(session_id)
+            .ok_or_else(|| format!("Office state for '{session_id}' not found"))?;
+        bus.execute(state, tx)?;
+        if let Some(tab) = self.tab_bar.tabs.iter_mut().find(|t| t.id == session_id) {
+            tab.is_dirty = bus.is_dirty();
+        }
+        Ok(())
+    }
+
+    /// Undo the most recent transaction in the specified session and update tab dirty state.
+    pub fn undo_session(&mut self, session_id: &str) -> Result<(), String> {
+        let bus = self
+            .global_command_buses
+            .get_mut(session_id)
+            .ok_or_else(|| format!("Session '{session_id}' not found"))?;
+        let state = self
+            .office_states
+            .get_mut(session_id)
+            .ok_or_else(|| format!("Office state for '{session_id}' not found"))?;
+        bus.undo(state)?;
+        if let Some(tab) = self.tab_bar.tabs.iter_mut().find(|t| t.id == session_id) {
+            tab.is_dirty = bus.is_dirty();
+        }
+        Ok(())
+    }
+
+    /// Redo the most recently undone transaction in the specified session and update tab dirty state.
+    pub fn redo_session(&mut self, session_id: &str) -> Result<(), String> {
+        let bus = self
+            .global_command_buses
+            .get_mut(session_id)
+            .ok_or_else(|| format!("Session '{session_id}' not found"))?;
+        let state = self
+            .office_states
+            .get_mut(session_id)
+            .ok_or_else(|| format!("Office state for '{session_id}' not found"))?;
+        bus.redo(state)?;
+        if let Some(tab) = self.tab_bar.tabs.iter_mut().find(|t| t.id == session_id) {
+            tab.is_dirty = bus.is_dirty();
+        }
+        Ok(())
+    }
+
+    /// Mark the specified session as clean/saved.
+    pub fn mark_session_clean(&mut self, session_id: &str) -> Result<(), String> {
+        let bus = self
+            .global_command_buses
+            .get_mut(session_id)
+            .ok_or_else(|| format!("Session '{session_id}' not found"))?;
+        bus.mark_clean();
+        if let Some(tab) = self.tab_bar.tabs.iter_mut().find(|t| t.id == session_id) {
+            tab.is_dirty = false;
+        }
+        Ok(())
+    }
+
+    /// Check if the specified session has unsaved modifications.
+    pub fn is_session_dirty(&self, session_id: &str) -> Result<bool, String> {
+        let bus = self
+            .global_command_buses
+            .get(session_id)
+            .ok_or_else(|| format!("Session '{session_id}' not found"))?;
+        Ok(bus.is_dirty())
     }
 }

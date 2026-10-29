@@ -97,6 +97,38 @@ pub fn execute_redo(state: &ShellState, session_id: &str) -> Result<(), String> 
     }
 }
 
+pub fn execute_global_undo(state: &ShellState, session_id: &str) -> Result<(), String> {
+    let mut mgr = state
+        .session_manager
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    mgr.undo_session(session_id)
+}
+
+pub fn execute_global_redo(state: &ShellState, session_id: &str) -> Result<(), String> {
+    let mut mgr = state
+        .session_manager
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    mgr.redo_session(session_id)
+}
+
+pub fn mark_document_saved(state: &ShellState, session_id: &str) -> Result<(), String> {
+    let mut mgr = state
+        .session_manager
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    mgr.mark_session_clean(session_id)
+}
+
+pub fn is_document_dirty(state: &ShellState, session_id: &str) -> Result<bool, String> {
+    let mgr = state
+        .session_manager
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    mgr.is_session_dirty(session_id)
+}
+
 pub fn get_ribbon_for_doc_type(doc_type: DocumentType) -> Vec<RibbonTabId> {
     RibbonModel::for_document_type(doc_type).visible_tabs()
 }
@@ -121,5 +153,23 @@ mod tests {
         assert_eq!(summary.title, "Test.docx");
         assert_eq!(summary.doc_type, DocumentType::Word);
         assert!(!summary.is_dirty);
+    }
+
+    #[test]
+    fn test_shell_state_pdf_session_and_ribbon() {
+        let state = ShellState::new();
+        let summary = create_session(&state, DocumentType::Pdf, "Manual.pdf")
+            .expect("Create PDF session successfully");
+        assert_eq!(summary.title, "Manual.pdf");
+        assert_eq!(summary.doc_type, DocumentType::Pdf);
+        assert!(!summary.is_dirty);
+
+        let pdf_tabs = get_ribbon_for_doc_type(DocumentType::Pdf);
+        assert!(pdf_tabs.contains(&RibbonTabId::File));
+        assert!(pdf_tabs.contains(&RibbonTabId::Home));
+        assert!(pdf_tabs.contains(&RibbonTabId::Insert));
+        assert!(pdf_tabs.contains(&RibbonTabId::Review));
+        assert!(pdf_tabs.contains(&RibbonTabId::View));
+        assert!(!pdf_tabs.contains(&RibbonTabId::Formulas));
     }
 }

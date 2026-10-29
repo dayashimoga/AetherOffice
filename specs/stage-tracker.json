@@ -330,9 +330,9 @@
                           "title":  "Transactional Command Bus with Global Undo/Redo \u0026 Clipboard",
                           "crate":  "render-core",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-6/subphase-6.1.1.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-29T10:34:23Z"
                       },
                       {
                           "id":  "6.1.2",
