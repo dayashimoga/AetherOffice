@@ -271,6 +271,12 @@ export class WriterCanvas {
     };
   }
 
+  public typeText(text: string) {
+    for (const char of text) {
+      this.handleKeyDown(new KeyboardEvent("keydown", { key: char }));
+    }
+  }
+
   public handleKeyDown(e: KeyboardEvent) {
     this.resetBlink();
 

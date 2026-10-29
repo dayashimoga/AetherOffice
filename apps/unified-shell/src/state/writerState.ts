@@ -222,6 +222,13 @@ export class WriterState {
     alignment: "left" as "left" | "center" | "right" | "justify",
     lineSpacing: 1.15,
   };
+  get activeFormatting() {
+    return this.activeFormat;
+  }
+
+  get paragraphs(): WordParagraph[] {
+    return this.doc.pages.flatMap((p) => p.paragraphs);
+  }
   private history: string[] = [];
 
   constructor() {

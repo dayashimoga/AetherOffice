@@ -19,15 +19,18 @@ export class KeyboardShortcuts {
   }
 
   private attach() {
-    window.addEventListener("keydown", (e: KeyboardEvent) => {
-      // 1. Alt Keytip toggle
-      if (e.key === "Alt") {
-        e.preventDefault();
-        if (this.onToggleAltCallback) {
-          this.altActive = this.onToggleAltCallback();
-        }
-        return;
+    window.addEventListener("keydown", (e: KeyboardEvent) => this.handleKeyDown(e));
+  }
+
+  public handleKeyDown(e: KeyboardEvent) {
+    // 1. Alt Keytip toggle
+    if (e.key === "Alt") {
+      e.preventDefault();
+      if (this.onToggleAltCallback) {
+        this.altActive = this.onToggleAltCallback();
       }
+      return;
+    }
 
       // If Alt Keytips are active and an alphanumeric key is pressed
       if (this.altActive && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
@@ -133,8 +136,7 @@ export class KeyboardShortcuts {
           }
         }
       }
-    });
-  }
+    }
 
   private emit(action: string) {
     if (this.onActionCallback) {

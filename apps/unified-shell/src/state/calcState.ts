@@ -252,6 +252,113 @@ export class CalcState {
     this.getActiveSheet().selectedRanges = val;
   }
 
+  get charts(): SheetChart[] {
+    return this.getActiveSheet().charts || [];
+  }
+
+  setCellValue(coord: string, val: string) {
+    this.selectedCell = coord;
+    this.commitFormula(val);
+  }
+
+  getCellValue(coord: string): string | number | undefined {
+    return this.cells.get(coord)?.computed;
+  }
+
+  get frozenRows(): number {
+    return this.getActiveSheet().freezePanes?.row || 0;
+  }
+
+  get frozenCols(): number {
+    return this.getActiveSheet().freezePanes?.col || 0;
+  }
+
+  public selectSheet(idxOrId: number | string): boolean {
+    if (typeof idxOrId === "number") {
+      if (idxOrId >= 0 && idxOrId < this.sheets.length) {
+        return this.switchSheet(this.sheets[idxOrId].id);
+      }
+      return false;
+    }
+    return this.switchSheet(idxOrId);
+  }
+
+  private undoStack: string[] = [];
+  private redoStack: string[] = [];
+
+  public commitSnapshot() {
+    const snap = JSON.stringify(
+      this.sheets.map((s) => ({
+        id: s.id,
+        name: s.name,
+        cells: Array.from(s.cells.entries()),
+        selectedCell: s.selectedCell,
+        freezePanes: s.freezePanes,
+      }))
+    );
+    this.undoStack.push(snap);
+    this.redoStack = [];
+    if (this.undoStack.length > 50) this.undoStack.shift();
+  }
+
+  public canUndo(): boolean {
+    return this.undoStack.length > 0;
+  }
+
+  public canRedo(): boolean {
+    return this.redoStack.length > 0;
+  }
+
+  public undo(): boolean {
+    if (!this.canUndo()) return false;
+    const currentSnap = JSON.stringify(
+      this.sheets.map((s) => ({
+        id: s.id,
+        name: s.name,
+        cells: Array.from(s.cells.entries()),
+        selectedCell: s.selectedCell,
+        freezePanes: s.freezePanes,
+      }))
+    );
+    this.redoStack.push(currentSnap);
+    const prev = JSON.parse(this.undoStack.pop()!);
+    this.restoreSnapshot(prev);
+    return true;
+  }
+
+  public redo(): boolean {
+    if (!this.canRedo()) return false;
+    const currentSnap = JSON.stringify(
+      this.sheets.map((s) => ({
+        id: s.id,
+        name: s.name,
+        cells: Array.from(s.cells.entries()),
+        selectedCell: s.selectedCell,
+        freezePanes: s.freezePanes,
+      }))
+    );
+    this.undoStack.push(currentSnap);
+    const next = JSON.parse(this.redoStack.pop()!);
+    this.restoreSnapshot(next);
+    return true;
+  }
+
+  private restoreSnapshot(saved: any[]) {
+    this.sheets = saved.map((s) => ({
+      ...s,
+      cells: new Map(s.cells),
+      colWidths: new Map(),
+      rowHeights: new Map(),
+      selectedRanges: [{ minRow: 0, maxRow: 0, minCol: 0, maxCol: 0 }],
+      charts: [],
+      conditionalFormats: [],
+      showGridlines: true,
+      showHeadings: true,
+      showFormulaBar: true,
+    }));
+    this.recalculateAll();
+  }
+
   public getActiveSheet(): SheetData {
     const s = this.sheets.find((sh) => sh.id === this.activeSheetId);
     if (s) return s;
@@ -570,6 +677,7 @@ export class CalcState {
   }
 
   commitFormula(val: string) {
+    this.commitSnapshot();
     let computed: string | number = val;
     if (val.startsWith("=")) {
       computed = this.evaluateFormula(val);

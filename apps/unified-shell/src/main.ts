@@ -500,6 +500,10 @@ export class UnifiedShellApp {
     return this.currentDocType;
   }
 
+  public getKeyboardShortcuts(): KeyboardShortcuts {
+    return this.shortcuts;
+  }
+
   public getCalcGridCanvas(): CalcGridCanvas | undefined {
     return this.calcGridCanvas;
   }
@@ -1273,6 +1277,9 @@ export class UnifiedShellApp {
         } else if (this.currentDocType === "PDF") {
           pdfState.undo();
           this.pdfWorkspace?.render();
+        } else if (this.currentDocType === "Excel") {
+          calcState.undo();
+          this.calcGridCanvas?.render();
         } else {
           IPC.executeUndo(active.id);
         }
@@ -1284,6 +1291,9 @@ export class UnifiedShellApp {
         } else if (this.currentDocType === "PDF") {
           pdfState.redo();
           this.pdfWorkspace?.render();
+        } else if (this.currentDocType === "Excel") {
+          calcState.redo();
+          this.calcGridCanvas?.render();
         } else {
           IPC.executeRedo(active.id);
         }

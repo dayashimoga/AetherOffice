@@ -105,6 +105,7 @@ export function getAnimationType(effect: AnimationEffect): AnimationType {
 export interface SlideShape {
   id: string;
   type: PresetShapeKind;
+  shapeType?: PresetShapeKind;
   x: number;
   y: number;
   w: number;
@@ -131,6 +132,7 @@ export interface SlideData {
   id: string;
   title: string;
   shapes: SlideShape[];
+  layout?: SlideLayoutType;
   isHidden?: boolean;
   transition?: string;
   transitionConfig?: SlideTransitionConfig;
@@ -530,12 +532,17 @@ export class SlidesState {
       id: `s_${++this.nextSlideCounter}`,
       title,
       shapes,
+      layout,
       isHidden: false,
     };
     this.slides.push(newSlide);
     this.currentSlideIndex = this.slides.length - 1;
     this.selectedShapeId = null;
     return newSlide;
+  }
+
+  public setSlideLayout(idx: number, layout: SlideLayoutType): boolean {
+    return this.applyLayout(layout, idx);
   }
 
   public applyLayout(layout: SlideLayoutType, idx = this.currentSlideIndex): boolean {
@@ -666,6 +673,7 @@ export class SlidesState {
     }
 
     slide.shapes = shapes;
+    slide.layout = layout;
     this.selectedShapeId = null;
     return true;
   }
@@ -1253,6 +1261,7 @@ export class SlidesState {
     const newShape: SlideShape = {
       id: `sh_${++this.nextShapeCounter}`,
       type,
+      shapeType: type,
       x,
       y,
       w: type === "text" ? 280 : type === "table" ? 480 : type === "image" ? 280 : w,
