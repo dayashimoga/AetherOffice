@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenOfficeRS Unified Shell</title>
+    <link rel="stylesheet" href="./src/styles/shell.css" />
+  </head>
+  <body>
+    <div id="app" class="desktop-shell">
+      <!-- Title Bar & Window Controls -->
+      <header class="title-bar" data-tauri-drag-region>
+        <div class="app-branding">
+          <span class="app-logo">📄</span>
+          <span class="app-name">OpenOfficeRS</span>
+        </div>
+        <div class="search-box">
+          <input type="text" placeholder="Tell me what you want to do (Alt+Q)..." aria-label="Search features" />
+        </div>
+        <div class="window-controls">
+          <button class="win-btn win-min" title="Minimize">−</button>
+          <button class="win-btn win-max" title="Maximize">□</button>
+          <button class="win-btn win-close" title="Close">×</button>
+        </div>
+      </header>
+
+      <!-- Multi-Document Tab Bar -->
+      <nav id="tab-bar-container" class="tab-bar" aria-label="Open documents"></nav>
+
+      <!-- Contextual Ribbon Bar -->
+      <section id="ribbon-container" class="ribbon-bar" aria-label="Command Ribbon"></section>
+
+      <!-- Excel Formula Bar / Word Ruler Sub-header -->
+      <section id="sub-header-container" class="sub-header-bar"></section>
+
+      <!-- Main Workspace (Navigation Pane + Canvas Viewport) -->
+      <main class="workspace-layout">
+        <!-- Navigation / Outline Pane / Slide Sorter Filmstrip -->
+        <aside id="sidebar-container" class="sidebar-pane" aria-label="Document Navigation"></aside>
+
+        <!-- Document Canvas Viewport -->
+        <section class="canvas-viewport" id="viewport-container" tabindex="0">
+          <canvas id="render-surface"></canvas>
+        </section>
+      </main>
+
+      <!-- Status Bar -->
+      <footer id="status-bar" class="status-bar">
+        <div class="status-left">
+          <span id="status-doc-info">Page 1 of 1</span>
+          <span class="status-divider">|</span>
+          <span id="status-word-count">0 words</span>
+          <span class="status-divider">|</span>
+          <span id="status-lang">English (US)</span>
+        </div>
+        <div class="status-right">
+          <span id="status-zoom-level">100%</span>
+          <input type="range" id="zoom-slider" min="20" max="400" value="100" />
+        </div>
+      </footer>
+    </div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

@@ -14,6 +14,7 @@ pub mod compositor;
 pub mod interaction;
 pub mod primitive;
 pub mod rasterizer;
+pub mod shell;
 pub mod spatial;
 pub mod text;
 
@@ -34,6 +35,12 @@ pub use primitive::{
     Rect2D, TextScript, TransformMatrix,
 };
 pub use rasterizer::SoftwareRasterizer;
+pub use shell::{
+    AltKeytipStateMachine, DesktopSessionManager, DocumentTab, DocumentType, FormattingState,
+    FormulaBarEngine, FormulaToken, FormulaTokenType, HeadingNode, KeyCombination,
+    NavigationPaneEngine, RibbonModel, RibbonTabId, SessionSummary, ShellAction, ShortcutEngine,
+    SlideSorterEngine, TabBarModel, WordRulerConfig,
+};
 pub use spatial::SpatialGrid;
 pub use text::ShapedTextEngine;
 

@@ -5,7 +5,8 @@ members = [
     "crates/word-engine",
     "crates/excel-engine",
     "crates/ppt-engine",
-    "crates/render-core"
+    "crates/render-core",
+    "apps/unified-shell/src-tauri"
 ]
 
 [workspace.dependencies]

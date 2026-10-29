@@ -1,0 +1,342 @@
+{
+  "subphase": "5.2.1",
+  "title": "Tauri v2 Desktop & Laptop Shell (Ribbon, Multi-Tab, Formula Bar)",
+  "governing_standard": "ECMA-376 & W3C UI Events / W3C Pointer Events Level 3",
+  "vector_count": 26,
+  "vectors": [
+    {
+      "id": "VEC-5.2.1-01",
+      "description": "Tab Bar: initial workspace tab initialization",
+      "input": {
+        "title": "Document 1",
+        "doc_type": "word"
+      },
+      "expected": {
+        "tab_count": 1,
+        "is_active": true,
+        "is_dirty": false,
+        "display_title": "Document 1"
+      }
+    },
+    {
+      "id": "VEC-5.2.1-02",
+      "description": "Tab Bar: add document tabs of varying types (docx, xlsx, pptx)",
+      "input": {
+        "existing_tabs": 1,
+        "new_tabs": [
+          { "title": "Budget.xlsx", "doc_type": "excel" },
+          { "title": "Pitch.pptx", "doc_type": "ppt" }
+        ]
+      },
+      "expected": {
+        "total_tabs": 3,
+        "last_added_active": true
+      }
+    },
+    {
+      "id": "VEC-5.2.1-03",
+      "description": "Tab Bar: switch active tab updates active session ID",
+      "input": {
+        "tab_ids": ["tab-1", "tab-2", "tab-3"],
+        "target_switch": "tab-2"
+      },
+      "expected": {
+        "active_tab_id": "tab-2"
+      }
+    },
+    {
+      "id": "VEC-5.2.1-04",
+      "description": "Tab Bar: dirty state modification formatting",
+      "input": {
+        "title": "Report.docx",
+        "is_dirty": true
+      },
+      "expected": {
+        "rendered_label": "Report.docx *"
+      }
+    },
+    {
+      "id": "VEC-5.2.1-05",
+      "description": "Tab Bar: close tab switches active tab to neighbor",
+      "input": {
+        "tabs": ["tab-1", "tab-2", "tab-3"],
+        "active": "tab-2",
+        "close_target": "tab-2"
+      },
+      "expected": {
+        "remaining_tabs": 2,
+        "new_active_tab": "tab-3"
+      }
+    },
+    {
+      "id": "VEC-5.2.1-06",
+      "description": "Contextual Ribbon: Word visible tab set",
+      "input": {
+        "doc_type": "word"
+      },
+      "expected": {
+        "visible_tabs": ["File", "Home", "Insert", "Layout", "Review", "View"],
+        "hidden_tabs": ["Formulas", "Data", "Slide Show", "Transitions", "Animations"]
+      }
+    },
+    {
+      "id": "VEC-5.2.1-07",
+      "description": "Contextual Ribbon: Excel visible tab set",
+      "input": {
+        "doc_type": "excel"
+      },
+      "expected": {
+        "visible_tabs": ["File", "Home", "Insert", "Layout", "Formulas", "Data", "Review", "View"],
+        "hidden_tabs": ["Slide Show", "Transitions", "Animations"]
+      }
+    },
+    {
+      "id": "VEC-5.2.1-08",
+      "description": "Contextual Ribbon: PowerPoint visible tab set",
+      "input": {
+        "doc_type": "ppt"
+      },
+      "expected": {
+        "visible_tabs": ["File", "Home", "Insert", "Layout", "Transitions", "Animations", "Slide Show", "Review", "View"],
+        "hidden_tabs": ["Formulas", "Data"]
+      }
+    },
+    {
+      "id": "VEC-5.2.1-09",
+      "description": "Ribbon action: toggle bold, italic, and underline properties",
+      "input": {
+        "initial": { "bold": false, "italic": false, "underline": false },
+        "toggles": ["bold", "underline"]
+      },
+      "expected": {
+        "bold": true,
+        "italic": false,
+        "underline": true
+      }
+    },
+    {
+      "id": "VEC-5.2.1-10",
+      "description": "Ribbon action: set font family and font size in points",
+      "input": {
+        "font_family": "Aptos",
+        "font_size_pt": 14.5
+      },
+      "expected": {
+        "font_family": "Aptos",
+        "font_size_pt": 14.5,
+        "font_size_half_pt": 29
+      }
+    },
+    {
+      "id": "VEC-5.2.1-11",
+      "description": "Formula Bar: convert grid row and col to A1 Name Box string",
+      "input": {
+        "row": 3,
+        "col": 1
+      },
+      "expected": {
+        "a1_string": "B4"
+      }
+    },
+    {
+      "id": "VEC-5.2.1-12",
+      "description": "Formula Bar: parse A1 Name Box string to 0-indexed row and col",
+      "input": {
+        "a1_string": "AA100"
+      },
+      "expected": {
+        "col": 26,
+        "row": 99
+      }
+    },
+    {
+      "id": "VEC-5.2.1-13",
+      "description": "Formula Bar: syntax highlighting tokenization for arithmetic and function formula",
+      "input": {
+        "formula": "=SUM(A1:B10) * 1.05 + 10"
+      },
+      "expected": {
+        "starts_with_equal": true,
+        "tokens": [
+          { "type": "function", "value": "SUM" },
+          { "type": "paren_open", "value": "(" },
+          { "type": "reference", "value": "A1:B10" },
+          { "type": "paren_close", "value": ")" },
+          { "type": "operator", "value": "*" },
+          { "type": "number", "value": "1.05" },
+          { "type": "operator", "value": "+" },
+          { "type": "number", "value": "10" }
+        ]
+      }
+    },
+    {
+      "id": "VEC-5.2.1-14",
+      "description": "Formula Bar: commit formula emits edit command and updates active cell",
+      "input": {
+        "initial_value": "100",
+        "formula_text": "=A1*2"
+      },
+      "expected": {
+        "committed_formula": "=A1*2",
+        "triggers_recalc": true
+      }
+    },
+    {
+      "id": "VEC-5.2.1-15",
+      "description": "Formula Bar: cancel button reverts input back to original cell content",
+      "input": {
+        "original_text": "Original Content",
+        "edited_text": "Draft typo",
+        "action": "cancel"
+      },
+      "expected": {
+        "restored_text": "Original Content"
+      }
+    },
+    {
+      "id": "VEC-5.2.1-16",
+      "description": "Word Ruler: margin markers and indent slider offsets",
+      "input": {
+        "page_width_dxa": 12240,
+        "margin_left_dxa": 1440,
+        "margin_right_dxa": 1440,
+        "first_line_indent_dxa": 720
+      },
+      "expected": {
+        "content_width_dxa": 9360,
+        "slider_first_line_x_dxa": 2160
+      }
+    },
+    {
+      "id": "VEC-5.2.1-17",
+      "description": "Navigation Pane: extract document heading outline hierarchy",
+      "input": {
+        "paragraphs": [
+          { "style": "Heading 1", "text": "Chapter 1" },
+          { "style": "Normal", "text": "Body paragraph" },
+          { "style": "Heading 2", "text": "Section 1.1" }
+        ]
+      },
+      "expected": {
+        "heading_count": 2,
+        "tree": [
+          { "level": 1, "text": "Chapter 1" },
+          { "level": 2, "text": "Section 1.1" }
+        ]
+      }
+    },
+    {
+      "id": "VEC-5.2.1-18",
+      "description": "PowerPoint Slide Sorter: drag reorder slide thumbnails",
+      "input": {
+        "initial_order": [101, 102, 103, 104],
+        "drag_index": 0,
+        "drop_index": 2
+      },
+      "expected": {
+        "reordered": [102, 103, 101, 104]
+      }
+    },
+    {
+      "id": "VEC-5.2.1-19",
+      "description": "Keyboard Shortcut: clipboard accelerators matching (Ctrl+C, Ctrl+V, Ctrl+X)",
+      "input": {
+        "key": "c",
+        "ctrl": true,
+        "alt": false,
+        "shift": false
+      },
+      "expected": {
+        "action": "Copy"
+      }
+    },
+    {
+      "id": "VEC-5.2.1-20",
+      "description": "Keyboard Shortcut: Undo and Redo accelerators matching",
+      "input": {
+        "key_undo": { "key": "z", "ctrl": true, "shift": false },
+        "key_redo": { "key": "y", "ctrl": true, "shift": false }
+      },
+      "expected": {
+        "action_undo": "Undo",
+        "action_redo": "Redo"
+      }
+    },
+    {
+      "id": "VEC-5.2.1-21",
+      "description": "Keyboard Shortcut: Tab navigation cycling (Ctrl+Tab, Ctrl+Shift+Tab)",
+      "input": {
+        "active_index": 1,
+        "total_tabs": 3,
+        "key_forward": { "key": "Tab", "ctrl": true, "shift": false },
+        "key_backward": { "key": "Tab", "ctrl": true, "shift": true }
+      },
+      "expected": {
+        "forward_index": 2,
+        "backward_index": 0
+      }
+    },
+    {
+      "id": "VEC-5.2.1-22",
+      "description": "Keyboard Shortcut: Excel F4 reference type toggling cycle",
+      "input": {
+        "reference": "A1",
+        "f4_presses": 4
+      },
+      "expected": {
+        "cycle": ["$A$1", "A$1", "$A1", "A1"]
+      }
+    },
+    {
+      "id": "VEC-5.2.1-23",
+      "description": "Alt Keytips: activation and keycode to Ribbon tab routing",
+      "input": {
+        "initial_active": false,
+        "press_alt": true,
+        "keytip_code": "H"
+      },
+      "expected": {
+        "keytips_visible": true,
+        "selected_ribbon_tab": "Home"
+      }
+    },
+    {
+      "id": "VEC-5.2.1-24",
+      "description": "Tauri IPC: open document session and detect document type",
+      "input": {
+        "path_word": "test.docx",
+        "path_excel": "test.xlsx",
+        "path_ppt": "test.pptx"
+      },
+      "expected": {
+        "type_word": "Word",
+        "type_excel": "Excel",
+        "type_ppt": "PowerPoint"
+      }
+    },
+    {
+      "id": "VEC-5.2.1-25",
+      "description": "Tauri IPC: session management close and dirty check",
+      "input": {
+        "session_id": "sess-1",
+        "is_dirty": true,
+        "force_close": false
+      },
+      "expected": {
+        "requires_save_prompt": true
+      }
+    },
+    {
+      "id": "VEC-5.2.1-26",
+      "description": "Vectors manifest validation: all 26 vectors present, sequential, and schema compliant",
+      "input": {
+        "subphase": "5.2.1",
+        "min_vectors": 25
+      },
+      "expected": {
+        "valid": true,
+        "total_vectors": 26
+      }
+    }
+  ]
+}
