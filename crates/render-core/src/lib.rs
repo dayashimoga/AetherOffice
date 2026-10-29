@@ -19,6 +19,7 @@ pub mod rasterizer;
 pub mod shell;
 pub mod spatial;
 pub mod text;
+pub mod window;
 
 pub use adaptive::{
     BottomSheetState, BottomSheetStateMachine, CardField, CardFieldType, FormFactor, InkPoint,
@@ -26,6 +27,11 @@ pub use adaptive::{
     ViewportMetrics, WordReflowReaderEngine,
 };
 pub use commands::*;
+pub use window::{
+    DetachTabTransaction, DockTabTransaction, DockTarget, MultiWindowManager, ProcessIpcEnvelope,
+    ProcessIpcPayload, ProcessLaunchConfig, TabDetachmentEngine, TabDockingEngine, TabDragSession,
+    WindowInstance, WindowState,
+};
 
 pub use compiler::{
     excel::{

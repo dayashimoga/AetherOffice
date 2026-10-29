@@ -141,9 +141,90 @@ pub fn get_tab_bar_state(state: &ShellState) -> Result<TabBarModel, String> {
     Ok(mgr.tab_bar.clone())
 }
 
+pub fn create_window(
+    state: &ShellState,
+    title: &str,
+    bounds: render_core::primitive::Rect2D,
+) -> Result<String, String> {
+    let mut mgr = state
+        .session_manager
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    Ok(mgr.window_manager.create_window(title, bounds, false))
+}
+
+pub fn close_window(
+    state: &ShellState,
+    window_id: &str,
+    force: bool,
+) -> Result<Option<String>, String> {
+    let mut mgr = state
+        .session_manager
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    mgr.window_manager
+        .close_window(window_id, force)
+        .map_err(|e| e.to_string())
+}
+
+pub fn detach_tab_to_window(
+    state: &ShellState,
+    source_window_id: &str,
+    tab_id: &str,
+    new_bounds: render_core::primitive::Rect2D,
+) -> Result<String, String> {
+    let mut mgr = state
+        .session_manager
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    mgr.detach_tab(source_window_id, tab_id, new_bounds)
+        .map_err(|e| e.to_string())
+}
+
+pub fn dock_tab_to_window(
+    state: &ShellState,
+    source_window_id: &str,
+    tab_id: &str,
+    target_window_id: &str,
+    insert_index: usize,
+) -> Result<(), String> {
+    let mut mgr = state
+        .session_manager
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    mgr.dock_tab(source_window_id, tab_id, target_window_id, insert_index)
+        .map_err(|e| e.to_string())
+}
+
+pub fn get_window_manager_state(
+    state: &ShellState,
+) -> Result<render_core::window::MultiWindowManager, String> {
+    let mgr = state
+        .session_manager
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    Ok(mgr.window_manager.clone())
+}
+
+pub fn build_child_process_config(
+    window_id: &str,
+    session_id: &str,
+    doc_type: DocumentType,
+    bounds: render_core::primitive::Rect2D,
+) -> render_core::window::ProcessLaunchConfig {
+    render_core::window::ProcessLaunchConfig::new(
+        "unified-shell",
+        window_id,
+        session_id,
+        doc_type,
+        bounds,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use render_core::primitive::Rect2D;
 
     #[test]
     fn test_shell_state_initialization() {
@@ -171,5 +252,59 @@ mod tests {
         assert!(pdf_tabs.contains(&RibbonTabId::Review));
         assert!(pdf_tabs.contains(&RibbonTabId::View));
         assert!(!pdf_tabs.contains(&RibbonTabId::Formulas));
+    }
+
+    #[test]
+    fn test_multi_window_tab_detach_and_dock() {
+        let state = ShellState::new();
+
+        // Create two document sessions in primary window
+        let _doc1 = create_session(&state, DocumentType::Word, "Doc1.docx").unwrap();
+        let doc2 = create_session(&state, DocumentType::Excel, "Sheet1.xlsx").unwrap();
+
+        let win_mgr = get_window_manager_state(&state).unwrap();
+        assert_eq!(win_mgr.window_count(), 1);
+        let primary_win_id = win_mgr.active_window_id.clone().unwrap();
+        assert_eq!(win_mgr.get_window(&primary_win_id).unwrap().tab_count(), 2);
+
+        // Detach Doc2 into a new standalone window
+        let new_win_id = detach_tab_to_window(
+            &state,
+            &primary_win_id,
+            &doc2.session_id,
+            Rect2D::new(500.0, 200.0, 1024.0, 768.0),
+        )
+        .expect("Detach Doc2 to new window");
+
+        let win_mgr_after_detach = get_window_manager_state(&state).unwrap();
+        assert_eq!(win_mgr_after_detach.window_count(), 2);
+        assert_eq!(
+            win_mgr_after_detach
+                .get_window(&primary_win_id)
+                .unwrap()
+                .tab_count(),
+            1
+        );
+        assert_eq!(
+            win_mgr_after_detach
+                .get_window(&new_win_id)
+                .unwrap()
+                .tab_count(),
+            1
+        );
+
+        // Dock Doc2 back into primary window at index 1
+        dock_tab_to_window(&state, &new_win_id, &doc2.session_id, &primary_win_id, 1)
+            .expect("Dock Doc2 back");
+
+        let win_mgr_after_dock = get_window_manager_state(&state).unwrap();
+        assert_eq!(win_mgr_after_dock.window_count(), 1); // Empty secondary window automatically pruned
+        assert_eq!(
+            win_mgr_after_dock
+                .get_window(&primary_win_id)
+                .unwrap()
+                .tab_count(),
+            2
+        );
     }
 }

@@ -19,6 +19,7 @@ use crate::compiler::word::{
 };
 use crate::interaction::{Command, CommandBus};
 use crate::primitive::{ColorRgba, Rect2D};
+use crate::window::MultiWindowManager;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -1340,17 +1341,22 @@ pub struct DesktopSessionManager {
     pub global_command_buses: HashMap<String, GlobalCommandBus>,
     pub office_states: HashMap<String, GlobalOfficeState>,
     pub clipboard: GlobalClipboard,
+    pub window_manager: MultiWindowManager,
     next_session_counter: usize,
 }
 
 impl DesktopSessionManager {
     pub fn new() -> Self {
+        let mut window_manager = MultiWindowManager::new();
+        window_manager.create_window("OpenOfficeRS", Rect2D::new(0.0, 0.0, 1280.0, 800.0), true);
+
         Self {
             tab_bar: TabBarModel::new(),
             command_buses: HashMap::new(),
             global_command_buses: HashMap::new(),
             office_states: HashMap::new(),
             clipboard: GlobalClipboard::new(),
+            window_manager,
             next_session_counter: 1,
         }
     }
@@ -1375,7 +1381,12 @@ impl DesktopSessionManager {
         self.next_session_counter += 1;
 
         let tab = DocumentTab::new(&session_id, doc_type, title);
-        self.tab_bar.add_tab(tab);
+        self.tab_bar.add_tab(tab.clone());
+
+        if let Some(active_win) = self.window_manager.active_window_mut() {
+            active_win.tabs.add_tab(tab);
+        }
+
         self.command_buses
             .insert(session_id.clone(), CommandBus::new());
         self.global_command_buses
@@ -1390,6 +1401,38 @@ impl DesktopSessionManager {
             is_dirty: false,
             file_path: None,
         }
+    }
+
+    /// Detach a tab from a window into a newly created independent window.
+    pub fn detach_tab(
+        &mut self,
+        source_window_id: &str,
+        tab_id: &str,
+        new_bounds: Rect2D,
+    ) -> Result<String, &'static str> {
+        crate::window::TabDetachmentEngine::detach_tab_to_new_window(
+            &mut self.window_manager,
+            source_window_id,
+            tab_id,
+            new_bounds,
+        )
+    }
+
+    /// Dock a tab from one window into another window at the specified tab index.
+    pub fn dock_tab(
+        &mut self,
+        source_window_id: &str,
+        tab_id: &str,
+        target_window_id: &str,
+        insert_index: usize,
+    ) -> Result<(), &'static str> {
+        crate::window::TabDockingEngine::dock_tab(
+            &mut self.window_manager,
+            source_window_id,
+            tab_id,
+            target_window_id,
+            insert_index,
+        )
     }
 
     /// Open an existing document path.
