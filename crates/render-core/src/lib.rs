@@ -10,6 +10,7 @@
 //! - 120Hz frame pacing compositor and latency profiler
 
 pub mod adaptive;
+pub mod commands;
 pub mod compiler;
 pub mod compositor;
 pub mod interaction;
@@ -24,6 +25,7 @@ pub use adaptive::{
     InkStroke, LaserPointerEngine, RowCardInspectorEngine, SafeAreaInsets, TouchRibbonState,
     ViewportMetrics, WordReflowReaderEngine,
 };
+pub use commands::*;
 
 pub use compiler::{
     excel::{ExcelDisplayCell, ExcelDisplayCompiler, ExcelSelectionRange},

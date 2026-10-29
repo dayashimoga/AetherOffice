@@ -12,6 +12,16 @@ import { RowCardInspector } from "./components/RowCardInspector";
 import { LaserPointer } from "./components/LaserPointer";
 import { IPC, DocumentType } from "./ipc";
 
+import { WriterCanvas } from "./components/viewports/WriterCanvas";
+import { CalcGridCanvas } from "./components/viewports/CalcGridCanvas";
+import { SlideStageCanvas } from "./components/viewports/SlideStageCanvas";
+import { PdfViewerCanvas } from "./components/viewports/PdfViewerCanvas";
+
+import { writerState } from "./state/writerState";
+import { calcState } from "./state/calcState";
+import { slidesState } from "./state/slidesState";
+import { pdfState } from "./state/pdfState";
+
 class UnifiedShellApp {
   private tabBar!: TabBar;
   private ribbon!: Ribbon;
@@ -26,6 +36,11 @@ class UnifiedShellApp {
   private cardInspector!: RowCardInspector;
   private laserPointer!: LaserPointer;
   private currentDocType: DocumentType = "Word";
+
+  private writerCanvas?: WriterCanvas;
+  private calcGridCanvas?: CalcGridCanvas;
+  private slideStageCanvas?: SlideStageCanvas;
+  private pdfViewerCanvas?: PdfViewerCanvas;
 
   constructor() {
     this.init();
@@ -47,7 +62,10 @@ class UnifiedShellApp {
     // 3. Initialize Sub-headers
     this.formulaBar = new FormulaBar("sub-header-container");
     this.formulaBar.setCallbacks({
-      onCommit: (val) => console.log("Formula committed:", val),
+      onCommit: (val) => {
+        calcState.commitFormula(val);
+        this.calcGridCanvas?.render();
+      },
       onCancel: () => console.log("Formula cancelled"),
     });
 
@@ -56,6 +74,13 @@ class UnifiedShellApp {
     // 4. Initialize Sidebars
     this.navPane = new NavigationPane("sidebar-container");
     this.slideSorter = new SlideSorter("sidebar-container");
+    this.slideSorter.setCallbacks({
+      onSelectSlide: (id) => {
+        this.slideStageCanvas?.selectSlide(id - 1);
+        const docInfo = document.getElementById("status-doc-info");
+        if (docInfo) docInfo.textContent = `Slide ${id} of 3`;
+      },
+    });
 
     // 5. Initialize Adaptive Mobile & Tablet Components
     this.bottomSheet = new BottomSheet("bottom-sheet");
@@ -121,6 +146,13 @@ class UnifiedShellApp {
       if (tab.docType === "Excel") {
         subHeader.style.display = "flex";
         this.formulaBar = new FormulaBar("sub-header-container");
+        this.formulaBar.setCallbacks({
+          onCommit: (val) => {
+            calcState.commitFormula(val);
+            this.calcGridCanvas?.render();
+          },
+          onCancel: () => console.log("Formula cancelled"),
+        });
         this.formulaBar.setActiveCell("A1", "=SUM(B2:B10)");
       } else if (tab.docType === "Word") {
         subHeader.style.display = "flex";
@@ -142,6 +174,13 @@ class UnifiedShellApp {
       ]);
     } else if (tab.docType === "PowerPoint") {
       this.slideSorter = new SlideSorter("sidebar-container");
+      this.slideSorter.setCallbacks({
+        onSelectSlide: (id) => {
+          this.slideStageCanvas?.selectSlide(id - 1);
+          const docInfo = document.getElementById("status-doc-info");
+          if (docInfo) docInfo.textContent = `Slide ${id} of 3`;
+        },
+      });
       this.slideSorter.setSlides([
         { id: 1, slideNumber: 1, title: "Title Slide" },
         { id: 2, slideNumber: 2, title: "Problem Statement" },
@@ -152,10 +191,42 @@ class UnifiedShellApp {
       if (sidebar) sidebar.innerHTML = '<div class="sidebar-heading">Workbook Sheets</div>';
     }
 
+    // Update Active Viewport Controller
+    const viewportContainer = document.getElementById("viewport-container");
+    if (viewportContainer) {
+      if (this.writerCanvas) {
+        this.writerCanvas.destroy();
+        this.writerCanvas = undefined;
+      }
+      this.calcGridCanvas = undefined;
+      this.slideStageCanvas = undefined;
+      this.pdfViewerCanvas = undefined;
+
+      if (tab.docType === "Word") {
+        this.writerCanvas = new WriterCanvas(viewportContainer, writerState);
+        this.writerCanvas.setOnStatusChange((pInfo, words) => {
+          const docInfo = document.getElementById("status-doc-info");
+          const wordInfo = document.getElementById("status-word-count");
+          if (docInfo) docInfo.textContent = pInfo;
+          if (wordInfo) wordInfo.textContent = `${words} words`;
+        });
+      } else if (tab.docType === "Excel") {
+        this.calcGridCanvas = new CalcGridCanvas(viewportContainer, calcState);
+        this.calcGridCanvas.setOnCellSelected((coord, val) => {
+          this.formulaBar.setActiveCell(coord, val);
+        });
+      } else if (tab.docType === "PowerPoint") {
+        this.slideStageCanvas = new SlideStageCanvas(viewportContainer, slidesState);
+      } else if (tab.docType === "PDF") {
+        this.pdfViewerCanvas = new PdfViewerCanvas(viewportContainer, pdfState);
+      }
+    }
+
     // Update Status Bar
     const docInfo = document.getElementById("status-doc-info");
     if (docInfo) {
-      docInfo.textContent = tab.docType === "Excel" ? "Sheet 1 of 3" : tab.docType === "PowerPoint" ? "Slide 1 of 3" : "Page 1 of 4";
+      docInfo.textContent =
+        tab.docType === "Excel" ? "Sheet 1 of 3" : tab.docType === "PowerPoint" ? "Slide 1 of 3" : "Page 1 of 1";
     }
   }
 
@@ -180,8 +251,54 @@ class UnifiedShellApp {
 
     if (action === "Paste" || action === "Copy" || action === "Cut") {
       console.log(`Clipboard action ${action}`);
-    } else if (action === "ToggleBold" || action === "ToggleItalic" || action === "ToggleUnderline") {
+    } else if (action === "ToggleBold") {
+      if (this.currentDocType === "Word") {
+        writerState.execCommand("toggleBold");
+        this.writerCanvas?.render();
+      } else if (this.currentDocType === "Excel") {
+        const cell = calcState.cells.get(calcState.selectedCell);
+        if (cell) cell.bold = !cell.bold;
+        this.calcGridCanvas?.render();
+      }
       this.tabBar.setDirty(active.id, true);
+    } else if (action === "ToggleItalic") {
+      if (this.currentDocType === "Word") {
+        writerState.execCommand("toggleItalic");
+        this.writerCanvas?.render();
+      }
+      this.tabBar.setDirty(active.id, true);
+    } else if (action === "SetFontFamily") {
+      if (this.currentDocType === "Word") {
+        writerState.execCommand("setFont", payload);
+        this.writerCanvas?.render();
+      }
+    } else if (action === "SetFontSize") {
+      if (this.currentDocType === "Word") {
+        writerState.execCommand("setFontSize", payload);
+        this.writerCanvas?.render();
+      }
+    } else if (action === "SetFormField") {
+      if (this.currentDocType === "PDF") {
+        this.pdfViewerCanvas?.render();
+      }
+    } else if (action === "AlignLeft" || action === "AlignCenter" || action === "AlignRight" || action === "AlignJustify") {
+      if (this.currentDocType === "Word") {
+        const alignMode = action.replace("Align", "").toLowerCase() as "left" | "center" | "right" | "justify";
+        writerState.execCommand("setAlignment", alignMode);
+        this.writerCanvas?.render();
+      }
+    } else if (action === "StartShowBeginning") {
+      if (this.currentDocType === "PowerPoint") {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+    } else if (action === "Recalculate") {
+      if (this.currentDocType === "Excel") {
+        this.calcGridCanvas?.render();
+      }
     } else if (action === "ToggleReflow") {
       this.reflowReader.toggle();
     } else if (action === "ToggleInk") {
@@ -253,4 +370,3 @@ class UnifiedShellApp {
 window.addEventListener("DOMContentLoaded", () => {
   new UnifiedShellApp();
 });
-

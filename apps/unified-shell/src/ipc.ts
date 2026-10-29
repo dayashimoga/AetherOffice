@@ -2,7 +2,7 @@
  * Tauri IPC Client for OpenOfficeRS Unified Shell
  */
 
-export type DocumentType = "Word" | "Excel" | "PowerPoint";
+export type DocumentType = "Word" | "Excel" | "PowerPoint" | "PDF";
 
 export interface SessionSummary {
   session_id: string;

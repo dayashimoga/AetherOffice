@@ -459,18 +459,42 @@ body, html {
 /* Canvas Viewport */
 .canvas-viewport {
   flex: 1;
-  background-color: #e5e5e5;
+  background-color: #8c8c8c;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   overflow: auto;
   position: relative;
   outline: none;
 }
 
-#render-surface {
+.canvas-viewport:has(.calc-grid-canvas) {
+  background-color: #ffffff;
+  align-items: stretch;
+}
+
+.calc-grid-canvas {
+  width: 100% !important;
+  height: 100% !important;
+  flex: 1;
+}
+
+.writer-canvas {
   background-color: white;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+  margin: 32px auto !important;
+}
+
+.slide-stage-canvas {
+  background-color: white;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  margin: 32px auto !important;
+}
+
+.pdf-viewer-canvas {
+  background-color: white;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  margin: 32px auto !important;
 }
 
 /* 6. Status Bar */
