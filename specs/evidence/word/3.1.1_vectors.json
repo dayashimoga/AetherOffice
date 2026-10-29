@@ -1,0 +1,299 @@
+{
+  "subphase_id": "3.1.1",
+  "title": "WordprocessingML Piece-Tree Rope DOM & Sub-Document Parser",
+  "crate": "word-engine",
+  "created_at": "2026-10-28T22:45:00Z",
+  "total_vectors": 26,
+  "vectors": [
+    {
+      "id": "WORD-DOM-001",
+      "name": "PieceTree Initialization and Length",
+      "category": "PieceTree",
+      "description": "Initializes balanced AVL PieceTree buffer with multi-line text and validates length and line counting.",
+      "input": "Hello world!\\nThis is line 2.\\nAnd line 3.",
+      "expected": {
+        "len": 40,
+        "line_count": 3
+      }
+    },
+    {
+      "id": "WORD-DOM-002",
+      "name": "PieceTree Edge Insertions",
+      "category": "PieceTree",
+      "description": "Performs text insertions at beginning (offset 0), middle, and end without full buffer reallocation.",
+      "input": "Base text 'world' with sequential insertions.",
+      "expected": {
+        "final_text": "Hello brave new world!"
+      }
+    },
+    {
+      "id": "WORD-DOM-003",
+      "name": "PieceTree Slice Deletion",
+      "category": "PieceTree",
+      "description": "Performs single and multi-piece deletions at start, middle, and end in O(log N) operations.",
+      "input": "The quick brown fox jumps over the lazy dog",
+      "expected": {
+        "final_text": "quick fox jumps over the lazy"
+      }
+    },
+    {
+      "id": "WORD-DOM-004",
+      "name": "PieceTree Cross-Buffer Slicing",
+      "category": "PieceTree",
+      "description": "Extracts arbitrary byte slices spanning across original and add piece boundaries.",
+      "input": "Sub-range slice extraction across multiple buffers.",
+      "expected": {
+        "slice_1": "rst (ins",
+        "slice_2": ")  part"
+      }
+    },
+    {
+      "id": "WORD-DOM-005",
+      "name": "PieceTree Line Offset and Coordinate Conversion",
+      "category": "PieceTree",
+      "description": "Maps between 0-based byte offsets and (line, column) coordinate tuples with multi-line insertions.",
+      "input": "Multi-line document with line count verification.",
+      "expected": {
+        "initial_lines": 4,
+        "final_lines": 6
+      }
+    },
+    {
+      "id": "WORD-DOM-006",
+      "name": "PieceTree 1,000-Page Keystroke Latency SLA Benchmark",
+      "category": "Performance SLA",
+      "description": "Executes 100 random keystroke insertions and deletions on 1,000 pages (~3,000,000 chars) ensuring < 0.5 ms per edit.",
+      "input": "3,000,000 characters text buffer under high edit density.",
+      "expected": {
+        "sla_max_micros": 500,
+        "target_actual_micros": "< 50"
+      }
+    },
+    {
+      "id": "WORD-DOM-007",
+      "name": "Paragraph and Run Properties XML Round-Trip",
+      "category": "WordprocessingML DOM",
+      "description": "Serializes and parses run properties (bold, italic, underline, strike, color, sz, rFonts) faithfully.",
+      "input": "Formatted text run with multiple typographical properties.",
+      "expected": {
+        "bold": true,
+        "italic": true,
+        "underline": "single",
+        "color": "FF0000",
+        "size_half_points": 24
+      }
+    },
+    {
+      "id": "WORD-DOM-008",
+      "name": "Paragraph Alignment and Spacing",
+      "category": "WordprocessingML DOM",
+      "description": "Parses and verifies paragraph justification, spacing before/after, line rule, and left/right indents.",
+      "input": "Heading paragraph with centered alignment and custom spacing.",
+      "expected": {
+        "justification": "center",
+        "spacing_before": 240,
+        "spacing_after": 120,
+        "indent_left": 720
+      }
+    },
+    {
+      "id": "WORD-DOM-009",
+      "name": "Bookmarks Start and End Tags",
+      "category": "WordprocessingML DOM",
+      "description": "Round-trips w:bookmarkStart and w:bookmarkEnd elements retaining IDs and bookmark names.",
+      "input": "Bookmark with ID 0 named 'Chapter1'.",
+      "expected": {
+        "id": "0",
+        "name": "Chapter1"
+      }
+    },
+    {
+      "id": "WORD-DOM-010",
+      "name": "Hyperlink Elements and Attributes",
+      "category": "WordprocessingML DOM",
+      "description": "Serializes and parses w:hyperlink elements containing child runs, target anchors, and tooltips.",
+      "input": "Hyperlink pointing to rId4 with anchor 'section2'.",
+      "expected": {
+        "id": "rId4",
+        "anchor": "section2",
+        "tooltip": "Go to Section 2"
+      }
+    },
+    {
+      "id": "WORD-DOM-011",
+      "name": "Tracked Revisions (w:ins and w:del)",
+      "category": "WordprocessingML DOM",
+      "description": "Preserves tracked author changes, timestamps, and deleted text elements in revisions.",
+      "input": "Tracked change insertion by Alice and deletion by Bob.",
+      "expected": {
+        "ins_author": "Alice",
+        "del_author": "Bob"
+      }
+    },
+    {
+      "id": "WORD-DOM-012",
+      "name": "Table Grid, Rows, and Cell Properties",
+      "category": "WordprocessingML DOM",
+      "description": "Models w:tbl, w:tblGrid, w:tr, and w:tc with shading, borders, and column widths.",
+      "input": "Table with 2 columns, custom cell background shading, and borders.",
+      "expected": {
+        "cols": 2,
+        "shading": "E0E0E0"
+      }
+    },
+    {
+      "id": "WORD-DOM-013",
+      "name": "Breaks, Tabs, and Special Characters",
+      "category": "WordprocessingML DOM",
+      "description": "Serializes and parses w:br (page break), w:tab, w:softHyphen, and w:noBreakHyphen.",
+      "input": "Run with page break, tab stop, soft hyphen, and non-breaking hyphen.",
+      "expected": {
+        "has_page_break": true,
+        "has_tab": true
+      }
+    },
+    {
+      "id": "WORD-DOM-014",
+      "name": "Section Properties (w:sectPr)",
+      "category": "WordprocessingML DOM",
+      "description": "Round-trips section properties including page size (width/height), margins, and header/footer refs.",
+      "input": "Letter portrait page dimensions with 1-inch margins and header/footer bindings.",
+      "expected": {
+        "page_width": 12240,
+        "page_height": 15840,
+        "margin_top": 1440
+      }
+    },
+    {
+      "id": "WORD-DOM-015",
+      "name": "Raw XML Extension Preservation",
+      "category": "WordprocessingML DOM",
+      "description": "Captures and serializes unmodeled XML elements and attributes losslessly via RawXmlNode.",
+      "input": "w:customBlock node with nested child element and attributes.",
+      "expected": {
+        "tag": "w:customBlock",
+        "child_content": "custom inner text"
+      }
+    },
+    {
+      "id": "WORD-DOM-016",
+      "name": "Header Sub-Document Round-Trip",
+      "category": "Sub-Documents",
+      "description": "Parses and serializes word/header1.xml parts extracting header text and properties.",
+      "input": "w:hdr sub-document with paragraph 'Confidential Document Header'.",
+      "expected": {
+        "text": "Confidential Document Header"
+      }
+    },
+    {
+      "id": "WORD-DOM-017",
+      "name": "Footer Sub-Document Round-Trip",
+      "category": "Sub-Documents",
+      "description": "Parses and serializes word/footer1.xml parts with page number runs.",
+      "input": "w:ftr sub-document with 'Page 1 of 10'.",
+      "expected": {
+        "text": "Page 1 of 10"
+      }
+    },
+    {
+      "id": "WORD-DOM-018",
+      "name": "Footnotes Sub-Document Round-Trip",
+      "category": "Sub-Documents",
+      "description": "Parses separator footnotes and normal footnote bodies within word/footnotes.xml.",
+      "input": "Separator footnote (-1) and user footnote (1).",
+      "expected": {
+        "count": 2,
+        "footnote_1_text": "ISO/IEC 29500:2012 Standard."
+      }
+    },
+    {
+      "id": "WORD-DOM-019",
+      "name": "Endnotes Sub-Document Round-Trip",
+      "category": "Sub-Documents",
+      "description": "Parses and serializes word/endnotes.xml preserving endnote IDs and formatted bodies.",
+      "input": "Endnote with bibliography reference text.",
+      "expected": {
+        "count": 1,
+        "text": "Bibliography reference."
+      }
+    },
+    {
+      "id": "WORD-DOM-020",
+      "name": "Comments Sub-Document Round-Trip",
+      "category": "Sub-Documents",
+      "description": "Parses word/comments.xml preserving author name, initials, ISO timestamps, and comment bodies.",
+      "input": "Comment by 'Chief Architect' with initials 'CA'.",
+      "expected": {
+        "author": "Chief Architect",
+        "initials": "CA",
+        "text": "Review required for Section 3."
+      }
+    },
+    {
+      "id": "WORD-DOM-021",
+      "name": "Baseline DOCX Package Ingestion",
+      "category": "OPC Package",
+      "description": "Loads specs/evidence/word/baseline.docx and extracts full text from paragraphs and table cells.",
+      "input": "baseline.docx ECMA-376 file.",
+      "expected": {
+        "contains_title": "OpenOfficeRS Architecture Specification",
+        "contains_table": "Typing Latency"
+      }
+    },
+    {
+      "id": "WORD-DOM-022",
+      "name": "Baseline DOCX PieceTree Editing",
+      "category": "OPC Package",
+      "description": "Creates PieceTree rope from baseline.docx and performs real-time text insertions and replacements.",
+      "input": "PieceTree initialized from baseline document text.",
+      "expected": {
+        "contains_edited_sla": "< 0.5 ms (Exceeded SLA)"
+      }
+    },
+    {
+      "id": "WORD-DOM-023",
+      "name": "Baseline DOCX Lossless Round-Trip Fidelity",
+      "category": "OPC Package",
+      "description": "Serializes opened baseline.docx to bytes and re-opens, verifying bit-for-bit unmodeled part retention.",
+      "input": "Full OPC round trip of baseline.docx.",
+      "expected": {
+        "text_identical": true,
+        "styles_preserved": true,
+        "theme_preserved": true
+      }
+    },
+    {
+      "id": "WORD-DOM-024",
+      "name": "New WordPackage Creation from Scratch",
+      "category": "OPC Package",
+      "description": "Creates empty WordPackage, appends paragraphs and runs, saves to valid .docx OPC, and reloads.",
+      "input": "WordPackage::new() with custom paragraph.",
+      "expected": {
+        "text": "Generated Document by OpenOfficeRS"
+      }
+    },
+    {
+      "id": "WORD-DOM-025",
+      "name": "Unmodeled Parts Pass-Through Retention",
+      "category": "OPC Package",
+      "description": "Validates that custom unmodeled parts (e.g. customXml/item1.xml) survive save and reload.",
+      "input": "Custom XML part registered in UnparsedPartStore.",
+      "expected": {
+        "part_name": "customXml/item1.xml",
+        "content_type": "application/xml"
+      }
+    },
+    {
+      "id": "WORD-DOM-026",
+      "name": "Test Vectors Manifest Self-Validation",
+      "category": "Manifest Gate",
+      "description": "Asserts that the test suite and evidence vector manifest are synchronized with at least 25 vectors.",
+      "input": "specs/evidence/word/3.1.1_vectors.json.",
+      "expected": {
+        "min_vectors": 25,
+        "actual_vectors": 26
+      }
+    }
+  ]
+}
+
