@@ -598,16 +598,32 @@ export class UnifiedShellApp {
   }
 
   private handleAltKeytip(code: string) {
+    if (code === "F") {
+      this.toggleBackstage();
+      return;
+    }
     const keyMap: Record<string, RibbonTabId> = {
-      F: "File",
       H: "Home",
       N: "Insert",
-      P: "Layout",
+      P:
+        this.currentDocType === "Excel"
+          ? "Page Layout"
+          : this.currentDocType === "PDF"
+          ? "Page Tools"
+          : "Layout",
+      G: "Design",
       M: "Formulas",
       A: "Data",
       T: "Transitions",
       K: "Animations",
-      S: "SlideShow",
+      S:
+        this.currentDocType === "PowerPoint"
+          ? "Slide Show"
+          : this.currentDocType === "Word"
+          ? "References"
+          : "Sign & Protect",
+      E: "Edit PDF",
+      C: "Comment & Annotate",
       R: "Review",
       W: "View",
     };

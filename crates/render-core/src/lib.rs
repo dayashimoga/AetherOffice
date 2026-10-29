@@ -18,7 +18,6 @@ pub mod interaction;
 pub mod primitive;
 pub mod rasterizer;
 pub mod release_matrix;
-pub mod document_io;
 pub mod shell;
 pub mod spatial;
 pub mod text;

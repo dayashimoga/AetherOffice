@@ -82,7 +82,7 @@
   }
 }
 
-/* 5. Mobile Bottom Command Sheet (Hidden on Desktop, Visible on Phone) */
+/* 5. Mobile Bottom Command Sheet (Hidden on Desktop >= 768px, Visible on Mobile < 768px) */
 .bottom-sheet {
   display: none;
   position: fixed;
@@ -102,6 +102,16 @@
 @media screen and (max-width: 767px) {
   .bottom-sheet {
     display: block;
+  }
+}
+
+@media screen and (min-width: 768px) {
+  .bottom-sheet,
+  .bottom-sheet-handle,
+  .bottom-sheet-quick-actions,
+  .bottom-sheet-content,
+  .mobile-touch-bar {
+    display: none !important;
   }
 }
 

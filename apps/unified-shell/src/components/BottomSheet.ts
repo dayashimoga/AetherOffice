@@ -18,6 +18,30 @@ export class BottomSheet {
     this.el = element;
     this.render();
     this.attachEvents();
+    this.updateVisibility();
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("resize", () => this.updateVisibility());
+    }
+  }
+
+  public updateVisibility() {
+    if (typeof window !== "undefined" && window.innerWidth >= 768) {
+      this.el.style.display = "none";
+    } else if (typeof window !== "undefined") {
+      this.el.style.display = "";
+    }
+  }
+
+  public isVisible(): boolean {
+    if (typeof window !== "undefined" && window.innerWidth >= 768) {
+      return false;
+    }
+    return this.el.style.display !== "none";
+  }
+
+  public getElement(): HTMLElement {
+    return this.el;
   }
 
   public setOnAction(callback: (action: string) => void) {
@@ -99,16 +123,13 @@ export class BottomSheet {
       </div>
     `;
 
-    this.el.querySelectorAll("[data-action]").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const action = (e.currentTarget as HTMLElement).getAttribute("data-action");
+    this.el.querySelectorAll(".bottom-sheet-quick-actions button, .bottom-sheet-content button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const action = btn.getAttribute("data-action");
         if (action && this.onActionCallback) {
           this.onActionCallback(action);
         }
       });
     });
-
-    this.updatePosition();
   }
 }
-

@@ -198,10 +198,12 @@ body, html {
   font-size: 12px;
   cursor: pointer;
   position: relative;
+  outline: none;
+  transition: color 0.15s ease;
 }
 
 .ribbon-tab-btn.active {
-  border-bottom: 2px solid var(--primary-accent);
+  border-bottom: 2px solid var(--primary-accent) !important;
   font-weight: 600;
   color: var(--primary-accent);
 }
@@ -210,8 +212,16 @@ body, html {
   background-color: var(--word-accent);
   color: #ffffff !important;
   font-weight: 600;
-  border-radius: 3px 3px 0 0;
-  margin-right: 4px;
+  border-radius: 4px 4px 0 0;
+  margin-right: 6px;
+  border: none !important;
+  border-bottom: none !important;
+  outline: none;
+  cursor: pointer;
+}
+
+.ribbon-file-tab.active {
+  border-bottom: none !important;
 }
 
 .ribbon-file-tab:hover {
