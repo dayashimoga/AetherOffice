@@ -14,6 +14,7 @@ use quick_xml::events::{BytesStart, Event};
 use quick_xml::Reader;
 use std::collections::BTreeMap;
 
+use crate::drawingml::{CustomGeometry, CustomPath, GeomGuide, PathFillMode, PathInstruction};
 use crate::model::*;
 
 // =========================================================================
@@ -646,10 +647,19 @@ fn parse_shape_properties(reader: &mut Reader<&[u8]>) -> Result<ShapeProperties,
                 }
                 "prstGeom" => {
                     let prst = get_attr_val(e, "prst").unwrap_or_else(|| "rect".to_string());
-                    props.geometry = Some(Geometry::Preset(prst));
+                    let adjusts = parse_adjust_list(reader, "prstGeom")?;
+                    if adjusts.is_empty() {
+                        props.geometry = Some(Geometry::Preset(prst));
+                    } else {
+                        props.geometry = Some(Geometry::PresetWithAdjust {
+                            preset: prst,
+                            adjust_values: adjusts,
+                        });
+                    }
                 }
                 "custGeom" => {
-                    props.geometry = Some(Geometry::Custom);
+                    let cust = parse_custom_geometry(reader)?;
+                    props.geometry = Some(Geometry::Custom(Box::new(cust)));
                 }
                 "solidFill" => {
                     props.fill = parse_solid_fill(reader)?;
@@ -666,6 +676,9 @@ fn parse_shape_properties(reader: &mut Reader<&[u8]>) -> Result<ShapeProperties,
                 "prstGeom" => {
                     let prst = get_attr_val(e, "prst").unwrap_or_else(|| "rect".to_string());
                     props.geometry = Some(Geometry::Preset(prst));
+                }
+                "custGeom" => {
+                    props.geometry = Some(Geometry::Custom(Box::default()));
                 }
                 _ => {}
             },
@@ -1430,4 +1443,215 @@ fn parse_color_map_override(reader: &mut Reader<&[u8]>) -> Result<ColorMapOverri
     }
 
     Ok(ovr)
+}
+
+fn parse_adjust_list(
+    reader: &mut Reader<&[u8]>,
+    end_tag: &str,
+) -> Result<Vec<GeomGuide>, EngineError> {
+    let mut adjusts = Vec::new();
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Empty(ref e) if local_name(e.name().into_inner()) == "gd" => {
+                if let (Some(name), Some(formula)) =
+                    (get_attr_val(e, "name"), get_attr_val(e, "fmla"))
+                {
+                    adjusts.push(GeomGuide::new(name, formula));
+                }
+            }
+            Event::End(ref e) if local_name(e.name().into_inner()) == end_tag => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(adjusts)
+}
+
+fn parse_custom_geometry(reader: &mut Reader<&[u8]>) -> Result<CustomGeometry, EngineError> {
+    let mut geom = CustomGeometry::default();
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Start(ref e) => match local_name(e.name().into_inner()) {
+                "avLst" => {
+                    geom.adjust_values = parse_adjust_list(reader, "avLst")?;
+                }
+                "gdLst" => {
+                    geom.guides = parse_adjust_list(reader, "gdLst")?;
+                }
+                "pathLst" => {
+                    geom.paths = parse_path_list(reader)?;
+                }
+                _ => {}
+            },
+            Event::End(ref e) if local_name(e.name().into_inner()) == "custGeom" => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(geom)
+}
+
+fn parse_path_list(reader: &mut Reader<&[u8]>) -> Result<Vec<CustomPath>, EngineError> {
+    let mut paths = Vec::new();
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Start(ref e) if local_name(e.name().into_inner()) == "path" => {
+                let w = parse_i64_attr(e, "w");
+                let h = parse_i64_attr(e, "h");
+                let stroke = parse_bool_attr(e, "stroke");
+                let fill = match get_attr_val(e, "fill").as_deref() {
+                    Some("none") => PathFillMode::None,
+                    Some("lighten") => PathFillMode::Lighten,
+                    Some("lightenLess") => PathFillMode::LightenLess,
+                    Some("darken") => PathFillMode::Darken,
+                    Some("darkenLess") => PathFillMode::DarkenLess,
+                    _ => PathFillMode::Norm,
+                };
+                let instructions = parse_path_instructions(reader)?;
+                paths.push(CustomPath {
+                    width: w,
+                    height: h,
+                    fill,
+                    stroke,
+                    instructions,
+                });
+            }
+            Event::End(ref e) if local_name(e.name().into_inner()) == "pathLst" => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(paths)
+}
+
+fn parse_path_instructions(
+    reader: &mut Reader<&[u8]>,
+) -> Result<Vec<PathInstruction>, EngineError> {
+    let mut instructions = Vec::new();
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Start(ref e) => match local_name(e.name().into_inner()) {
+                "moveTo" => {
+                    let (x, y) = parse_point(reader, "moveTo")?;
+                    instructions.push(PathInstruction::MoveTo { x, y });
+                }
+                "lnTo" => {
+                    let (x, y) = parse_point(reader, "lnTo")?;
+                    instructions.push(PathInstruction::LineTo { x, y });
+                }
+                "quadBezTo" => {
+                    let pts = parse_points(reader, "quadBezTo")?;
+                    if pts.len() >= 2 {
+                        instructions.push(PathInstruction::QuadBezTo {
+                            ctrl_x: pts[0].0.clone(),
+                            ctrl_y: pts[0].1.clone(),
+                            x: pts[1].0.clone(),
+                            y: pts[1].1.clone(),
+                        });
+                    }
+                }
+                "cubicBezTo" => {
+                    let pts = parse_points(reader, "cubicBezTo")?;
+                    if pts.len() >= 3 {
+                        instructions.push(PathInstruction::CubicBezTo {
+                            ctrl1_x: pts[0].0.clone(),
+                            ctrl1_y: pts[0].1.clone(),
+                            ctrl2_x: pts[1].0.clone(),
+                            ctrl2_y: pts[1].1.clone(),
+                            x: pts[2].0.clone(),
+                            y: pts[2].1.clone(),
+                        });
+                    }
+                }
+                _ => {}
+            },
+            Event::Empty(ref e) => match local_name(e.name().into_inner()) {
+                "arcTo" => {
+                    let w_r = get_attr_val(e, "wR").unwrap_or_else(|| "0".to_string());
+                    let h_r = get_attr_val(e, "hR").unwrap_or_else(|| "0".to_string());
+                    let start_angle = get_attr_val(e, "stAng").unwrap_or_else(|| "0".to_string());
+                    let swing_angle = get_attr_val(e, "swAng").unwrap_or_else(|| "0".to_string());
+                    instructions.push(PathInstruction::ArcTo {
+                        w_r,
+                        h_r,
+                        start_angle,
+                        swing_angle,
+                    });
+                }
+                "close" => {
+                    instructions.push(PathInstruction::Close);
+                }
+                _ => {}
+            },
+            Event::End(ref e) if local_name(e.name().into_inner()) == "path" => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(instructions)
+}
+
+fn parse_point(reader: &mut Reader<&[u8]>, end_tag: &str) -> Result<(String, String), EngineError> {
+    let mut x = "0".to_string();
+    let mut y = "0".to_string();
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Empty(ref e) if local_name(e.name().into_inner()) == "pt" => {
+                if let Some(val) = get_attr_val(e, "x") {
+                    x = val;
+                }
+                if let Some(val) = get_attr_val(e, "y") {
+                    y = val;
+                }
+            }
+            Event::End(ref e) if local_name(e.name().into_inner()) == end_tag => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok((x, y))
+}
+
+fn parse_points(
+    reader: &mut Reader<&[u8]>,
+    end_tag: &str,
+) -> Result<Vec<(String, String)>, EngineError> {
+    let mut pts = Vec::new();
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Empty(ref e) if local_name(e.name().into_inner()) == "pt" => {
+                let x = get_attr_val(e, "x").unwrap_or_else(|| "0".to_string());
+                let y = get_attr_val(e, "y").unwrap_or_else(|| "0".to_string());
+                pts.push((x, y));
+            }
+            Event::End(ref e) if local_name(e.name().into_inner()) == end_tag => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(pts)
 }

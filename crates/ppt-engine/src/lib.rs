@@ -8,12 +8,18 @@
 //! - Zero-loss OPC package round-trip fidelity
 
 pub mod cascade;
+pub mod drawingml;
 pub mod model;
 pub mod package;
 pub mod parser;
 pub mod serializer;
 
 pub use cascade::{InheritanceResolver, ResolvedParagraph, ResolvedRun, ResolvedShape};
+pub use drawingml::{
+    get_preset_geometry, list_preset_names, CustomGeometry, CustomPath, DrawingPath, GeomGuide,
+    GeometryCompiler, GuideContext, PathCommand, PathFillMode, PathInstruction, Point2D,
+    PresetDefinition,
+};
 pub use model::*;
 pub use package::PresentationPackage;
 pub use parser::{

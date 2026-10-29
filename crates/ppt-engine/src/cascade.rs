@@ -8,7 +8,9 @@
 //!   and color transformations (tint, shade, lumMod, lumOff, alpha).
 //! - Theme font scheme resolution (`+mj-lt`, `+mn-lt`, `+mj-ea`, `+mn-ea`).
 
+use crate::drawingml::{DrawingPath, GeometryCompiler};
 use crate::model::*;
+use ooxml_opc::error::EngineError;
 
 // =========================================================================
 // 1. Resolved Output Data Structures
@@ -26,6 +28,26 @@ pub struct ResolvedShape {
     pub fill: Option<Fill>,
     pub line: Option<LineProperties>,
     pub paragraphs: Vec<ResolvedParagraph>,
+}
+
+impl ResolvedShape {
+    /// Compiles the shape geometry into evaluated vector paths.
+    pub fn evaluate_paths(&self) -> Result<Vec<DrawingPath>, EngineError> {
+        let (x, y, w, h) = (
+            self.transform.x,
+            self.transform.y,
+            self.transform.cx as i64,
+            self.transform.cy as i64,
+        );
+        match &self.geometry {
+            Geometry::Preset(preset) => GeometryCompiler::compile_preset(preset, x, y, w, h, &[]),
+            Geometry::PresetWithAdjust {
+                preset,
+                adjust_values,
+            } => GeometryCompiler::compile_preset(preset, x, y, w, h, adjust_values),
+            Geometry::Custom(cust) => GeometryCompiler::compile_custom(cust, x, y, w, h),
+        }
+    }
 }
 
 /// A fully resolved text paragraph.

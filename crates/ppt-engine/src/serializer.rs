@@ -14,6 +14,7 @@ use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, Event};
 use quick_xml::Writer;
 use std::io::Cursor;
 
+use crate::drawingml::{CustomGeometry, PathInstruction};
 use crate::model::*;
 
 pub const XML_DECLARATION: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n";
@@ -645,10 +646,41 @@ fn serialize_shape_properties<W: std::io::Write>(
                     .write_event(Event::End(BytesEnd::new("a:prstGeom")))
                     .map_err(EngineError::Io)?;
             }
-            Geometry::Custom => {
+            Geometry::PresetWithAdjust {
+                ref preset,
+                ref adjust_values,
+            } => {
+                let mut elem = BytesStart::new("a:prstGeom");
+                elem.push_attribute(("prst", preset.as_str()));
                 writer
-                    .write_event(Event::Empty(BytesStart::new("a:custGeom")))
+                    .write_event(Event::Start(elem))
                     .map_err(EngineError::Io)?;
+                if adjust_values.is_empty() {
+                    writer
+                        .write_event(Event::Empty(BytesStart::new("a:avLst")))
+                        .map_err(EngineError::Io)?;
+                } else {
+                    writer
+                        .write_event(Event::Start(BytesStart::new("a:avLst")))
+                        .map_err(EngineError::Io)?;
+                    for adj in adjust_values {
+                        let mut gd = BytesStart::new("a:gd");
+                        gd.push_attribute(("name", adj.name.as_str()));
+                        gd.push_attribute(("fmla", adj.formula.as_str()));
+                        writer
+                            .write_event(Event::Empty(gd))
+                            .map_err(EngineError::Io)?;
+                    }
+                    writer
+                        .write_event(Event::End(BytesEnd::new("a:avLst")))
+                        .map_err(EngineError::Io)?;
+                }
+                writer
+                    .write_event(Event::End(BytesEnd::new("a:prstGeom")))
+                    .map_err(EngineError::Io)?;
+            }
+            Geometry::Custom(ref cust) => {
+                serialize_custom_geometry(writer, cust)?;
             }
         }
     }
@@ -682,6 +714,200 @@ fn serialize_shape_properties<W: std::io::Write>(
 
     writer
         .write_event(Event::End(BytesEnd::new("p:spPr")))
+        .map_err(EngineError::Io)?;
+
+    Ok(())
+}
+
+fn serialize_custom_geometry<W: std::io::Write>(
+    writer: &mut Writer<W>,
+    cust: &CustomGeometry,
+) -> Result<(), EngineError> {
+    writer
+        .write_event(Event::Start(BytesStart::new("a:custGeom")))
+        .map_err(EngineError::Io)?;
+
+    // avLst
+    if cust.adjust_values.is_empty() {
+        writer
+            .write_event(Event::Empty(BytesStart::new("a:avLst")))
+            .map_err(EngineError::Io)?;
+    } else {
+        writer
+            .write_event(Event::Start(BytesStart::new("a:avLst")))
+            .map_err(EngineError::Io)?;
+        for adj in &cust.adjust_values {
+            let mut gd = BytesStart::new("a:gd");
+            gd.push_attribute(("name", adj.name.as_str()));
+            gd.push_attribute(("fmla", adj.formula.as_str()));
+            writer
+                .write_event(Event::Empty(gd))
+                .map_err(EngineError::Io)?;
+        }
+        writer
+            .write_event(Event::End(BytesEnd::new("a:avLst")))
+            .map_err(EngineError::Io)?;
+    }
+
+    // gdLst
+    if !cust.guides.is_empty() {
+        writer
+            .write_event(Event::Start(BytesStart::new("a:gdLst")))
+            .map_err(EngineError::Io)?;
+        for gd in &cust.guides {
+            let mut elem = BytesStart::new("a:gd");
+            elem.push_attribute(("name", gd.name.as_str()));
+            elem.push_attribute(("fmla", gd.formula.as_str()));
+            writer
+                .write_event(Event::Empty(elem))
+                .map_err(EngineError::Io)?;
+        }
+        writer
+            .write_event(Event::End(BytesEnd::new("a:gdLst")))
+            .map_err(EngineError::Io)?;
+    }
+
+    // pathLst
+    writer
+        .write_event(Event::Start(BytesStart::new("a:pathLst")))
+        .map_err(EngineError::Io)?;
+    for p in &cust.paths {
+        let mut elem = BytesStart::new("a:path");
+        let w_str;
+        if let Some(w) = p.width {
+            w_str = w.to_string();
+            elem.push_attribute(("w", w_str.as_str()));
+        }
+        let h_str;
+        if let Some(h) = p.height {
+            h_str = h.to_string();
+            elem.push_attribute(("h", h_str.as_str()));
+        }
+        writer
+            .write_event(Event::Start(elem))
+            .map_err(EngineError::Io)?;
+
+        for inst in &p.instructions {
+            match inst {
+                PathInstruction::MoveTo { ref x, ref y } => {
+                    writer
+                        .write_event(Event::Start(BytesStart::new("a:moveTo")))
+                        .map_err(EngineError::Io)?;
+                    let mut pt = BytesStart::new("a:pt");
+                    pt.push_attribute(("x", x.as_str()));
+                    pt.push_attribute(("y", y.as_str()));
+                    writer
+                        .write_event(Event::Empty(pt))
+                        .map_err(EngineError::Io)?;
+                    writer
+                        .write_event(Event::End(BytesEnd::new("a:moveTo")))
+                        .map_err(EngineError::Io)?;
+                }
+                PathInstruction::LineTo { ref x, ref y } => {
+                    writer
+                        .write_event(Event::Start(BytesStart::new("a:lnTo")))
+                        .map_err(EngineError::Io)?;
+                    let mut pt = BytesStart::new("a:pt");
+                    pt.push_attribute(("x", x.as_str()));
+                    pt.push_attribute(("y", y.as_str()));
+                    writer
+                        .write_event(Event::Empty(pt))
+                        .map_err(EngineError::Io)?;
+                    writer
+                        .write_event(Event::End(BytesEnd::new("a:lnTo")))
+                        .map_err(EngineError::Io)?;
+                }
+                PathInstruction::ArcTo {
+                    ref w_r,
+                    ref h_r,
+                    ref start_angle,
+                    ref swing_angle,
+                } => {
+                    let mut arc = BytesStart::new("a:arcTo");
+                    arc.push_attribute(("wR", w_r.as_str()));
+                    arc.push_attribute(("hR", h_r.as_str()));
+                    arc.push_attribute(("stAng", start_angle.as_str()));
+                    arc.push_attribute(("swAng", swing_angle.as_str()));
+                    writer
+                        .write_event(Event::Empty(arc))
+                        .map_err(EngineError::Io)?;
+                }
+                PathInstruction::QuadBezTo {
+                    ref ctrl_x,
+                    ref ctrl_y,
+                    ref x,
+                    ref y,
+                } => {
+                    writer
+                        .write_event(Event::Start(BytesStart::new("a:quadBezTo")))
+                        .map_err(EngineError::Io)?;
+                    let mut cp = BytesStart::new("a:pt");
+                    cp.push_attribute(("x", ctrl_x.as_str()));
+                    cp.push_attribute(("y", ctrl_y.as_str()));
+                    writer
+                        .write_event(Event::Empty(cp))
+                        .map_err(EngineError::Io)?;
+                    let mut end = BytesStart::new("a:pt");
+                    end.push_attribute(("x", x.as_str()));
+                    end.push_attribute(("y", y.as_str()));
+                    writer
+                        .write_event(Event::Empty(end))
+                        .map_err(EngineError::Io)?;
+                    writer
+                        .write_event(Event::End(BytesEnd::new("a:quadBezTo")))
+                        .map_err(EngineError::Io)?;
+                }
+                PathInstruction::CubicBezTo {
+                    ref ctrl1_x,
+                    ref ctrl1_y,
+                    ref ctrl2_x,
+                    ref ctrl2_y,
+                    ref x,
+                    ref y,
+                } => {
+                    writer
+                        .write_event(Event::Start(BytesStart::new("a:cubicBezTo")))
+                        .map_err(EngineError::Io)?;
+                    let mut cp1 = BytesStart::new("a:pt");
+                    cp1.push_attribute(("x", ctrl1_x.as_str()));
+                    cp1.push_attribute(("y", ctrl1_y.as_str()));
+                    writer
+                        .write_event(Event::Empty(cp1))
+                        .map_err(EngineError::Io)?;
+                    let mut cp2 = BytesStart::new("a:pt");
+                    cp2.push_attribute(("x", ctrl2_x.as_str()));
+                    cp2.push_attribute(("y", ctrl2_y.as_str()));
+                    writer
+                        .write_event(Event::Empty(cp2))
+                        .map_err(EngineError::Io)?;
+                    let mut end = BytesStart::new("a:pt");
+                    end.push_attribute(("x", x.as_str()));
+                    end.push_attribute(("y", y.as_str()));
+                    writer
+                        .write_event(Event::Empty(end))
+                        .map_err(EngineError::Io)?;
+                    writer
+                        .write_event(Event::End(BytesEnd::new("a:cubicBezTo")))
+                        .map_err(EngineError::Io)?;
+                }
+                PathInstruction::Close => {
+                    writer
+                        .write_event(Event::Empty(BytesStart::new("a:close")))
+                        .map_err(EngineError::Io)?;
+                }
+            }
+        }
+
+        writer
+            .write_event(Event::End(BytesEnd::new("a:path")))
+            .map_err(EngineError::Io)?;
+    }
+    writer
+        .write_event(Event::End(BytesEnd::new("a:pathLst")))
+        .map_err(EngineError::Io)?;
+
+    writer
+        .write_event(Event::End(BytesEnd::new("a:custGeom")))
         .map_err(EngineError::Io)?;
 
     Ok(())

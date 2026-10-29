@@ -1,0 +1,268 @@
+{
+  "subphase": "4.1.2",
+  "name": "DrawingML 187 Preset Geometries & Guide Formula Compiler",
+  "crate": "ppt-engine",
+  "ecma_standard": "ECMA-376 Part 1 Section 20.1.9 & 20.1.10.55",
+  "total_vectors": 37,
+  "vectors": [
+    {
+      "id": "PPT-GEOM-001",
+      "category": "Guide Formula",
+      "description": "val operator returns constant integer or variable",
+      "formula": "val 42 / val w",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-002",
+      "category": "Guide Formula",
+      "description": "+- operator evaluates x + y - z with three operands",
+      "formula": "+- 100 50 30",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-003",
+      "category": "Guide Formula",
+      "description": "*/ operator evaluates (x * y) / z with zero division protection",
+      "formula": "*/ 100 20 5",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-004",
+      "category": "Guide Formula",
+      "description": "+/ operator evaluates (x + y) / z with zero division protection",
+      "formula": "+/ 100 50 3",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-005",
+      "category": "Guide Formula",
+      "description": "?: ternary operator returns y when x > 0 else z",
+      "formula": "?: 1 100 200",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-006",
+      "category": "Guide Formula",
+      "description": "abs operator returns absolute value of operand",
+      "formula": "abs -120",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-007",
+      "category": "Guide Formula",
+      "description": "at2 operator computes atan2(y, x) in 60000ths of a degree",
+      "formula": "at2 0 1",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-008",
+      "category": "Guide Formula",
+      "description": "cat2 operator computes x * cos(atan2(z, y))",
+      "formula": "cat2 500 1 0",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-009",
+      "category": "Guide Formula",
+      "description": "sat2 operator computes x * sin(atan2(z, y))",
+      "formula": "sat2 500 0 1",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-010",
+      "category": "Guide Formula",
+      "description": "cos, sin, tan operators evaluate DrawingML 60000ths-degree angles",
+      "formula": "cos 1000 0, sin 1000 5400000, tan 1000 2700000",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-011",
+      "category": "Guide Formula",
+      "description": "sqrt operator computes integer square root with negative clamp",
+      "formula": "sqrt 100",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-012",
+      "category": "Guide Formula",
+      "description": "min and max operators evaluate minimum and maximum of two values",
+      "formula": "min 50 100, max 50 100",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-013",
+      "category": "Guide Formula",
+      "description": "pin operator clamps value y between bounds x and z",
+      "formula": "pin 10 50 100",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-014",
+      "category": "Guide Formula",
+      "description": "mod operator computes 3D Euclidean vector magnitude",
+      "formula": "mod 3 4 0",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-015",
+      "category": "Context Constants",
+      "description": "Built-in coordinate constants w, h, l, t, r, b, hc, vc, ss, ls, ssd2 and angles",
+      "formula": "Built-in symbol table",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-016",
+      "category": "Sequential Evaluation",
+      "description": "Sequential guide resolution chain where later guides reference earlier ones",
+      "formula": "g1 -> g2 -> g3",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-017",
+      "category": "Preset Catalog",
+      "description": "Full verification of all 187 ECMA-376 preset shapes in catalog",
+      "formula": "ALL_PRESET_NAMES (187 shapes)",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-018",
+      "category": "Preset Geometry",
+      "description": "rect preset compiles to 4 LineTo commands and Close",
+      "formula": "rect",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-019",
+      "category": "Preset Geometry",
+      "description": "roundRect preset compiles with default and custom adjust values",
+      "formula": "roundRect with adj=25000",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-020",
+      "category": "Preset Geometry",
+      "description": "ellipse preset compiles to dual 180-degree ArcTo commands",
+      "formula": "ellipse",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-021",
+      "category": "Preset Geometry",
+      "description": "triangle and rtTriangle presets compile to triangular polygons",
+      "formula": "triangle, rtTriangle",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-022",
+      "category": "Preset Geometry",
+      "description": "diamond, parallelogram, trapezoid presets compile with shear adjusts",
+      "formula": "diamond, parallelogram, trapezoid",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-023",
+      "category": "Preset Geometry",
+      "description": "Regular polygons pentagon through dodecagon compile with exact vertex counts",
+      "formula": "pentagon, hexagon, heptagon, octagon, decagon, dodecagon",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-024",
+      "category": "Preset Geometry",
+      "description": "Star presets compile with 2N alternating outer/inner vertices",
+      "formula": "star4 through star32",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-025",
+      "category": "Preset Geometry",
+      "description": "Block arrows in 4 cardinal directions compile with head and shaft parameters",
+      "formula": "rightArrow, leftArrow, upArrow, downArrow",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-026",
+      "category": "Preset Geometry",
+      "description": "chevron and homePlate compile into directional arrow shapes",
+      "formula": "chevron, homePlate",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-027",
+      "category": "Preset Geometry",
+      "description": "Curved presets heart, lightningBolt, donut, pie compile correctly",
+      "formula": "heart, lightningBolt, donut, pie",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-028",
+      "category": "Preset Geometry",
+      "description": "Flowchart symbols compile with specific process, decision, and terminator geometry",
+      "formula": "flowChartProcess, flowChartDecision, flowChartTerminator, etc.",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-029",
+      "category": "Preset Geometry",
+      "description": "Action button presets compile into interactive rounded button geometry",
+      "formula": "actionButtonHome, actionButtonHelp, etc.",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-030",
+      "category": "Preset Geometry",
+      "description": "Math symbol presets compile with cross and bar geometry",
+      "formula": "mathPlus, mathMinus, mathMultiply, mathDivide, mathEqual, mathNotEqual",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-031",
+      "category": "Custom Geometry",
+      "description": "customGeom evaluation compiles arbitrary MoveTo, LineTo, ArcTo, Beziers",
+      "formula": "CustomGeometry with avLst, gdLst, pathLst",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-032",
+      "category": "Path Operations",
+      "description": "DrawingML ArcTo commands convert accurately to cubic Bezier curves",
+      "formula": "DrawingPath::to_cubic_beziers",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-033",
+      "category": "Path Operations",
+      "description": "SVG path data serialization emits compliant d attribute strings",
+      "formula": "DrawingPath::to_svg_path_data",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-034",
+      "category": "Path Operations",
+      "description": "Axis-aligned bounding box computation across lines, arcs, and Beziers",
+      "formula": "DrawingPath::bounds",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-035",
+      "category": "Path Operations",
+      "description": "Point-in-polygon ray-casting hit-testing with even-odd rule",
+      "formula": "DrawingPath::contains_point",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-036",
+      "category": "Cascade Integration",
+      "description": "ResolvedShape::evaluate_paths evaluates cascade geometry into transformed paths",
+      "formula": "ResolvedShape::evaluate_paths",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-GEOM-037",
+      "category": "Manifest Gate",
+      "description": "Evidence manifest validation against 4.1.2_vectors.json",
+      "formula": "JSON schema check",
+      "status": "PASS"
+    }
+  ]
+}

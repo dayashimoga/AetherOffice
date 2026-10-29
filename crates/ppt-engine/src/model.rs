@@ -278,11 +278,27 @@ pub struct GroupTransform2D {
     pub ch_cy: u32,
 }
 
+use crate::drawingml::{CustomGeometry, GeomGuide};
+
 /// Shape geometry: `<a:prstGeom>` or `<a:custGeom>`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Geometry {
     Preset(String), // e.g. "rect", "roundRect", "ellipse"
-    Custom,
+    PresetWithAdjust {
+        preset: String,
+        adjust_values: Vec<GeomGuide>,
+    },
+    Custom(Box<CustomGeometry>),
+}
+
+impl Geometry {
+    pub fn preset_name(&self) -> Option<&str> {
+        match self {
+            Self::Preset(name) => Some(name.as_str()),
+            Self::PresetWithAdjust { preset, .. } => Some(preset.as_str()),
+            Self::Custom(_) => None,
+        }
+    }
 }
 
 /// Fill formatting.
