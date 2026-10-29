@@ -9,6 +9,11 @@
 //! - Stream filter pipeline (ASCIIHex, ASCII85, Flate with PNG/TIFF predictors)
 //! - Content stream operator interpreter
 //! - Font CMap (/ToUnicode & standard encodings) & structured text extraction engine
+//!
+//! Subphase 5.2.1 Deliverable:
+//! - Non-destructive incremental update writer
+//! - Multi-revision document history inspector
+//! - Digital signature detection & cryptographic ByteRange validator
 
 #![forbid(unsafe_code)]
 
@@ -21,8 +26,11 @@ pub mod lexer;
 pub mod object_stream;
 pub mod page;
 pub mod parser;
+pub mod revision;
+pub mod signature;
 pub mod text;
 pub mod types;
+pub mod writer;
 pub mod xref;
 
 pub use catalog::PdfDocument;
@@ -35,6 +43,9 @@ pub use lexer::{PdfLexer, Token};
 pub use object_stream::ObjectStream;
 pub use page::PdfPage;
 pub use parser::PdfParser;
+pub use revision::{PdfRevision, RevisionHistory};
+pub use signature::{PdfSignature, SignatureValidator};
 pub use text::{ExtractedPageText, TextGlyph, TextRun};
 pub use types::{LinearizationDict, PdfObject, PdfObjectId, PdfRect, PdfStream};
+pub use writer::{serialize_object, PdfIncrementalWriter};
 pub use xref::{XrefEntry, XrefTable};

@@ -1,22 +1,26 @@
-﻿# Subphase 5.2.1: Tauri v2 Desktop & Laptop Shell (Ribbon, Multi-Tab, Formula Bar)
+# Subphase 5.2.1: Incremental Update Writer & Digital Signature Preservation
 - **Stage:** 5 | **Phase:** 5.2
-- **Target Crate:** `render-core`
-- **Primary Agent Skill:** `@adaptive-ui-builder`
-- **REA Binary Analysis Required:** NO (Pure ECMA-376 / Clean-Room)
-- **Deliverable:** Complete Tauri v2 Desktop UI (>= 1024px) in apps/unified-shell with multi-document tabs, contextual Ribbon, and keyboard shortcuts.
-- **Validation Command:** `cargo test --workspace --all-targets`
+- **Target Crate:** `pdf-engine`
+- **Primary Agent Skill:** `@ecma376-architect`
+- **REA Binary Analysis Required:** NO (ISO 32000-1 / ISO 32000-2 Clean-Room Standard)
+- **Deliverable:** Non-destructive incremental update serializer, multi-revision history inspector, and digital signature ByteRange validator.
+- **Validation Command:** `cargo test --package pdf-engine --test subphase_5_2_1_test`
 
 ---
 
-## Antigravity IDE Execution Prompt (Copy & Paste into Agent Manager)
-
-```text
-/execute-subphase 5.2.1
-Invoke @adaptive-ui-builder under GEC-v1.0 Article V (Desktop/Laptop Form Factor).
-1. Scaffold the Tauri v2 application inside `apps/unified-shell/` (`package.json`, `vite.config.ts`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`) linking `ooxml-opc`, `word-engine`, `excel-engine`, `ppt-engine`, and `render-core`.
-2. Implement the Desktop/Laptop UI (`>= 1024px`, fine pointer):
-   - Multi-document workspace tab bar allowing `.docx`, `.xlsx`, and `.pptx` files to be edited side-by-side in a single lightweight window.
-   - Contextual Ribbon toolbar (Home, Insert, Layout, Formulas, Slide Show, Review, View), Excel Formula Bar with live syntax highlighting, Word Ruler & Navigation Pane, and PowerPoint Slide Sorter filmstrip.
-   - Full keyboard shortcut engine (`Ctrl/Cmd+C/V/Z/Y/S/F`, Excel `F2`/`F4`/Arrow navigation, Alt keytips).
-3. Verify Tauri IPC commands and workspace tests via `tools/verify-contract.ps1` and commit with `[GEC-Verified]`.
-```
+## Architecture & Requirements (ISO 32000-1 Clause 7.5.6, 12.8)
+1. **Incremental Update Serializer (`crates/pdf-engine/src/writer/`):**
+   - Appends new and modified objects to original document bytes without altering previous content.
+   - Generates compact incremental `xref` tables and trailer dictionaries containing `/Prev` pointers to earlier revisions.
+   - Serializes PDF objects (`Null`, `Boolean`, `Integer`, `Real`, `Name`, `LiteralString`, `HexString`, `Array`, `Dictionary`, `Stream`, `Reference`) to standards-compliant bytes.
+2. **Digital Signature Preservation & ByteRange Verification (`crates/pdf-engine/src/signature.rs`):**
+   - Detection of signature dictionaries (`/Type /Sig`) in form fields (`/FT /Sig`).
+   - Parsing and validation of `/ByteRange [offset1 length1 offset2 length2]`.
+   - Verification of byte integrity: ensures incremental modifications never alter bytes within signed regions.
+   - SHA-256 digest computation over the exact disjoint `/ByteRange` byte spans.
+3. **Multi-Revision Document Inspection (`crates/pdf-engine/src/revision.rs`):**
+   - Traverses chained `/Prev` pointers to enumerate all historic document revisions.
+   - Extracts exact file bytes at any historical revision stage for rollback and signing audit.
+4. **Clean-Room Invariants:**
+   - Enforce `#[forbid(unsafe_code)]` in `crates/pdf-engine/src/lib.rs`.
+   - Zero `.unwrap()`, `.expect()`, `panic!()`, `todo!()`, or `unimplemented!()` in production paths. Return typed `Result<T, PdfError>`.

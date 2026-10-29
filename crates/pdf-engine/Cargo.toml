@@ -8,7 +8,7 @@ thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 flate2 = "1.0"
+sha2 = "0.10"
 
 [dev-dependencies]
 serde_json.workspace = true
-

@@ -116,6 +116,11 @@ impl PdfDocument {
     }
 
     #[inline]
+    pub fn xref(&self) -> &XrefTable {
+        &self.xref
+    }
+
+    #[inline]
     pub fn trailer(&self) -> &BTreeMap<String, PdfObject> {
         self.xref.trailer()
     }
