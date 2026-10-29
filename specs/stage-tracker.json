@@ -297,9 +297,9 @@
                           "title":  "Interactive AcroForms Engine, Annotations \u0026 Ink Path Layers",
                           "crate":  "pdf-engine",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-5/subphase-5.2.2.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-29T09:51:33Z"
                       },
                       {
                           "id":  "5.3.1",

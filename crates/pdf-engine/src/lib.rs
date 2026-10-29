@@ -14,14 +14,22 @@
 //! - Non-destructive incremental update writer
 //! - Multi-revision document history inspector
 //! - Digital signature detection & cryptographic ByteRange validator
+//!
+//! Subphase 5.2.2 Deliverable:
+//! - Interactive AcroForms engine (Text, Checkbox, Radio, Choice fields)
+//! - Annotations model (Text, Highlight, FreeText, Shapes, Links)
+//! - Freehand stylus Ink path layer compiler and appearance generator
 
 #![forbid(unsafe_code)]
 
+pub mod acroform;
+pub mod annotation;
 pub mod catalog;
 pub mod content;
 pub mod error;
 pub mod filters;
 pub mod font;
+pub mod ink;
 pub mod lexer;
 pub mod object_stream;
 pub mod page;
@@ -33,12 +41,15 @@ pub mod types;
 pub mod writer;
 pub mod xref;
 
+pub use acroform::{AcroFormEngine, FormField, FormFieldType, FormFieldValue};
+pub use annotation::{AnnotationEngine, AnnotationSubtype, PdfAnnotation};
 pub use catalog::PdfDocument;
 pub use content::{ContentOperator, ContentParser, TextChunk};
 pub use error::PdfError;
 pub use filters::predictor::PredictorParams;
 pub use filters::FilterPipeline;
 pub use font::{FontCMap, PdfFont};
+pub use ink::{InkAnnotation, InkStroke};
 pub use lexer::{PdfLexer, Token};
 pub use object_stream::ObjectStream;
 pub use page::PdfPage;
