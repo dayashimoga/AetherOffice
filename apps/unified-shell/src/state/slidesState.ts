@@ -15,6 +15,12 @@ export type ThemePresetName =
   | "VibrantCoral"
   | "HighContrast";
 
+export type SlideLayoutType =
+  | "title"
+  | "titleAndContent"
+  | "twoContent"
+  | "blank";
+
 export interface SlideShape {
   id: string;
   type: PresetShapeKind;
@@ -29,6 +35,10 @@ export interface SlideShape {
   text?: string;
   textColor?: string;
   fontSize?: number;
+  fontFamily?: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
   zIndex?: number;
 }
 
@@ -289,6 +299,273 @@ export class SlidesState {
     this.currentSlideIndex = this.slides.length - 1;
     this.selectedShapeId = null;
     return newSlide;
+  }
+
+  public addSlideWithLayout(layout: SlideLayoutType, title = "New Slide"): SlideData {
+    this.commitSnapshot();
+    const isDark = this.currentTheme === "DarkMode" || this.currentTheme === "HighContrast";
+    const textColor = isDark ? "#ffffff" : "#1e293b";
+    const subColor = isDark ? "#94a3b8" : "#64748b";
+
+    let shapes: SlideShape[] = [];
+
+    switch (layout) {
+      case "title":
+        shapes = [
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 100,
+            y: 150,
+            w: 760,
+            h: 80,
+            fill: "transparent",
+            text: title,
+            textColor,
+            fontSize: 40,
+            bold: true,
+            rotation: 0,
+          },
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 100,
+            y: 260,
+            w: 760,
+            h: 60,
+            fill: "transparent",
+            text: "Click to add subtitle",
+            textColor: subColor,
+            fontSize: 22,
+            rotation: 0,
+          },
+        ];
+        break;
+
+      case "titleAndContent":
+        shapes = [
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 80,
+            y: 40,
+            w: 800,
+            h: 60,
+            fill: "transparent",
+            text: title,
+            textColor,
+            fontSize: 32,
+            bold: true,
+            rotation: 0,
+          },
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 80,
+            y: 120,
+            w: 800,
+            h: 360,
+            fill: "transparent",
+            text: "• First bullet point\n• Second bullet point\n• Third bullet point",
+            textColor,
+            fontSize: 20,
+            rotation: 0,
+          },
+        ];
+        break;
+
+      case "twoContent":
+        shapes = [
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 80,
+            y: 40,
+            w: 800,
+            h: 60,
+            fill: "transparent",
+            text: title,
+            textColor,
+            fontSize: 32,
+            bold: true,
+            rotation: 0,
+          },
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 80,
+            y: 120,
+            w: 380,
+            h: 360,
+            fill: "transparent",
+            text: "• Left column point 1\n• Left column point 2",
+            textColor,
+            fontSize: 18,
+            rotation: 0,
+          },
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 500,
+            y: 120,
+            w: 380,
+            h: 360,
+            fill: "transparent",
+            text: "• Right column point 1\n• Right column point 2",
+            textColor,
+            fontSize: 18,
+            rotation: 0,
+          },
+        ];
+        break;
+
+      case "blank":
+        shapes = [];
+        break;
+    }
+
+    const newSlide: SlideData = {
+      id: `s_${++this.nextSlideCounter}`,
+      title,
+      shapes,
+      isHidden: false,
+    };
+    this.slides.push(newSlide);
+    this.currentSlideIndex = this.slides.length - 1;
+    this.selectedShapeId = null;
+    return newSlide;
+  }
+
+  public applyLayout(layout: SlideLayoutType, idx = this.currentSlideIndex): boolean {
+    if (idx < 0 || idx >= this.slides.length) return false;
+    this.commitSnapshot();
+    const slide = this.slides[idx];
+    const existingTitle =
+      slide.shapes.find((s) => s.type === "text" && s.text)?.text || slide.title;
+
+    const isDark = this.currentTheme === "DarkMode" || this.currentTheme === "HighContrast";
+    const textColor = isDark ? "#ffffff" : "#1e293b";
+    const subColor = isDark ? "#94a3b8" : "#64748b";
+
+    let shapes: SlideShape[] = [];
+    switch (layout) {
+      case "title":
+        shapes = [
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 100,
+            y: 150,
+            w: 760,
+            h: 80,
+            fill: "transparent",
+            text: existingTitle,
+            textColor,
+            fontSize: 40,
+            bold: true,
+            rotation: 0,
+          },
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 100,
+            y: 260,
+            w: 760,
+            h: 60,
+            fill: "transparent",
+            text: "Click to add subtitle",
+            textColor: subColor,
+            fontSize: 22,
+            rotation: 0,
+          },
+        ];
+        break;
+
+      case "titleAndContent":
+        shapes = [
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 80,
+            y: 40,
+            w: 800,
+            h: 60,
+            fill: "transparent",
+            text: existingTitle,
+            textColor,
+            fontSize: 32,
+            bold: true,
+            rotation: 0,
+          },
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 80,
+            y: 120,
+            w: 800,
+            h: 360,
+            fill: "transparent",
+            text: "• First bullet point\n• Second bullet point\n• Third bullet point",
+            textColor,
+            fontSize: 20,
+            rotation: 0,
+          },
+        ];
+        break;
+
+      case "twoContent":
+        shapes = [
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 80,
+            y: 40,
+            w: 800,
+            h: 60,
+            fill: "transparent",
+            text: existingTitle,
+            textColor,
+            fontSize: 32,
+            bold: true,
+            rotation: 0,
+          },
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 80,
+            y: 120,
+            w: 380,
+            h: 360,
+            fill: "transparent",
+            text: "• Left column point 1\n• Left column point 2",
+            textColor,
+            fontSize: 18,
+            rotation: 0,
+          },
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 500,
+            y: 120,
+            w: 380,
+            h: 360,
+            fill: "transparent",
+            text: "• Right column point 1\n• Right column point 2",
+            textColor,
+            fontSize: 18,
+            rotation: 0,
+          },
+        ];
+        break;
+
+      case "blank":
+        shapes = [];
+        break;
+    }
+
+    slide.shapes = shapes;
+    this.selectedShapeId = null;
+    return true;
   }
 
   public duplicateSlide(idx = this.currentSlideIndex): SlideData | null {
@@ -606,6 +883,76 @@ export class SlidesState {
     return true;
   }
 
+  public updateShapeTransform(
+    id: string,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    rotation?: number
+  ): boolean {
+    const slide = this.slides[this.currentSlideIndex];
+    if (!slide) return false;
+    const sh = slide.shapes.find((s) => s.id === id);
+    if (!sh) return false;
+    sh.x = x;
+    sh.y = y;
+    sh.w = w;
+    sh.h = h;
+    if (rotation !== undefined) {
+      sh.rotation = rotation;
+    }
+    return true;
+  }
+
+  public toggleBold(): boolean {
+    const sh = this.getSelectedShape();
+    if (!sh) return false;
+    this.commitSnapshot();
+    sh.bold = !sh.bold;
+    return true;
+  }
+
+  public toggleItalic(): boolean {
+    const sh = this.getSelectedShape();
+    if (!sh) return false;
+    this.commitSnapshot();
+    sh.italic = !sh.italic;
+    return true;
+  }
+
+  public toggleUnderline(): boolean {
+    const sh = this.getSelectedShape();
+    if (!sh) return false;
+    this.commitSnapshot();
+    sh.underline = !sh.underline;
+    return true;
+  }
+
+  public setFontFamily(family: string): boolean {
+    const sh = this.getSelectedShape();
+    if (!sh) return false;
+    this.commitSnapshot();
+    sh.fontFamily = family;
+    return true;
+  }
+
+  public setFontSize(size: number): boolean {
+    const sh = this.getSelectedShape();
+    if (!sh) return false;
+    this.commitSnapshot();
+    sh.fontSize = size;
+    return true;
+  }
+
+  public setFontColor(color: string): boolean {
+    const sh = this.getSelectedShape();
+    if (!sh) return false;
+    this.commitSnapshot();
+    sh.textColor = color;
+    return true;
+  }
+
   public execCommand(action: string, payload?: unknown): boolean {
     switch (action) {
       case "SetTheme":
@@ -617,10 +964,25 @@ export class SlidesState {
       case "NewSlide":
         this.addSlide(typeof payload === "string" ? payload : "New Slide");
         return true;
+      case "SlideLayout":
+        if (typeof payload === "string") {
+          return this.applyLayout(payload as SlideLayoutType);
+        }
+        return false;
+      case "AddSlideWithLayout":
+        if (typeof payload === "string") {
+          this.addSlideWithLayout(payload as SlideLayoutType);
+          return true;
+        }
+        return false;
       case "DuplicateSlide":
         return this.duplicateSlide() !== null;
       case "DeleteSlide":
         return this.deleteSlide();
+      case "MoveSlideUp":
+        return this.moveSlideUp();
+      case "MoveSlideDown":
+        return this.moveSlideDown();
       case "HideSlide":
         return this.toggleHideSlide();
       case "StartShowBeginning":
@@ -664,7 +1026,23 @@ export class SlidesState {
         if (typeof payload === "string") return this.setShapeFill(payload);
         return false;
       case "SetStrokeColor":
+      case "SetShapeOutline":
         if (typeof payload === "string") return this.setShapeStroke(payload);
+        return false;
+      case "ToggleBold":
+        return this.toggleBold();
+      case "ToggleItalic":
+        return this.toggleItalic();
+      case "ToggleUnderline":
+        return this.toggleUnderline();
+      case "SetFontFamily":
+        if (typeof payload === "string") return this.setFontFamily(payload);
+        return false;
+      case "SetFontSize":
+        if (typeof payload === "number") return this.setFontSize(payload);
+        return false;
+      case "SetFontColor":
+        if (typeof payload === "string") return this.setFontColor(payload);
         return false;
       case "Undo":
         return this.undo();

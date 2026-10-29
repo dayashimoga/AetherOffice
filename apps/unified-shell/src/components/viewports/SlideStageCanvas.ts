@@ -1,5 +1,10 @@
 import { SlideShape, SlidesState, slidesState } from "../../state/slidesState";
 
+export interface AlignmentGuide {
+  orientation: "vertical" | "horizontal";
+  pos: number;
+}
+
 type DragMode =
   | { type: "move"; startX: number; startY: number; initX: number; initY: number }
   | {
@@ -16,6 +21,7 @@ type DragMode =
 
 export class SlideStageCanvas {
   private container: HTMLElement;
+  private wrapper: HTMLElement;
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private state: SlidesState;
@@ -23,22 +29,35 @@ export class SlideStageCanvas {
   private slideHeight = 540; // 16:9 widescreen height DIPs
   private dragMode: DragMode | null = null;
   private onDirtyCallback?: () => void;
+  private activeGuides: AlignmentGuide[] = [];
+  private inlineEditor: HTMLTextAreaElement | null = null;
+  private editingShapeId: string | null = null;
 
   constructor(container: HTMLElement, state: SlidesState = slidesState) {
     this.container = container;
     this.state = state;
 
+    this.wrapper = document.createElement("div");
+    this.wrapper.className = "slide-stage-wrapper";
+    this.wrapper.style.position = "relative";
+    this.wrapper.style.width = `${this.slideWidth}px`;
+    this.wrapper.style.height = `${this.slideHeight}px`;
+    this.wrapper.style.margin = "32px auto";
+    this.wrapper.style.boxShadow = "0 8px 30px rgba(0, 0, 0, 0.25)";
+
     this.canvas = document.createElement("canvas");
     this.canvas.className = "slide-stage-canvas";
     this.canvas.tabIndex = 0;
     this.canvas.style.display = "block";
-    this.canvas.style.margin = "32px auto";
-    this.canvas.style.boxShadow = "0 8px 30px rgba(0, 0, 0, 0.25)";
+    this.canvas.style.position = "absolute";
+    this.canvas.style.top = "0";
+    this.canvas.style.left = "0";
     this.canvas.style.outline = "none";
     this.canvas.style.cursor = "default";
 
+    this.wrapper.appendChild(this.canvas);
     this.container.innerHTML = "";
-    this.container.appendChild(this.canvas);
+    this.container.appendChild(this.wrapper);
 
     const context = this.canvas.getContext("2d");
     if (!context) throw new Error("Could not acquire 2D canvas context for Slides");
@@ -53,29 +72,56 @@ export class SlideStageCanvas {
     this.onDirtyCallback = cb;
   }
 
+  public getCanvas(): HTMLCanvasElement {
+    return this.canvas;
+  }
+
+  public getWrapper(): HTMLElement {
+    return this.wrapper;
+  }
+
+  public getInlineEditor(): HTMLTextAreaElement | null {
+    return this.inlineEditor;
+  }
+
+  public getActiveGuides(): AlignmentGuide[] {
+    return this.activeGuides;
+  }
+
+  public getState(): SlidesState {
+    return this.state;
+  }
+
   private initCanvasSize() {
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
     this.canvas.width = this.slideWidth * dpr;
     this.canvas.height = this.slideHeight * dpr;
     this.canvas.style.width = `${this.slideWidth}px`;
     this.canvas.style.height = `${this.slideHeight}px`;
-    this.ctx.scale(dpr, dpr);
+    if (this.ctx.scale) {
+      this.ctx.scale(dpr, dpr);
+    }
   }
 
   public selectSlide(index: number) {
+    this.finishInlineEditing();
     this.state.selectSlide(index);
     this.render();
   }
 
-  private getCanvasPoint(e: MouseEvent): { x: number; y: number } {
-    const rect = this.canvas.getBoundingClientRect();
+  public getCanvasPoint(e: MouseEvent): { x: number; y: number } {
+    const rect = this.canvas.getBoundingClientRect ? this.canvas.getBoundingClientRect() : null;
+    const clientX = e.clientX !== undefined ? e.clientX : 0;
+    const clientY = e.clientY !== undefined ? e.clientY : 0;
+    const left = rect ? rect.left : 0;
+    const top = rect ? rect.top : 0;
     return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+      x: clientX - left,
+      y: clientY - top,
     };
   }
 
-  private getHandlePositions(sh: SlideShape): { handle: string; x: number; y: number }[] {
+  public getHandlePositions(sh: SlideShape): { handle: string; x: number; y: number }[] {
     const x = sh.x;
     const y = sh.y;
     const w = sh.w;
@@ -86,14 +132,14 @@ export class SlideStageCanvas {
     const cy = y + h / 2;
 
     return [
-      { handle: "tl", x, y },
-      { handle: "tc", x: cx, y },
-      { handle: "tr", x: r, y },
+      { handle: "tl", x: x, y: y },
+      { handle: "tc", x: cx, y: y },
+      { handle: "tr", x: r, y: y },
       { handle: "mr", x: r, y: cy },
       { handle: "br", x: r, y: b },
       { handle: "bc", x: cx, y: b },
-      { handle: "bl", x, y: b },
-      { handle: "ml", x, y: cy },
+      { handle: "bl", x: x, y: b },
+      { handle: "ml", x: x, y: cy },
     ];
   }
 
@@ -148,84 +194,21 @@ export class SlideStageCanvas {
     this.canvas.addEventListener("mousedown", (e: MouseEvent) => {
       this.canvas.focus();
       const pt = this.getCanvasPoint(e);
-      const selected = this.state.getSelectedShape();
-
-      if (selected) {
-        // Check rotation handle
-        const rotCx = selected.x + selected.w / 2;
-        const rotCy = selected.y - 24;
-        if (Math.hypot(pt.x - rotCx, pt.y - rotCy) <= 8) {
-          this.dragMode = {
-            type: "rotate",
-            cx: rotCx,
-            cy: selected.y + selected.h / 2,
-            startAngle: Math.atan2(pt.y - (selected.y + selected.h / 2), pt.x - rotCx),
-            initRot: selected.rotation || 0,
-          };
-          this.canvas.style.cursor = "grabbing";
-          return;
-        }
-
-        // Check 8 resize handles
-        const handles = this.getHandlePositions(selected);
-        for (const h of handles) {
-          if (Math.abs(pt.x - h.x) <= 6 && Math.abs(pt.y - h.y) <= 6) {
-            this.dragMode = {
-              type: "resize",
-              handle: h.handle,
-              startX: pt.x,
-              startY: pt.y,
-              initX: selected.x,
-              initY: selected.y,
-              initW: selected.w,
-              initH: selected.h,
-            };
-            return;
-          }
-        }
-      }
-
-      // Check shape body hit
-      const slide = this.state.slides[this.state.currentSlideIndex];
-      if (!slide) return;
-
-      let hitShape: SlideShape | null = null;
-      for (let i = slide.shapes.length - 1; i >= 0; i--) {
-        const sh = slide.shapes[i];
-        if (pt.x >= sh.x && pt.x <= sh.x + sh.w && pt.y >= sh.y && pt.y <= sh.y + sh.h) {
-          hitShape = sh;
-          break;
-        }
-      }
-
-      if (hitShape) {
-        this.state.selectShape(hitShape.id);
-        this.dragMode = {
-          type: "move",
-          startX: pt.x,
-          startY: pt.y,
-          initX: hitShape.x,
-          initY: hitShape.y,
-        };
-      } else {
-        this.state.selectShape(null);
-      }
-
-      this.render();
-      if (this.onDirtyCallback) this.onDirtyCallback();
+      this.handleMouseDown(pt, e.shiftKey);
     });
 
     // 3. Mouse up: finalize drag
     window.addEventListener("mouseup", () => {
-      if (this.dragMode) {
-        this.dragMode = null;
-        this.state.commitSnapshot();
-        this.render();
-        if (this.onDirtyCallback) this.onDirtyCallback();
-      }
+      this.handleMouseUp();
     });
 
-    // 4. Keyboard Shortcuts on Canvas
+    // 4. Double Click: In-Place Text Editing
+    this.canvas.addEventListener("dblclick", (e: MouseEvent) => {
+      const pt = this.getCanvasPoint(e);
+      this.handleDblClick(pt);
+    });
+
+    // 5. Keyboard Shortcuts on Canvas
     this.canvas.addEventListener("keydown", (e: KeyboardEvent) => {
       const selected = this.state.getSelectedShape();
       if (!selected) return;
@@ -244,20 +227,223 @@ export class SlideStageCanvas {
         e.preventDefault();
         selected.x -= e.shiftKey ? 10 : 1;
         this.render();
+        if (this.onDirtyCallback) this.onDirtyCallback();
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
         selected.x += e.shiftKey ? 10 : 1;
         this.render();
+        if (this.onDirtyCallback) this.onDirtyCallback();
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         selected.y -= e.shiftKey ? 10 : 1;
         this.render();
+        if (this.onDirtyCallback) this.onDirtyCallback();
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
         selected.y += e.shiftKey ? 10 : 1;
         this.render();
+        if (this.onDirtyCallback) this.onDirtyCallback();
       }
     });
+  }
+
+  public handleMouseDown(pt: { x: number; y: number }, _shiftKey = false) {
+    // If we're currently inline editing, finish it first
+    if (this.inlineEditor) {
+      this.finishInlineEditing();
+    }
+
+    const selected = this.state.getSelectedShape();
+
+    if (selected) {
+      // Check rotation handle
+      const rotCx = selected.x + selected.w / 2;
+      const rotCy = selected.y - 24;
+      if (Math.hypot(pt.x - rotCx, pt.y - rotCy) <= 8) {
+        this.state.commitSnapshot();
+        this.dragMode = {
+          type: "rotate",
+          cx: rotCx,
+          cy: selected.y + selected.h / 2,
+          startAngle: Math.atan2(pt.y - (selected.y + selected.h / 2), pt.x - rotCx),
+          initRot: selected.rotation || 0,
+        };
+        this.canvas.style.cursor = "grabbing";
+        return;
+      }
+
+      // Check 8 resize handles
+      const handles = this.getHandlePositions(selected);
+      for (const h of handles) {
+        if (Math.abs(pt.x - h.x) <= 6 && Math.abs(pt.y - h.y) <= 6) {
+          this.state.commitSnapshot();
+          this.dragMode = {
+            type: "resize",
+            handle: h.handle,
+            startX: pt.x,
+            startY: pt.y,
+            initX: selected.x,
+            initY: selected.y,
+            initW: selected.w,
+            initH: selected.h,
+          };
+          return;
+        }
+      }
+    }
+
+    // Check shape body hit
+    const slide = this.state.slides[this.state.currentSlideIndex];
+    if (!slide) return;
+
+    let hitShape: SlideShape | null = null;
+    for (let i = slide.shapes.length - 1; i >= 0; i--) {
+      const sh = slide.shapes[i];
+      if (pt.x >= sh.x && pt.x <= sh.x + sh.w && pt.y >= sh.y && pt.y <= sh.y + sh.h) {
+        hitShape = sh;
+        break;
+      }
+    }
+
+    if (hitShape) {
+      this.state.commitSnapshot();
+      this.state.selectShape(hitShape.id);
+      this.dragMode = {
+        type: "move",
+        startX: pt.x,
+        startY: pt.y,
+        initX: hitShape.x,
+        initY: hitShape.y,
+      };
+    } else {
+      this.state.selectShape(null);
+    }
+
+    this.render();
+    if (this.onDirtyCallback) this.onDirtyCallback();
+  }
+
+  public handleMouseUp() {
+    if (this.dragMode) {
+      this.dragMode = null;
+      this.activeGuides = [];
+      this.render();
+      if (this.onDirtyCallback) this.onDirtyCallback();
+    }
+  }
+
+  public handleDblClick(pt: { x: number; y: number }) {
+    const slide = this.state.slides[this.state.currentSlideIndex];
+    if (!slide) return;
+
+    let hitShape: SlideShape | null = null;
+    for (let i = slide.shapes.length - 1; i >= 0; i--) {
+      const sh = slide.shapes[i];
+      if (pt.x >= sh.x && pt.x <= sh.x + sh.w && pt.y >= sh.y && pt.y <= sh.y + sh.h) {
+        hitShape = sh;
+        break;
+      }
+    }
+
+    if (hitShape) {
+      this.state.selectShape(hitShape.id);
+      this.startInlineEditing(hitShape);
+    }
+  }
+
+  public startInlineEditing(shape: SlideShape) {
+    this.finishInlineEditing();
+
+    const editor = document.createElement("textarea");
+    editor.className = "slide-inline-text-editor";
+    editor.style.position = "absolute";
+    editor.style.left = `${shape.x}px`;
+    editor.style.top = `${shape.y}px`;
+    editor.style.width = `${shape.w}px`;
+    editor.style.height = `${shape.h}px`;
+    editor.style.boxSizing = "border-box";
+    editor.style.padding = "6px 8px";
+    editor.style.border = "2px dashed #c43e1c";
+    editor.style.borderRadius = "2px";
+    editor.style.outline = "none";
+    editor.style.resize = "none";
+    editor.style.zIndex = "100";
+    editor.style.fontFamily = shape.fontFamily || "Aptos, Calibri, sans-serif";
+    editor.style.fontSize = `${shape.fontSize || (shape.type === "text" ? 28 : 18)}px`;
+    editor.style.fontWeight = shape.bold ? "bold" : shape.type === "text" ? "bold" : "normal";
+    editor.style.fontStyle = shape.italic ? "italic" : "normal";
+    editor.style.textDecoration = shape.underline ? "underline" : "none";
+    editor.style.color = shape.textColor || (shape.type === "text" ? "#1e293b" : "#ffffff");
+    editor.style.background =
+      shape.fill === "transparent" ? "rgba(255, 255, 255, 0.95)" : shape.fill;
+
+    if (shape.rotation) {
+      editor.style.transform = `rotate(${shape.rotation}deg)`;
+      editor.style.transformOrigin = "center center";
+    }
+
+    editor.value = shape.text || "";
+
+    editor.addEventListener("input", () => {
+      shape.text = editor.value;
+      if (this.onDirtyCallback) this.onDirtyCallback();
+    });
+
+    editor.addEventListener("blur", () => {
+      this.finishInlineEditing(shape, editor.value);
+    });
+
+    editor.addEventListener("keydown", (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        this.finishInlineEditing(shape, editor.value);
+      } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey || shape.type !== "text")) {
+        e.preventDefault();
+        this.finishInlineEditing(shape, editor.value);
+      }
+    });
+
+    this.wrapper.appendChild(editor);
+    this.inlineEditor = editor;
+    this.editingShapeId = shape.id;
+    editor.focus();
+    editor.select();
+    this.render();
+  }
+
+  public finishInlineEditing(targetShape?: SlideShape, text?: string) {
+    if (!this.inlineEditor) return;
+    const shape = targetShape || this.state.getSelectedShape();
+    if (shape && text !== undefined) {
+      shape.text = text;
+    }
+    if (this.inlineEditor.parentNode) {
+      this.inlineEditor.parentNode.removeChild(this.inlineEditor);
+    }
+    this.inlineEditor = null;
+    this.editingShapeId = null;
+    this.state.commitSnapshot();
+    this.render();
+    if (this.onDirtyCallback) this.onDirtyCallback();
+  }
+
+  // --- Simulation Helpers for Automated Testing ---
+  public simulateMouseDown(x: number, y: number, shiftKey = false) {
+    this.handleMouseDown({ x, y }, shiftKey);
+  }
+
+  public simulateMouseMove(x: number, y: number, shiftKey = false) {
+    if (this.dragMode) {
+      this.handleDragMove({ x, y }, shiftKey);
+    }
+  }
+
+  public simulateMouseUp() {
+    this.handleMouseUp();
+  }
+
+  public simulateDblClick(x: number, y: number) {
+    this.handleDblClick({ x, y });
   }
 
   private getCursorForHandle(handle: string): string {
@@ -279,15 +465,94 @@ export class SlideStageCanvas {
     }
   }
 
-  private handleDragMove(pt: { x: number; y: number }, shiftKey: boolean) {
+  public handleDragMove(pt: { x: number; y: number }, shiftKey: boolean) {
     const selected = this.state.getSelectedShape();
     if (!selected || !this.dragMode) return;
 
     if (this.dragMode.type === "move") {
       const dx = pt.x - this.dragMode.startX;
       const dy = pt.y - this.dragMode.startY;
-      selected.x = Math.round(this.dragMode.initX + dx);
-      selected.y = Math.round(this.dragMode.initY + dy);
+      let targetX = Math.round(this.dragMode.initX + dx);
+      let targetY = Math.round(this.dragMode.initY + dy);
+      const w = selected.w;
+      const h = selected.h;
+
+      // Smart Alignment & Snapping Guides
+      const guides: AlignmentGuide[] = [];
+      const threshold = 6;
+
+      // Candidate X coordinates: slide center and other shapes
+      const snapCandidatesX: number[] = [this.slideWidth / 2];
+      const slide = this.state.slides[this.state.currentSlideIndex];
+      if (slide) {
+        slide.shapes.forEach((other) => {
+          if (other.id !== selected.id) {
+            snapCandidatesX.push(other.x);
+            snapCandidatesX.push(other.x + other.w / 2);
+            snapCandidatesX.push(other.x + other.w);
+          }
+        });
+      }
+
+      const myLeft = targetX;
+      const myCx = targetX + w / 2;
+      const myRight = targetX + w;
+
+      for (const cand of snapCandidatesX) {
+        if (Math.abs(myCx - cand) <= threshold) {
+          targetX = Math.round(cand - w / 2);
+          guides.push({ orientation: "vertical", pos: cand });
+          break;
+        }
+        if (Math.abs(myLeft - cand) <= threshold) {
+          targetX = Math.round(cand);
+          guides.push({ orientation: "vertical", pos: cand });
+          break;
+        }
+        if (Math.abs(myRight - cand) <= threshold) {
+          targetX = Math.round(cand - w);
+          guides.push({ orientation: "vertical", pos: cand });
+          break;
+        }
+      }
+
+      // Candidate Y coordinates: slide center and other shapes
+      const snapCandidatesY: number[] = [this.slideHeight / 2];
+      if (slide) {
+        slide.shapes.forEach((other) => {
+          if (other.id !== selected.id) {
+            snapCandidatesY.push(other.y);
+            snapCandidatesY.push(other.y + other.h / 2);
+            snapCandidatesY.push(other.y + other.h);
+          }
+        });
+      }
+
+      const myTop = targetY;
+      const myCy = targetY + h / 2;
+      const myBottom = targetY + h;
+
+      for (const cand of snapCandidatesY) {
+        if (Math.abs(myCy - cand) <= threshold) {
+          targetY = Math.round(cand - h / 2);
+          guides.push({ orientation: "horizontal", pos: cand });
+          break;
+        }
+        if (Math.abs(myTop - cand) <= threshold) {
+          targetY = Math.round(cand);
+          guides.push({ orientation: "horizontal", pos: cand });
+          break;
+        }
+        if (Math.abs(myBottom - cand) <= threshold) {
+          targetY = Math.round(cand - h);
+          guides.push({ orientation: "horizontal", pos: cand });
+          break;
+        }
+      }
+
+      selected.x = targetX;
+      selected.y = targetY;
+      this.activeGuides = guides;
       this.render();
     } else if (this.dragMode.type === "resize") {
       const dx = pt.x - this.dragMode.startX;
@@ -422,7 +687,11 @@ export class SlideStageCanvas {
         case "roundRect": {
           const rad = Math.min(sh.w, sh.h) * 0.15;
           ctx.beginPath();
-          ctx.roundRect(sh.x, sh.y, sh.w, sh.h, rad);
+          if (ctx.roundRect) {
+            ctx.roundRect(sh.x, sh.y, sh.w, sh.h, rad);
+          } else {
+            ctx.rect(sh.x, sh.y, sh.w, sh.h);
+          }
           ctx.fill();
           if (sh.stroke) ctx.stroke();
           break;
@@ -430,15 +699,19 @@ export class SlideStageCanvas {
 
         case "ellipse":
           ctx.beginPath();
-          ctx.ellipse(
-            sh.x + sh.w / 2,
-            sh.y + sh.h / 2,
-            sh.w / 2,
-            sh.h / 2,
-            0,
-            0,
-            2 * Math.PI
-          );
+          if (ctx.ellipse) {
+            ctx.ellipse(
+              sh.x + sh.w / 2,
+              sh.y + sh.h / 2,
+              sh.w / 2,
+              sh.h / 2,
+              0,
+              0,
+              2 * Math.PI
+            );
+          } else {
+            ctx.arc(sh.x + sh.w / 2, sh.y + sh.h / 2, Math.min(sh.w, sh.h) / 2, 0, 2 * Math.PI);
+          }
           ctx.fill();
           if (sh.stroke) ctx.stroke();
           break;
@@ -512,12 +785,46 @@ export class SlideStageCanvas {
         }
 
         case "text":
-          ctx.font = `bold ${sh.fontSize || 28}px Aptos, Calibri, sans-serif`;
-          ctx.fillStyle = sh.textColor || "#1e293b";
-          ctx.textAlign = "left";
-          ctx.textBaseline = "top";
-          ctx.fillText(sh.text || "", sh.x + 8, sh.y + 8);
+          if (this.editingShapeId !== sh.id && sh.text) {
+            const fontStyle = `${sh.italic ? "italic " : ""}${sh.bold ? "bold " : ""}${sh.fontSize || 28}px ${sh.fontFamily || "Aptos, Calibri, sans-serif"}`;
+            ctx.font = fontStyle;
+            ctx.fillStyle = sh.textColor || "#1e293b";
+            ctx.textAlign = "left";
+            ctx.textBaseline = "top";
+            const lines = sh.text.split("\n");
+            const lineHeight = (sh.fontSize || 28) * 1.35;
+            lines.forEach((line, i) => {
+              ctx.fillText(line, sh.x + 8, sh.y + 8 + i * lineHeight);
+              if (sh.underline) {
+                const metrics = ctx.measureText ? ctx.measureText(line) : { width: 50 };
+                const underY = sh.y + 8 + i * lineHeight + (sh.fontSize || 28);
+                ctx.beginPath();
+                ctx.moveTo(sh.x + 8, underY);
+                ctx.lineTo(sh.x + 8 + metrics.width, underY);
+                ctx.strokeStyle = sh.textColor || "#1e293b";
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+              }
+            });
+          }
           break;
+      }
+
+      // Render text for non-text shapes if present
+      if (sh.type !== "text" && sh.text && this.editingShapeId !== sh.id) {
+        ctx.save();
+        const fontStyle = `${sh.italic ? "italic " : ""}${sh.bold ? "bold " : ""}${sh.fontSize || 16}px ${sh.fontFamily || "Aptos, Calibri, sans-serif"}`;
+        ctx.font = fontStyle;
+        ctx.fillStyle = sh.textColor || "#ffffff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        const lines = sh.text.split("\n");
+        const lineHeight = (sh.fontSize || 16) * 1.3;
+        const startY = sh.y + sh.h / 2 - ((lines.length - 1) * lineHeight) / 2;
+        lines.forEach((line, i) => {
+          ctx.fillText(line, sh.x + sh.w / 2, startY + i * lineHeight);
+        });
+        ctx.restore();
       }
 
       ctx.restore();
@@ -535,9 +842,9 @@ export class SlideStageCanvas {
 
         ctx.strokeStyle = "#c43e1c"; // PowerPoint terracotta red
         ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 4]);
+        if (ctx.setLineDash) ctx.setLineDash([4, 4]);
         ctx.strokeRect(sh.x - 3, sh.y - 3, sh.w + 6, sh.h + 6);
-        ctx.setLineDash([]);
+        if (ctx.setLineDash) ctx.setLineDash([]);
 
         // Rotation Handle Stalk and Circle at Top
         ctx.beginPath();
@@ -563,5 +870,26 @@ export class SlideStageCanvas {
         ctx.restore();
       }
     });
+
+    // 4. Render Smart Alignment / Snapping Guides
+    if (this.activeGuides.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = "#ef4444"; // Red/terracotta guide
+      ctx.lineWidth = 1;
+      if (ctx.setLineDash) ctx.setLineDash([4, 4]);
+      this.activeGuides.forEach((g) => {
+        ctx.beginPath();
+        if (g.orientation === "vertical") {
+          ctx.moveTo(g.pos, 0);
+          ctx.lineTo(g.pos, this.slideHeight);
+        } else {
+          ctx.moveTo(0, g.pos);
+          ctx.lineTo(this.slideWidth, g.pos);
+        }
+        ctx.stroke();
+      });
+      if (ctx.setLineDash) ctx.setLineDash([]);
+      ctx.restore();
+    }
   }
 }

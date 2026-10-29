@@ -97,6 +97,13 @@ export class SlidesRibbon implements AppRibbonComponent {
     slidesRow.appendChild(createRibbonButton("Reset", "🔄 Reset", () => emit("ResetSlide")));
     slidesRow.appendChild(createRibbonButton("Delete Slide", "🗑️ Delete", () => emit("DeleteSlide")));
     slidesGroup.appendChild(slidesRow);
+
+    const slidesRow2 = document.createElement("div");
+    slidesRow2.className = "ribbon-group-row";
+    slidesRow2.appendChild(createRibbonButton("Duplicate", "📋 Duplicate", () => emit("DuplicateSlide")));
+    slidesRow2.appendChild(createRibbonButton("Move Up", "⬆️ Move Up", () => emit("MoveSlideUp")));
+    slidesRow2.appendChild(createRibbonButton("Move Down", "⬇️ Move Down", () => emit("MoveSlideDown")));
+    slidesGroup.appendChild(slidesRow2);
     body.appendChild(slidesGroup);
 
     // 3. Font Group

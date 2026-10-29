@@ -29,6 +29,7 @@ import { SheetTabBar } from "./components/SheetTabBar";
 import { WorkbookSheetsPane } from "./components/WorkbookSheetsPane";
 import { FunctionWizardDialog } from "./components/FunctionWizardDialog";
 import { CalcChartOverlay } from "./components/CalcChartOverlay";
+import { SlideLayoutDialog } from "./components/SlideLayoutDialog";
 
 export class UnifiedShellApp {
   private tabBar!: TabBar;
@@ -57,6 +58,7 @@ export class UnifiedShellApp {
   private findReplaceDialog!: FindReplaceDialog;
   private wordCountDialog!: WordCountDialog;
   private functionWizardDialog!: FunctionWizardDialog;
+  private slideLayoutDialog!: SlideLayoutDialog;
 
   constructor(autoBoot = true) {
     this.init(autoBoot);
@@ -198,10 +200,11 @@ export class UnifiedShellApp {
 
     this.laserPointer = new LaserPointer("laser-pointer-dot");
 
-    // 6. Initialize Find & Replace, Word Count, and Function Wizard Dialogs
+    // 6. Initialize Find & Replace, Word Count, Function Wizard, and Slide Layout Dialogs
     this.findReplaceDialog = new FindReplaceDialog();
     this.wordCountDialog = new WordCountDialog();
     this.functionWizardDialog = new FunctionWizardDialog();
+    this.slideLayoutDialog = new SlideLayoutDialog();
     this.functionWizardDialog.setOnInsert((formulaText) => {
       if (this.currentDocType === "Excel") {
         calcState.commitFormula(formulaText);
@@ -502,6 +505,18 @@ export class UnifiedShellApp {
     return this.workbookSheetsPane;
   }
 
+  public getSlideLayoutDialog(): SlideLayoutDialog {
+    return this.slideLayoutDialog;
+  }
+
+  public getSlideStageCanvas(): SlideStageCanvas | undefined {
+    return this.slideStageCanvas;
+  }
+
+  public getSlideSorter(): SlideSorter {
+    return this.slideSorter;
+  }
+
   public getFormulaBar(): FormulaBar {
     return this.formulaBar;
   }
@@ -605,6 +620,18 @@ export class UnifiedShellApp {
         },
         onToggleHide: (idx) => {
           slidesState.toggleHideSlide(idx);
+          this.updateSlideSorter();
+          this.tabBar.setDirty(tab.id, true);
+        },
+        onMoveUp: (idx) => {
+          slidesState.moveSlideUp(idx);
+          this.slideStageCanvas?.render();
+          this.updateSlideSorter();
+          this.tabBar.setDirty(tab.id, true);
+        },
+        onMoveDown: (idx) => {
+          slidesState.moveSlideDown(idx);
+          this.slideStageCanvas?.render();
           this.updateSlideSorter();
           this.tabBar.setDirty(tab.id, true);
         },
@@ -869,6 +896,25 @@ export class UnifiedShellApp {
         }
         this.slideStageCanvas?.render();
         this.updateSlideSorter();
+      } else if (action === "SlideLayout") {
+        this.slideLayoutDialog.open((layout) => {
+          slidesState.applyLayout(layout);
+          this.slideStageCanvas?.render();
+          this.updateSlideSorter();
+          this.tabBar.setDirty(active.id, true);
+        });
+      } else if (action === "MoveSlideUp") {
+        if (slidesState.moveSlideUp()) {
+          this.slideStageCanvas?.render();
+          this.updateSlideSorter();
+          this.tabBar.setDirty(active.id, true);
+        }
+      } else if (action === "MoveSlideDown") {
+        if (slidesState.moveSlideDown()) {
+          this.slideStageCanvas?.render();
+          this.updateSlideSorter();
+          this.tabBar.setDirty(active.id, true);
+        }
       } else {
         const changed = slidesState.execCommand(action, payload);
         if (changed) {

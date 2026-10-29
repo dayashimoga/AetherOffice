@@ -16,6 +16,8 @@ export class SlideSorter {
   private onDuplicateSlideCallback?: (idx: number) => void;
   private onDeleteSlideCallback?: (idx: number) => void;
   private onToggleHideCallback?: (idx: number) => void;
+  private onMoveUpCallback?: (idx: number) => void;
+  private onMoveDownCallback?: (idx: number) => void;
 
   constructor(containerId: string) {
     const el = document.getElementById(containerId);
@@ -37,6 +39,8 @@ export class SlideSorter {
     onDuplicateSlide?: (idx: number) => void;
     onDeleteSlide?: (idx: number) => void;
     onToggleHide?: (idx: number) => void;
+    onMoveUp?: (idx: number) => void;
+    onMoveDown?: (idx: number) => void;
   }) {
     this.onSelectSlideCallback = callbacks.onSelectSlide;
     this.onReorderCallback = callbacks.onReorder;
@@ -44,6 +48,8 @@ export class SlideSorter {
     this.onDuplicateSlideCallback = callbacks.onDuplicateSlide;
     this.onDeleteSlideCallback = callbacks.onDeleteSlide;
     this.onToggleHideCallback = callbacks.onToggleHide;
+    this.onMoveUpCallback = callbacks.onMoveUp;
+    this.onMoveDownCallback = callbacks.onMoveDown;
   }
 
   private render() {
@@ -172,6 +178,32 @@ export class SlideSorter {
       actions.style.right = "4px";
       actions.style.display = "flex";
       actions.style.gap = "2px";
+
+      const upBtn = document.createElement("button");
+      upBtn.title = "Move Slide Up";
+      upBtn.textContent = "▲";
+      upBtn.style.fontSize = "9px";
+      upBtn.style.cursor = "pointer";
+      upBtn.style.background = "transparent";
+      upBtn.style.border = "none";
+      upBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (this.onMoveUpCallback) this.onMoveUpCallback(idx);
+      };
+      actions.appendChild(upBtn);
+
+      const downBtn = document.createElement("button");
+      downBtn.title = "Move Slide Down";
+      downBtn.textContent = "▼";
+      downBtn.style.fontSize = "9px";
+      downBtn.style.cursor = "pointer";
+      downBtn.style.background = "transparent";
+      downBtn.style.border = "none";
+      downBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (this.onMoveDownCallback) this.onMoveDownCallback(idx);
+      };
+      actions.appendChild(downBtn);
 
       const dupBtn = document.createElement("button");
       dupBtn.title = "Duplicate Slide";
