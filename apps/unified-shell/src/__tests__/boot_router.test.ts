@@ -98,3 +98,4 @@ describe("Standalone Binary App-Mode Boot Router (GEC-v2.0 Subphase 8.1.1)", () 
     expect(tabBar.getTabs()[0].docType).toBe("Word");
   });
 });
+

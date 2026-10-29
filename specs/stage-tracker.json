@@ -385,9 +385,9 @@
                           "title":  "AetherHub Main Suite Launcher \u0026 OS Process Spawner",
                           "crate":  "render-core",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-8/subphase-8.1.2.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-29T12:31:39Z"
                       },
                       {
                           "id":  "8.2.1",

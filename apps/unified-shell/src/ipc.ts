@@ -57,8 +57,19 @@ export interface BootConfig {
   initial_file?: string | null;
 }
 
-// Fallback when running outside Tauri desktop container (e.g. Vite dev preview)
+export interface AppInstance {
+  instance_id: string;
+  app_mode: "hub" | "writer" | "calc" | "slides" | "pdf";
+  title: string;
+  file_path?: string | null;
+  process_id?: number | null;
+  status: string;
+  launched_at_ms: number;
+}
+
+// Fallback when running outside Tauri desktop container (e.g. Vite dev preview / unit tests)
 const hasTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+const mockInstances: AppInstance[] = [];
 
 async function invokeTauri<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (hasTauri) {
@@ -84,13 +95,68 @@ async function invokeTauri<T>(cmd: string, args?: Record<string, unknown>): Prom
         is_dirty: false,
       } as unknown as T;
     }
+    if (cmd === "launch_standalone_app") {
+      const mode = (args?.app_mode as "hub" | "writer" | "calc" | "slides" | "pdf") || "writer";
+      const file = args?.file_path as string | undefined;
+      const appName =
+        mode === "writer"
+          ? "AetherWriter"
+          : mode === "calc"
+          ? "AetherCalc"
+          : mode === "slides"
+          ? "AetherSlides"
+          : mode === "pdf"
+          ? "AetherPDF"
+          : "AetherHub";
+      const title = file
+        ? `${appName} - ${file.split(/[/\\]/).pop()}`
+        : `${appName} (Instance ${mockInstances.length + 1})`;
+      const inst: AppInstance = {
+        instance_id: `inst-${mode}-${Date.now()}-${mockInstances.length + 1}`,
+        app_mode: mode,
+        title,
+        file_path: file || null,
+        process_id: 10000 + mockInstances.length + 1,
+        status: "running",
+        launched_at_ms: Date.now(),
+      };
+      mockInstances.push(inst);
+      return inst as unknown as T;
+    }
+    if (cmd === "list_app_instances") {
+      return [...mockInstances] as unknown as T;
+    }
+    if (cmd === "close_app_instance") {
+      const id = args?.instance_id as string;
+      const idx = mockInstances.findIndex((i) => i.instance_id === id);
+      if (idx >= 0) {
+        mockInstances.splice(idx, 1);
+        return true as unknown as T;
+      }
+      return false as unknown as T;
+    }
+    if (cmd === "focus_app_instance") {
+      const id = args?.instance_id as string;
+      return mockInstances.some((i) => i.instance_id === id) as unknown as T;
+    }
     return {} as T;
   }
 }
 
 export const IPC = {
+  _resetMockState: (): void => {
+    mockInstances.length = 0;
+  },
   getBootConfig: (): Promise<BootConfig> =>
     invokeTauri("get_boot_config"),
+  launchStandaloneApp: (appMode: string, filePath?: string): Promise<AppInstance> =>
+    invokeTauri("launch_standalone_app", { app_mode: appMode, file_path: filePath }),
+  listAppInstances: (): Promise<AppInstance[]> =>
+    invokeTauri("list_app_instances"),
+  closeAppInstance: (instanceId: string): Promise<boolean> =>
+    invokeTauri("close_app_instance", { instance_id: instanceId }),
+  focusAppInstance: (instanceId: string): Promise<boolean> =>
+    invokeTauri("focus_app_instance", { instance_id: instanceId }),
   createSession: (docType: DocumentType, title: string): Promise<SessionSummary> =>
     invokeTauri("create_session", { doc_type: docType, title }),
 

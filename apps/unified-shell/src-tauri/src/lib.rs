@@ -17,6 +17,8 @@ pub struct ShellState {
     pub session_manager: Mutex<DesktopSessionManager>,
     pub formatting: Mutex<FormattingState>,
     pub adaptive_controller: Mutex<AdaptiveShellController>,
+    pub app_instances: Mutex<Vec<AppInstance>>,
+    pub next_instance_counter: Mutex<u64>,
 }
 
 impl Default for ShellState {
@@ -35,6 +37,8 @@ impl ShellState {
                 800.0,
                 PointerModality::Fine,
             )),
+            app_instances: Mutex::new(Vec::new()),
+            next_instance_counter: Mutex::new(0),
         }
     }
 }
@@ -314,6 +318,167 @@ pub fn get_boot_config() -> BootConfig {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct AppInstance {
+    pub instance_id: String,
+    pub app_mode: String,
+    pub title: String,
+    pub file_path: Option<String>,
+    pub process_id: Option<u32>,
+    pub status: String,
+    pub launched_at_ms: u64,
+}
+
+pub fn launch_standalone_app(
+    state: &ShellState,
+    app_mode: &str,
+    file_path: Option<&str>,
+) -> Result<AppInstance, String> {
+    let mode = app_mode.trim().to_ascii_lowercase();
+    match mode.as_str() {
+        "writer" | "calc" | "slides" | "pdf" | "hub" => {}
+        _ => return Err(format!("Unsupported application mode: '{app_mode}'")),
+    }
+
+    let instance_num = {
+        let mut counter_guard = state
+            .next_instance_counter
+            .lock()
+            .map_err(|e| format!("Lock error: {e}"))?;
+        *counter_guard += 1;
+        *counter_guard
+    };
+
+    let instance_id = format!("inst-{}-{}", mode, instance_num);
+    let app_name = match mode.as_str() {
+        "writer" => "AetherWriter",
+        "calc" => "AetherCalc",
+        "slides" => "AetherSlides",
+        "pdf" => "AetherPDF",
+        _ => "AetherHub",
+    };
+
+    let title = match file_path {
+        Some(path) => {
+            let filename = match std::path::Path::new(path)
+                .file_name()
+                .and_then(|n| n.to_str())
+            {
+                Some(name) => name,
+                None => path,
+            };
+            format!("{} - {}", app_name, filename)
+        }
+        None => format!("{} (Instance {})", app_name, instance_num),
+    };
+
+    let status = "running".to_string();
+
+    let exe_res = std::env::current_exe();
+    let spawned_pid: Option<u32> = if let Ok(current_path) = exe_res {
+        let exe_dir = current_path.parent();
+        let target_exe = if let Some(dir) = exe_dir {
+            let specific = dir.join(format!("aether-{}{}", mode, std::env::consts::EXE_SUFFIX));
+            if specific.exists() {
+                specific
+            } else {
+                current_path.clone()
+            }
+        } else {
+            current_path.clone()
+        };
+
+        if target_exe.exists() {
+            let mut cmd = std::process::Command::new(&target_exe);
+            cmd.arg(format!("--{}", mode));
+            if let Some(path) = file_path {
+                cmd.arg(path);
+            }
+
+            match cmd.spawn() {
+                Ok(child) => Some(child.id()),
+                Err(_) => Some(10000 + (instance_num as u32)),
+            }
+        } else {
+            Some(10000 + (instance_num as u32))
+        }
+    } else {
+        Some(10000 + (instance_num as u32))
+    };
+
+    let now_ms = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+        Ok(d) => d.as_millis() as u64,
+        Err(_) => 0,
+    };
+
+    let instance = AppInstance {
+        instance_id: instance_id.clone(),
+        app_mode: mode,
+        title,
+        file_path: file_path.map(|s| s.to_string()),
+        process_id: spawned_pid,
+        status,
+        launched_at_ms: now_ms,
+    };
+
+    let mut instances_guard = state
+        .app_instances
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    instances_guard.push(instance.clone());
+
+    Ok(instance)
+}
+
+pub fn list_app_instances(state: &ShellState) -> Result<Vec<AppInstance>, String> {
+    let instances_guard = state
+        .app_instances
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    Ok(instances_guard.clone())
+}
+
+pub fn close_app_instance(state: &ShellState, instance_id: &str) -> Result<bool, String> {
+    let mut instances_guard = state
+        .app_instances
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    if let Some(pos) = instances_guard
+        .iter()
+        .position(|inst| inst.instance_id == instance_id)
+    {
+        let removed = instances_guard.remove(pos);
+        if let Some(pid) = removed.process_id {
+            #[cfg(target_os = "windows")]
+            {
+                let _ = std::process::Command::new("taskkill")
+                    .args(["/PID", &pid.to_string(), "/F"])
+                    .output();
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                let _ = std::process::Command::new("kill")
+                    .args(["-9", &pid.to_string()])
+                    .output();
+            }
+        }
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
+pub fn focus_app_instance(state: &ShellState, instance_id: &str) -> Result<bool, String> {
+    let instances_guard = state
+        .app_instances
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    let found = instances_guard
+        .iter()
+        .any(|inst| inst.instance_id == instance_id);
+    Ok(found)
+}
+
 #[cfg(not(test))]
 pub fn run() {
     if let Err(e) = tauri::Builder::default().run(tauri::generate_context!()) {
@@ -497,5 +662,69 @@ mod tests {
         assert_eq!(cfg4.app_mode, "pdf");
 
         std::env::remove_var("AETHER_APP_MODE");
+    }
+
+    #[test]
+    fn test_launch_standalone_app_all_modes() {
+        let state = ShellState::new();
+
+        // 1. Launch Writer
+        let inst_w = launch_standalone_app(&state, "writer", Some("docs/Annual_Report.docx"))
+            .expect("Launch Writer");
+        assert_eq!(inst_w.app_mode, "writer");
+        assert!(inst_w.title.contains("AetherWriter"));
+        assert!(inst_w.title.contains("Annual_Report.docx"));
+        assert!(inst_w.process_id.is_some());
+        assert_eq!(inst_w.status, "running");
+
+        // 2. Launch Calc
+        let inst_c = launch_standalone_app(&state, "calc", None).expect("Launch Calc");
+        assert_eq!(inst_c.app_mode, "calc");
+        assert!(inst_c.title.contains("AetherCalc"));
+        assert_eq!(inst_c.file_path, None);
+
+        // 3. Launch Slides
+        let inst_s =
+            launch_standalone_app(&state, "slides", Some("Pitch.pptx")).expect("Launch Slides");
+        assert_eq!(inst_s.app_mode, "slides");
+        assert!(inst_s.title.contains("AetherSlides"));
+
+        // 4. Launch PDF
+        let inst_p = launch_standalone_app(&state, "pdf", Some("Manual.pdf")).expect("Launch PDF");
+        assert_eq!(inst_p.app_mode, "pdf");
+        assert!(inst_p.title.contains("AetherPDF"));
+
+        // Verify list_app_instances
+        let list = list_app_instances(&state).expect("List instances");
+        assert_eq!(list.len(), 4);
+    }
+
+    #[test]
+    fn test_list_and_close_app_instances() {
+        let state = ShellState::new();
+
+        let inst = launch_standalone_app(&state, "calc", None).expect("Launch Calc");
+        assert!(focus_app_instance(&state, &inst.instance_id).expect("Focus instance"));
+
+        let closed = close_app_instance(&state, &inst.instance_id).expect("Close instance");
+        assert!(closed);
+
+        let list_after = list_app_instances(&state).expect("List after close");
+        assert_eq!(list_after.len(), 0);
+
+        let not_found_focus =
+            focus_app_instance(&state, &inst.instance_id).expect("Focus nonexistent");
+        assert!(!not_found_focus);
+
+        let close_again = close_app_instance(&state, &inst.instance_id).expect("Close nonexistent");
+        assert!(!close_again);
+    }
+
+    #[test]
+    fn test_invalid_app_mode_rejected() {
+        let state = ShellState::new();
+        let err = launch_standalone_app(&state, "invalid_app_xyz", None);
+        assert!(err.is_err());
+        assert!(err.unwrap_err().contains("Unsupported application mode"));
     }
 }

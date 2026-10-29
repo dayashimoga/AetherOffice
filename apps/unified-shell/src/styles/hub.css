@@ -1,0 +1,369 @@
+/* AetherOffice Suite Hub Styling */
+
+.shell-hub-mode #tab-bar-container,
+.shell-hub-mode #ribbon-container,
+.shell-hub-mode #sub-header-container,
+.shell-hub-mode #sidebar-container {
+  display: none !important;
+}
+
+.shell-hub-mode .workspace-layout {
+  height: calc(100vh - var(--title-bar-height) - var(--status-bar-height));
+  display: flex;
+  flex-direction: column;
+}
+
+.shell-hub-mode #viewport-container {
+  overflow-y: auto;
+  background-color: #f7f9fa;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.hub-launcher {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 24px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  color: var(--text-primary);
+  user-select: text;
+}
+
+/* Hub Header */
+.hub-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e1e4e8;
+  padding-bottom: 24px;
+}
+
+.hub-title-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.hub-logo-badge {
+  font-size: 38px;
+  background: linear-gradient(135deg, #0f6cbd 0%, #004578 100%);
+  color: #fff;
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(15, 108, 189, 0.25);
+}
+
+.hub-header h1 {
+  font-size: 26px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+}
+
+.hub-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.hub-meta-info {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.hub-badge {
+  background-color: #e8f3fc;
+  color: #0f6cbd;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Section Header */
+.hub-section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #242424;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* App Launch Cards Grid */
+.hub-apps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.hub-app-card {
+  background: #ffffff;
+  border: 1px solid #e1e4e8;
+  border-radius: 10px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.hub-app-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+  border-color: #c4d6ea;
+}
+
+.hub-app-card[data-app="writer"] { border-top: 4px solid var(--word-accent); }
+.hub-app-card[data-app="calc"] { border-top: 4px solid var(--excel-accent); }
+.hub-app-card[data-app="slides"] { border-top: 4px solid var(--ppt-accent); }
+.hub-app-card[data-app="pdf"] { border-top: 4px solid #c4314b; }
+
+.hub-card-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.hub-card-icon {
+  font-size: 30px;
+}
+
+.hub-card-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.hub-card-format {
+  font-size: 11px;
+  color: #6a737d;
+  font-weight: 500;
+}
+
+.hub-card-desc {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #586069;
+  margin-bottom: 20px;
+}
+
+.hub-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-launch {
+  flex: 1;
+  padding: 8px 16px;
+  background-color: #0f6cbd;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-launch:hover {
+  background-color: #0d5ca0;
+}
+
+.hub-app-card[data-app="writer"] .btn-launch { background-color: var(--word-accent); }
+.hub-app-card[data-app="writer"] .btn-launch:hover { background-color: #214378; }
+
+.hub-app-card[data-app="calc"] .btn-launch { background-color: var(--excel-accent); }
+.hub-app-card[data-app="calc"] .btn-launch:hover { background-color: #0c6133; }
+
+.hub-app-card[data-app="slides"] .btn-launch { background-color: var(--ppt-accent); }
+.hub-app-card[data-app="slides"] .btn-launch:hover { background-color: #ad371c; }
+
+.hub-app-card[data-app="pdf"] .btn-launch { background-color: #c4314b; }
+.hub-app-card[data-app="pdf"] .btn-launch:hover { background-color: #a0233b; }
+
+/* Templates Gallery */
+.hub-templates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.hub-template-card {
+  background: #ffffff;
+  border: 1px solid #e1e4e8;
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.18s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hub-template-card:hover {
+  border-color: #0f6cbd;
+  background-color: #f8fbff;
+  transform: translateY(-2px);
+}
+
+.hub-template-icon {
+  font-size: 26px;
+}
+
+.hub-template-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hub-template-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #242424;
+}
+
+.hub-template-app {
+  font-size: 11px;
+  color: #6a737d;
+}
+
+/* Recent Documents Table */
+.hub-recent-panel {
+  background: #ffffff;
+  border: 1px solid #e1e4e8;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+.hub-table-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-secondary {
+  padding: 6px 12px;
+  background: #f3f3f3;
+  color: #333333;
+  border: 1px solid #dcdcdc;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-secondary:hover {
+  background: #e6e6e6;
+  border-color: #bfbfbf;
+}
+
+.hub-recent-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.hub-recent-table th {
+  text-align: left;
+  padding: 10px 12px;
+  background-color: #fafbfc;
+  color: #586069;
+  font-weight: 600;
+  font-size: 12px;
+  border-bottom: 1px solid #e1e4e8;
+}
+
+.hub-recent-table td {
+  padding: 12px;
+  border-bottom: 1px solid #f0f2f5;
+  vertical-align: middle;
+}
+
+.hub-recent-table tr:hover td {
+  background-color: #f7f9fb;
+}
+
+.recent-file-name {
+  font-weight: 600;
+  color: #0f6cbd;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recent-file-name:hover {
+  text-decoration: underline;
+}
+
+.recent-type-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.pill-writer { background: #e3ecfa; color: var(--word-accent); }
+.pill-calc { background: #e2f5ea; color: var(--excel-accent); }
+.pill-slides { background: #faede9; color: var(--ppt-accent); }
+.pill-pdf { background: #fae6e9; color: #c4314b; }
+
+.recent-file-path {
+  font-family: monospace;
+  font-size: 11px;
+  color: #6a737d;
+}
+
+/* Running Instances Table */
+.hub-instances-panel {
+  background: #ffffff;
+  border: 1px solid #e1e4e8;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+.instance-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #2ea44f;
+  margin-right: 6px;
+}
+
+.btn-danger-sm {
+  padding: 4px 8px;
+  background: #ffeef0;
+  color: #cf222e;
+  border: 1px solid #fdaeb7;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.btn-danger-sm:hover {
+  background: #cf222e;
+  color: #ffffff;
+}
+

@@ -21,6 +21,7 @@ import { writerState } from "./state/writerState";
 import { calcState } from "./state/calcState";
 import { slidesState } from "./state/slidesState";
 import { pdfState } from "./state/pdfState";
+import { HubLauncher } from "./apps/hub/HubLauncher";
 
 export class UnifiedShellApp {
   private tabBar!: TabBar;
@@ -41,6 +42,7 @@ export class UnifiedShellApp {
   private calcGridCanvas?: CalcGridCanvas;
   private slideStageCanvas?: SlideStageCanvas;
   private pdfViewerCanvas?: PdfViewerCanvas;
+  private hubLauncher?: HubLauncher;
 
   constructor(autoBoot = true) {
     this.init(autoBoot);
@@ -189,19 +191,41 @@ export class UnifiedShellApp {
       }
       case "hub":
       default: {
-        const title = initialFile
-          ? initialFile.split(/[/\\]/).pop() || "Untitled 1.docx"
-          : "Untitled 1.docx";
-        this.tabBar.addTab({
-          id: "tab-hub-1",
-          docType: "Word",
-          title,
-          isDirty: false,
-        });
-        this.tabBar.switchTab("tab-hub-1");
+        this.showHub();
         break;
       }
     }
+  }
+
+  public showHub() {
+    const appContainer = document.getElementById("app");
+    if (appContainer) {
+      appContainer.classList.add("shell-hub-mode");
+    }
+
+    const viewport = document.getElementById("viewport-container");
+    if (viewport) {
+      this.hubLauncher = new HubLauncher(viewport);
+      this.hubLauncher.setCallbacks({
+        onLaunchApp: (appMode, filePath) => {
+          console.log(`Launched ${appMode} from Hub: ${filePath}`);
+        },
+      });
+      this.hubLauncher.render();
+    }
+
+    const docInfo = document.getElementById("status-doc-info");
+    if (docInfo) {
+      docInfo.textContent = "AetherOffice Suite Hub";
+    }
+    const wordCount = document.getElementById("status-word-count");
+    if (wordCount) {
+      wordCount.textContent = "Ready • 4 Apps Available";
+    }
+  }
+
+  public getHubLauncher(): HubLauncher | undefined {
+    return this.hubLauncher;
   }
 
   public getTabBar(): TabBar {
@@ -213,6 +237,11 @@ export class UnifiedShellApp {
   }
 
   private handleTabChange(tab: TabItem) {
+    const appContainer = document.getElementById("app");
+    if (appContainer) {
+      appContainer.classList.remove("shell-hub-mode");
+    }
+
     this.currentDocType = tab.docType;
     this.ribbon.setDocumentType(tab.docType);
 
