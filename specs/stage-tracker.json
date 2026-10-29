@@ -264,9 +264,9 @@
                           "title":  "Streaming PDF Object Parser, Linearized XRef \u0026 Catalog Tree",
                           "crate":  "pdf-engine",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-5/subphase-5.1.1.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-29T09:23:03Z"
                       },
                       {
                           "id":  "5.1.2",
