@@ -21,3 +21,4 @@ Invoke @compiler-engineer under GEC-v2.0:
 3. Add tests verifying parsing of classic macro automation scripts and mock evaluation of Range mutations.
 4. Run `powershell -File tools/verify-contract.ps1` and ensure all gates pass. Commit with [GEC-Verified].
 ```
+

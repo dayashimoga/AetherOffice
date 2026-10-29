@@ -21,3 +21,4 @@ Invoke @security-engineer under GEC-v2.0:
 4. Add unit tests with real OLE stream fixtures verifying decompressed source text parity.
 5. Run `powershell -File tools/verify-contract.ps1` and ensure all gates pass. Commit with [GEC-Verified].
 ```
+

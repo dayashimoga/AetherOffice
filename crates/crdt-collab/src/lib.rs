@@ -6,11 +6,15 @@
 
 pub mod error;
 pub mod fugue;
+pub mod grid_crdt;
 pub mod id;
 pub mod peritext;
 
 pub use error::CrdtError;
 pub use fugue::{FugueDelta, FugueNode, FugueTreeRga, StateVector};
+pub use grid_crdt::{
+    CellCoord, CellRegister, CoordinateShifter, GridCellValue, GridDelta, GridMatrixCrdt,
+};
 pub use id::OpId;
 pub use peritext::{FormatAttribute, PeritextSpan, RichTextRun};
 

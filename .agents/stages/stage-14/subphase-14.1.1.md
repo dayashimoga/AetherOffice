@@ -22,3 +22,4 @@ Invoke @crdt-architect under GEC-v2.0:
 4. Add comprehensive unit tests in `crates/crdt-collab/tests/` verifying concurrent edit convergence, non-interleaving splits, and state-vector synchronization.
 5. Run `powershell -File tools/verify-contract.ps1` and ensure all gates pass. Commit with [GEC-Verified].
 ```
+

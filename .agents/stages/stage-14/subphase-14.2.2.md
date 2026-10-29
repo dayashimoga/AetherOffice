@@ -25,3 +25,4 @@ Invoke @adaptive-ui-builder under GEC-v2.0:
 5. Add automated Vitest integration tests in `apps/unified-shell/src/__tests__/collab_presence.test.ts`.
 6. Run `powershell -File tools/verify-contract.ps1` and ensure all gates pass. Commit with [GEC-Verified].
 ```
+

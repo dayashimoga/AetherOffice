@@ -19,3 +19,4 @@ Invoke @security-engineer under GEC-v2.0:
 2. Implement sandbox security audit logging and automated exploit isolation tests.
 3. Run `powershell -File tools/verify-contract.ps1` and ensure all gates pass. Commit with [GEC-Verified].
 ```
+

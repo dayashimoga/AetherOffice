@@ -21,3 +21,4 @@ Invoke @adaptive-ui-builder under GEC-v2.0:
 4. Add automated Vitest integration tests in `apps/unified-shell/src/__tests__/plugin_marketplace.test.ts`.
 5. Run `powershell -File tools/verify-contract.ps1` and ensure all gates pass. Commit with [GEC-Verified].
 ```
+

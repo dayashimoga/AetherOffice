@@ -22,3 +22,4 @@ Invoke @crdt-architect under GEC-v2.0:
 4. Add automated unit tests verifying concurrent cell edits, conflicting cell updates with deterministic clock resolution, and multi-sheet row shifts.
 5. Run `powershell -File tools/verify-contract.ps1` and ensure all gates pass. Commit with [GEC-Verified].
 ```
+

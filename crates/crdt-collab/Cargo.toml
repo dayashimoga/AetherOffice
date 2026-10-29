@@ -8,5 +8,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 word-engine = { path = "../word-engine" }
+excel-engine = { path = "../excel-engine" }
 
 [dev-dependencies]
