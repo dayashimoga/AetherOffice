@@ -12,4 +12,9 @@ pub use excel::{
     ROW_HEADER_WIDTH,
 };
 pub use ppt::{PptDisplayCompiler, SlideCanvasConfig};
-pub use word::{WordDisplayCompiler, WordDisplayLine, WordDisplayPage, WordDisplayTableCell};
+pub use word::{
+    CaretNavDirection, PageLayoutMode, PageMargins, PageSize, ParagraphAlignment,
+    SubpixelTextLayout, UnderlineStyle, WordCaretModel, WordCaretPosition, WordDisplayCompiler,
+    WordDisplayLine, WordDisplayPage, WordDisplayTableCell, WordHitResult, WordHitTester,
+    WordNavigationEngine, WordSelectionRange, WordViewportConfig,
+};

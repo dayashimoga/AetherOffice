@@ -36,7 +36,12 @@ pub use compiler::{
         ROW_HEADER_WIDTH,
     },
     ppt::{PptDisplayCompiler, SlideCanvasConfig},
-    word::{WordDisplayCompiler, WordDisplayLine, WordDisplayPage, WordDisplayTableCell},
+    word::{
+        CaretNavDirection, PageLayoutMode, PageMargins, PageSize, ParagraphAlignment,
+        SubpixelTextLayout, UnderlineStyle, WordCaretModel, WordCaretPosition, WordDisplayCompiler,
+        WordDisplayLine, WordDisplayPage, WordDisplayTableCell, WordHitResult, WordHitTester,
+        WordNavigationEngine, WordSelectionRange, WordViewportConfig,
+    },
 };
 pub use compositor::{Compositor, FrameStats, ViewportConfig};
 pub use interaction::{
