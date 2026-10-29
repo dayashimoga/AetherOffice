@@ -5,6 +5,7 @@ export interface TabItem {
   docType: DocumentType;
   title: string;
   isDirty: boolean;
+  file_path?: string;
 }
 
 export class TabBar {
@@ -70,6 +71,14 @@ export class TabBar {
     const target = this.tabs.find((t) => t.id === id);
     if (target && target.isDirty !== isDirty) {
       target.isDirty = isDirty;
+      this.render();
+    }
+  }
+
+  public updateTab(id: string, updates: Partial<TabItem>) {
+    const target = this.tabs.find((t) => t.id === id);
+    if (target) {
+      Object.assign(target, updates);
       this.render();
     }
   }

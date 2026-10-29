@@ -67,6 +67,16 @@ export interface AppInstance {
   launched_at_ms: number;
 }
 
+export interface DocumentMetadata {
+  session_id: string;
+  title: string;
+  doc_type: DocumentType;
+  file_path?: string | null;
+  is_dirty: boolean;
+  file_size_bytes: number;
+  last_modified_str: string;
+}
+
 // Fallback when running outside Tauri desktop container (e.g. Vite dev preview / unit tests)
 const hasTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 const mockInstances: AppInstance[] = [];
@@ -139,6 +149,46 @@ async function invokeTauri<T>(cmd: string, args?: Record<string, unknown>): Prom
       const id = args?.instance_id as string;
       return mockInstances.some((i) => i.instance_id === id) as unknown as T;
     }
+    if (cmd === "open_document") {
+      const path = (args?.file_path as string) || "Document.docx";
+      const filename = path.split(/[/\\]/).pop() || path;
+      const lower = path.toLowerCase();
+      const docType: DocumentType =
+        lower.endsWith(".xlsx") || lower.endsWith(".xls") || lower.endsWith(".csv")
+          ? "Excel"
+          : lower.endsWith(".pptx") || lower.endsWith(".ppt")
+          ? "PowerPoint"
+          : lower.endsWith(".pdf")
+          ? "PDF"
+          : "Word";
+      return {
+        session_id: `sess-${Date.now()}`,
+        doc_type: docType,
+        title: filename,
+        is_dirty: false,
+        file_path: path,
+      } as unknown as T;
+    }
+    if (cmd === "save_document") {
+      const path = (args?.file_path as string) || "Saved_Document.docx";
+      return path as unknown as T;
+    }
+    if (cmd === "export_pdf") {
+      const path = (args?.output_path as string) || "Exported_Document.pdf";
+      return path as unknown as T;
+    }
+    if (cmd === "get_document_info") {
+      const sessId = (args?.session_id as string) || "sess-1";
+      return {
+        session_id: sessId,
+        title: "Active_Document.docx",
+        doc_type: "Word",
+        file_path: "/workspace/Active_Document.docx",
+        is_dirty: false,
+        file_size_bytes: 14200,
+        last_modified_str: "Just now",
+      } as unknown as T;
+    }
     return {} as T;
   }
 }
@@ -163,8 +213,14 @@ export const IPC = {
   openDocument: (filePath: string): Promise<SessionSummary> =>
     invokeTauri("open_document", { file_path: filePath }),
 
-  saveDocument: (sessionId: string, filePath?: string): Promise<void> =>
+  saveDocument: (sessionId: string, filePath?: string): Promise<string> =>
     invokeTauri("save_document", { session_id: sessionId, file_path: filePath }),
+
+  exportPdf: (sessionId: string, outputPath: string): Promise<string> =>
+    invokeTauri("export_pdf", { session_id: sessionId, output_path: outputPath }),
+
+  getDocumentInfo: (sessionId: string): Promise<DocumentMetadata> =>
+    invokeTauri("get_document_info", { session_id: sessionId }),
 
   closeSession: (sessionId: string, force: boolean): Promise<string | null> =>
     invokeTauri("close_session", { session_id: sessionId, force }),

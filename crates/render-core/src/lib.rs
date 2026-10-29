@@ -13,16 +13,19 @@ pub mod adaptive;
 pub mod commands;
 pub mod compiler;
 pub mod compositor;
+pub mod document_io;
 pub mod interaction;
 pub mod primitive;
 pub mod rasterizer;
 pub mod release_matrix;
+pub mod document_io;
 pub mod shell;
 pub mod spatial;
 pub mod text;
 pub mod ui_dispatcher;
 pub mod window;
 
+pub use document_io::*;
 pub use release_matrix::{
     PackagingBundle, PlatformReleaseTarget, ReleaseMatrix, TargetArch, TargetOs,
 };

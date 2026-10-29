@@ -1473,6 +1473,11 @@ impl DesktopSessionManager {
         }
     }
 
+    /// Retrieve session tab info by session id.
+    pub fn get_session(&self, session_id: &str) -> Option<&DocumentTab> {
+        self.tab_bar.tabs.iter().find(|t| t.id == session_id)
+    }
+
     /// Execute an OfficeTransaction through the session's GlobalCommandBus and update tab dirty state.
     pub fn execute_office_transaction(
         &mut self,

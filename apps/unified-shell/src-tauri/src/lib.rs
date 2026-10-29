@@ -64,7 +64,65 @@ pub fn open_document(state: &ShellState, file_path: &str) -> Result<SessionSumma
         .session_manager
         .lock()
         .map_err(|e| format!("Lock error: {e}"))?;
-    Ok(mgr.open_session(file_path))
+    render_core::DocumentIoEngine::open_document_from_disk(&mut mgr, file_path)
+}
+
+pub fn save_document(
+    state: &ShellState,
+    session_id: &str,
+    file_path: Option<&str>,
+) -> Result<String, String> {
+    let mut mgr = state
+        .session_manager
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+
+    let target_path = match file_path {
+        Some(p) => p.to_string(),
+        None => match mgr
+            .get_session(session_id)
+            .and_then(|s| s.file_path.clone())
+        {
+            Some(p) => p,
+            None => {
+                let doc_type = mgr
+                    .get_session(session_id)
+                    .map(|s| s.doc_type)
+                    .unwrap_or(render_core::DocumentType::Word);
+                match doc_type {
+                    render_core::DocumentType::Word => "Document1.docx".to_string(),
+                    render_core::DocumentType::Excel => "Book1.xlsx".to_string(),
+                    render_core::DocumentType::PowerPoint => "Presentation1.pptx".to_string(),
+                    render_core::DocumentType::Pdf => "Document.pdf".to_string(),
+                }
+            }
+        },
+    };
+
+    render_core::DocumentIoEngine::save_document_to_disk(&mut mgr, session_id, &target_path)
+}
+
+pub fn export_pdf(
+    state: &ShellState,
+    session_id: &str,
+    output_path: &str,
+) -> Result<String, String> {
+    let mgr = state
+        .session_manager
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    render_core::DocumentIoEngine::export_document_to_pdf(&mgr, session_id, output_path)
+}
+
+pub fn get_document_info(
+    state: &ShellState,
+    session_id: &str,
+) -> Result<render_core::DocumentMetadata, String> {
+    let mgr = state
+        .session_manager
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    render_core::DocumentIoEngine::get_document_info(&mgr, session_id)
 }
 
 pub fn close_session(

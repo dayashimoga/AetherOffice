@@ -90,9 +90,19 @@ export class Ribbon {
 
     this.getVisibleTabs().forEach((tab) => {
       const tabBtn = document.createElement("button");
-      tabBtn.className = `ribbon-tab-btn ${tab === this.activeTab ? "active" : ""}`;
+      if (tab === "File") {
+        tabBtn.className = "ribbon-tab-btn ribbon-file-tab";
+        tabBtn.setAttribute("data-testid", "ribbon-tab-file");
+        tabBtn.onclick = () => {
+          if (this.onActionCallback) {
+            this.onActionCallback("ToggleBackstage");
+          }
+        };
+      } else {
+        tabBtn.className = `ribbon-tab-btn ${tab === this.activeTab ? "active" : ""}`;
+        tabBtn.onclick = () => this.setActiveTab(tab);
+      }
       tabBtn.textContent = tab === "SlideShow" ? "Slide Show" : tab;
-      tabBtn.onclick = () => this.setActiveTab(tab);
 
       if (this.keytipsActive) {
         const badge = document.createElement("span");

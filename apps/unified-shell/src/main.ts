@@ -22,6 +22,7 @@ import { calcState } from "./state/calcState";
 import { slidesState } from "./state/slidesState";
 import { pdfState } from "./state/pdfState";
 import { HubLauncher } from "./apps/hub/HubLauncher";
+import { BackstageMenu } from "./components/BackstageMenu";
 
 export class UnifiedShellApp {
   private tabBar!: TabBar;
@@ -43,6 +44,7 @@ export class UnifiedShellApp {
   private slideStageCanvas?: SlideStageCanvas;
   private pdfViewerCanvas?: PdfViewerCanvas;
   private hubLauncher?: HubLauncher;
+  private backstageMenu!: BackstageMenu;
 
   constructor(autoBoot = true) {
     this.init(autoBoot);
@@ -60,6 +62,74 @@ export class UnifiedShellApp {
     // 2. Initialize Ribbon
     this.ribbon = new Ribbon("ribbon-container");
     this.ribbon.setOnAction((action, payload) => this.handleRibbonAction(action, payload));
+
+    // 2.1. Initialize Backstage File Menu
+    this.backstageMenu = new BackstageMenu("app");
+    this.backstageMenu.setCallbacks({
+      onClose: () => {
+        console.log("Closed Backstage view");
+      },
+      onSave: async (filePath) => {
+        const active = this.tabBar.getActiveTab();
+        if (active) {
+          const savedPath = await IPC.saveDocument(active.id, filePath);
+          this.tabBar.updateTab(active.id, {
+            isDirty: false,
+            file_path: savedPath,
+            title: savedPath.split(/[/\\]/).pop() || active.title,
+          });
+          const docInfo = document.getElementById("status-doc-info");
+          if (docInfo) {
+            docInfo.textContent = `Saved: ${savedPath.split(/[/\\]/).pop()}`;
+          }
+        }
+      },
+      onOpen: async (filePath) => {
+        const summary = await IPC.openDocument(filePath);
+        this.tabBar.addTab({
+          id: summary.session_id,
+          docType: summary.doc_type,
+          title: summary.title,
+          file_path: summary.file_path,
+          isDirty: false,
+        });
+        this.tabBar.switchTab(summary.session_id);
+      },
+      onNew: (docType) => {
+        const title =
+          docType === "Word"
+            ? "Untitled.docx"
+            : docType === "Excel"
+            ? "Book1.xlsx"
+            : docType === "PowerPoint"
+            ? "Presentation1.pptx"
+            : "Document.pdf";
+        const newId = `tab-${Date.now()}`;
+        this.tabBar.addTab({
+          id: newId,
+          docType,
+          title,
+          isDirty: false,
+        });
+        this.tabBar.switchTab(newId);
+      },
+      onExportPdf: async (outputPath) => {
+        const active = this.tabBar.getActiveTab();
+        if (active) {
+          await IPC.exportPdf(active.id, outputPath);
+          const docInfo = document.getElementById("status-doc-info");
+          if (docInfo) {
+            docInfo.textContent = `Exported PDF: ${outputPath.split(/[/\\]/).pop()}`;
+          }
+        }
+      },
+      onCloseSession: () => {
+        const active = this.tabBar.getActiveTab();
+        if (active) {
+          this.tabBar.closeTab(active.id);
+        }
+      },
+    });
 
     // 3. Initialize Sub-headers
     this.formulaBar = new FormulaBar("sub-header-container");
@@ -226,6 +296,29 @@ export class UnifiedShellApp {
 
   public getHubLauncher(): HubLauncher | undefined {
     return this.hubLauncher;
+  }
+
+  public toggleBackstage() {
+    if (this.backstageMenu.isOpen()) {
+      this.backstageMenu.hide();
+    } else {
+      const active = this.tabBar.getActiveTab();
+      if (active) {
+        this.backstageMenu.show(
+          active.docType,
+          active.id,
+          active.title,
+          active.file_path,
+          active.isDirty
+        );
+      } else {
+        this.backstageMenu.show("Word", "sess-1", "Untitled.docx", undefined, false);
+      }
+    }
+  }
+
+  public getBackstageMenu(): BackstageMenu {
+    return this.backstageMenu;
   }
 
   public getTabBar(): TabBar {
@@ -397,6 +490,12 @@ export class UnifiedShellApp {
 
   private handleRibbonAction(action: string, payload?: unknown) {
     console.log("Ribbon Action:", action, payload);
+
+    if (action === "ToggleBackstage") {
+      this.toggleBackstage();
+      return;
+    }
+
     const active = this.tabBar.getActiveTab();
     if (!active) return;
 
