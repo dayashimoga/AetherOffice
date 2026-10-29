@@ -14,6 +14,10 @@ impl OpId {
         seq: 0,
     };
 
+    pub fn root() -> Self {
+        Self::ROOT
+    }
+
     pub fn new(lamport: u64, client_id: u64, seq: u32) -> Self {
         Self {
             lamport,

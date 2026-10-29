@@ -9,6 +9,7 @@ pub mod fugue;
 pub mod grid_crdt;
 pub mod id;
 pub mod peritext;
+pub mod transport;
 
 pub use error::CrdtError;
 pub use fugue::{FugueDelta, FugueNode, FugueTreeRga, StateVector};
@@ -17,6 +18,10 @@ pub use grid_crdt::{
 };
 pub use id::OpId;
 pub use peritext::{FormatAttribute, PeritextSpan, RichTextRun};
+pub use transport::{
+    CollabPacket, CollabTransportBus, CursorCoord, EncryptedEnvelope, EncryptionKey, PeerPresence,
+    SelectionSpan, TransportMode, TransportStatus,
+};
 
 pub fn health_check() -> bool {
     true

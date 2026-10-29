@@ -16,4 +16,25 @@ pub enum CrdtError {
 
     #[error("PieceTree conversion error: {0}")]
     PieceTreeError(String),
+
+    #[error("Encryption error: {0}")]
+    EncryptionError(String),
+
+    #[error("Decryption error: {0}")]
+    DecryptionError(String),
+
+    #[error("Transport error: {0}")]
+    TransportError(String),
+
+    #[error("Handshake rejected: {0}")]
+    HandshakeRejected(String),
+
+    #[error("Peer not found: {0}")]
+    PeerNotFound(u64),
+
+    #[error("Session mismatch: expected '{expected}', got '{actual}'")]
+    SessionMismatch { expected: String, actual: String },
+
+    #[error("Replay packet detected: sender {sender_id}, seq {seq}")]
+    ReplayDetected { sender_id: u64, seq: u64 },
 }

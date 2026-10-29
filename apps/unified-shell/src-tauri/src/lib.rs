@@ -11,7 +11,11 @@ use render_core::{
     PointerModality, ReleaseMatrix, RibbonModel, RibbonTabId, SessionSummary, TabBarModel,
     UiActionEvent, UiCommandDispatcher, UiDispatchResult,
 };
+use std::collections::HashMap;
 use std::sync::Mutex;
+
+pub mod collab_commands;
+pub use collab_commands::*;
 
 pub struct ShellState {
     pub session_manager: Mutex<DesktopSessionManager>,
@@ -19,6 +23,7 @@ pub struct ShellState {
     pub adaptive_controller: Mutex<AdaptiveShellController>,
     pub app_instances: Mutex<Vec<AppInstance>>,
     pub next_instance_counter: Mutex<u64>,
+    pub collab_sessions: Mutex<HashMap<String, crdt_collab::CollabTransportBus>>,
 }
 
 impl Default for ShellState {
@@ -39,6 +44,7 @@ impl ShellState {
             )),
             app_instances: Mutex::new(Vec::new()),
             next_instance_counter: Mutex::new(0),
+            collab_sessions: Mutex::new(HashMap::new()),
         }
     }
 }
@@ -784,5 +790,65 @@ mod tests {
         let err = launch_standalone_app(&state, "invalid_app_xyz", None);
         assert!(err.is_err());
         assert!(err.unwrap_err().contains("Unsupported application mode"));
+    }
+
+    #[test]
+    fn test_collab_commands_lifecycle() {
+        let state = ShellState::new();
+
+        // 1. Join session
+        let info = collab_join_session(
+            &state,
+            "annual-budget-2026",
+            "CFO",
+            "calc",
+            Some("room-pwd-99"),
+            Some("webrtc"),
+        )
+        .expect("collab_join_session succeeds");
+
+        assert_eq!(info.session_id, "annual-budget-2026");
+        assert_eq!(info.username, "CFO");
+        assert_eq!(info.app_mode, "calc");
+
+        // 2. Broadcast Grid Delta
+        let grid_delta = crdt_collab::GridDelta::SetCell {
+            id: crdt_collab::OpId::new(info.client_id, 1, 1),
+            coord: crdt_collab::CellCoord::new("Revenue", 0, 0),
+            value: crdt_collab::GridCellValue::Number(5000000.0),
+            formula: None,
+            format: Some("$#,##0".to_string()),
+        };
+        let delta_json = serde_json::to_string(&grid_delta).expect("JSON serialize");
+
+        let broadcast_ok =
+            collab_broadcast_delta(&state, "annual-budget-2026", "grid", &delta_json)
+                .expect("Broadcast succeeds");
+        assert!(broadcast_ok);
+
+        // 3. Broadcast Text Delta
+        let text_delta = crdt_collab::FugueDelta::Insert {
+            id: crdt_collab::OpId::new(info.client_id, 2, 2),
+            parent_id: crdt_collab::OpId::root(),
+            right_origin: None,
+            content: 'H',
+        };
+        let text_json = serde_json::to_string(&text_delta).expect("JSON serialize");
+        let text_ok = collab_broadcast_delta(&state, "annual-budget-2026", "text", &text_json)
+            .expect("Broadcast text succeeds");
+        assert!(text_ok);
+
+        // 4. Get Peers
+        let peers = collab_get_peers(&state, "annual-budget-2026").expect("Get peers");
+        assert_eq!(peers.len(), 0);
+
+        // 5. Leave session
+        let left = collab_leave_session(&state, "annual-budget-2026", Some("Meeting concluded"))
+            .expect("Leave succeeds");
+        assert!(left);
+
+        let left_again =
+            collab_leave_session(&state, "annual-budget-2026", None).expect("Leave again");
+        assert!(!left_again);
     }
 }

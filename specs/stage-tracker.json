@@ -605,9 +605,9 @@
                           "title":  "Encrypted Transport Bus (WebRTC DataChannel \u0026 WebSocket Relay)",
                           "crate":  "crdt-collab",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-14/subphase-14.2.1.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-29T17:38:34Z"
                       },
                       {
                           "id":  "14.2.2",
