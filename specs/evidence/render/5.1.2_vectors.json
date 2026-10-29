@@ -1,0 +1,336 @@
+{
+  "subphase": "5.1.2",
+  "title": "Interactive Hit-Testing, Selection Handles & Undo/Redo Command Bus",
+  "governing_standard": "ECMA-376 & W3C Pointer Events Level 3",
+  "vector_count": 26,
+  "vectors": [
+    {
+      "id": "VEC-5.1.2-01",
+      "description": "Screen to world coordinate transformation with zoom, scroll, and DPR scaling",
+      "input": {
+        "screen": [400, 300],
+        "scroll": [100, 50],
+        "zoom": 1.5,
+        "dpr": 2.0
+      },
+      "expected": {
+        "world": [233.33333333333334, 150.0]
+      }
+    },
+    {
+      "id": "VEC-5.1.2-02",
+      "description": "World to screen coordinate transformation",
+      "input": {
+        "world": [233.33333333333334, 150.0],
+        "scroll": [100, 50],
+        "zoom": 1.5,
+        "dpr": 2.0
+      },
+      "expected": {
+        "screen_approx": [400.0, 300.0]
+      }
+    },
+    {
+      "id": "VEC-5.1.2-03",
+      "description": "Word hit-testing: page resolution among vertically stacked pages",
+      "input": {
+        "pages": [
+          { "y": 0, "h": 1056 },
+          { "y": 1076, "h": 1056 },
+          { "y": 2152, "h": 1056 }
+        ],
+        "point_y": 1500.0
+      },
+      "expected": {
+        "hit_page_index": 1
+      }
+    },
+    {
+      "id": "VEC-5.1.2-04",
+      "description": "Word hit-testing: line and character offset detection with midpoint advance split",
+      "input": {
+        "line_x": 100.0,
+        "char_advances": [10.0, 10.0, 10.0, 10.0],
+        "click_x_early": 104.0,
+        "click_x_late": 107.0
+      },
+      "expected": {
+        "offset_early": 0,
+        "offset_late": 1
+      }
+    },
+    {
+      "id": "VEC-5.1.2-05",
+      "description": "Word hit-testing: table row border resize threshold (+-3px)",
+      "input": {
+        "row_bottom_y": 300.0,
+        "point_inside": 290.0,
+        "point_border": 299.0
+      },
+      "expected": {
+        "is_inside_cell": true,
+        "is_row_resize": true
+      }
+    },
+    {
+      "id": "VEC-5.1.2-06",
+      "description": "Excel hit-testing: cell coordinate lookup from uniform row/col metrics",
+      "input": {
+        "row_h": 20.0,
+        "col_w": 80.0,
+        "point": [250.0, 65.0]
+      },
+      "expected": {
+        "cell_col": 3,
+        "cell_row": 3
+      }
+    },
+    {
+      "id": "VEC-5.1.2-07",
+      "description": "Excel hit-testing: column header and row header selection detection",
+      "input": {
+        "header_w": 40.0,
+        "header_h": 24.0,
+        "col_w": 60.0,
+        "row_h": 16.0,
+        "click_col_header": [120.0, 12.0],
+        "click_row_header": [20.0, 80.0]
+      },
+      "expected": {
+        "col_header_selected": 1,
+        "row_header_selected": 3
+      }
+    },
+    {
+      "id": "VEC-5.1.2-08",
+      "description": "Excel hit-testing: column divider resize handle (+-3px boundary)",
+      "input": {
+        "col_boundary_x": 160.0,
+        "click_x": 161.5
+      },
+      "expected": {
+        "is_col_resize": true,
+        "resized_col": 1
+      }
+    },
+    {
+      "id": "VEC-5.1.2-09",
+      "description": "Excel hit-testing: cell AutoFill handle square (6x6 px at selection bottom-right)",
+      "input": {
+        "sel_bottom_right": [240.0, 80.0],
+        "click_inside_handle": [239.0, 79.0],
+        "click_outside_handle": [230.0, 70.0]
+      },
+      "expected": {
+        "hit_autofill_inside": true,
+        "hit_autofill_outside": false
+      }
+    },
+    {
+      "id": "VEC-5.1.2-10",
+      "description": "PowerPoint hit-testing: shape selection in reverse z-order",
+      "input": {
+        "shape_bottom": { "id": 1, "rect": [50, 50, 200, 200] },
+        "shape_top": { "id": 2, "rect": [100, 100, 200, 200] },
+        "click": [150.0, 150.0]
+      },
+      "expected": {
+        "hit_shape_id": 2
+      }
+    },
+    {
+      "id": "VEC-5.1.2-11",
+      "description": "PowerPoint hit-testing: 8 resize handles identification",
+      "input": {
+        "shape_rect": [100, 100, 200, 100],
+        "click_top_left": [100, 100],
+        "click_bottom_right": [300, 200]
+      },
+      "expected": {
+        "handle_top_left": "TopLeft",
+        "handle_bottom_right": "BottomRight"
+      }
+    },
+    {
+      "id": "VEC-5.1.2-12",
+      "description": "PowerPoint hit-testing: rotation handle positioned 24px above top center",
+      "input": {
+        "shape_rect": [100, 100, 200, 100],
+        "rotation_handle_pos": [200.0, 76.0],
+        "click": [200.0, 76.0]
+      },
+      "expected": {
+        "is_rotation_handle": true
+      }
+    },
+    {
+      "id": "VEC-5.1.2-13",
+      "description": "Word selection model: collapsed caret vs. highlighted text range",
+      "input": {
+        "case_caret": { "anchor": 10, "active": 10 },
+        "case_range": { "anchor": 5, "active": 15 }
+      },
+      "expected": {
+        "caret_is_collapsed": true,
+        "range_is_collapsed": false,
+        "range_span": 10
+      }
+    },
+    {
+      "id": "VEC-5.1.2-14",
+      "description": "Excel selection model: single cell, rectangle range, and multi-range expansion",
+      "input": {
+        "anchor": [2, 2],
+        "drag_to": [5, 4]
+      },
+      "expected": {
+        "row_count": 4,
+        "col_count": 3,
+        "total_cells": 12
+      }
+    },
+    {
+      "id": "VEC-5.1.2-15",
+      "description": "PowerPoint selection model: multi-shape selection and primary selection handle",
+      "input": {
+        "initial_id": 10,
+        "shift_click_id": 20
+      },
+      "expected": {
+        "selected_count": 2,
+        "primary_id": 20
+      }
+    },
+    {
+      "id": "VEC-5.1.2-16",
+      "description": "Command Bus: execute action, update document, and push to undo stack",
+      "input": {
+        "initial_text": "Hello",
+        "command": { "type": "insert_text", "pos": 5, "text": " World" }
+      },
+      "expected": {
+        "resulting_text": "Hello World",
+        "can_undo": true,
+        "can_redo": false
+      }
+    },
+    {
+      "id": "VEC-5.1.2-17",
+      "description": "Command Bus: undo operation restores exact prior state and enables redo",
+      "input": {
+        "execute_and_undo": true
+      },
+      "expected": {
+        "restored_text": "Hello",
+        "can_undo": false,
+        "can_redo": true
+      }
+    },
+    {
+      "id": "VEC-5.1.2-18",
+      "description": "Command Bus: redo operation reapplies action and updates stacks",
+      "input": {
+        "redo_action": true
+      },
+      "expected": {
+        "redone_text": "Hello World",
+        "can_undo": true,
+        "can_redo": false
+      }
+    },
+    {
+      "id": "VEC-5.1.2-19",
+      "description": "Command Bus: new command execution clears existing redo stack",
+      "input": {
+        "undo_once": true,
+        "new_command": { "type": "insert_text", "text": " Rust" }
+      },
+      "expected": {
+        "current_text": "Hello Rust",
+        "redo_stack_len": 0
+      }
+    },
+    {
+      "id": "VEC-5.1.2-20",
+      "description": "Command Bus: typing command coalescing (merging consecutive keystrokes)",
+      "input": {
+        "keystrokes": ["R", "u", "s", "t"]
+      },
+      "expected": {
+        "coalesced_command_count": 1,
+        "undo_text": ""
+      }
+    },
+    {
+      "id": "VEC-5.1.2-21",
+      "description": "Command Bus: compound transaction atomicity (all-or-nothing)",
+      "input": {
+        "subcommands": 3
+      },
+      "expected": {
+        "undo_stack_entries": 1,
+        "single_undo_reverts_all": true
+      }
+    },
+    {
+      "id": "VEC-5.1.2-22",
+      "description": "Multi-format clipboard: plain text TSV serialization for spreadsheet range",
+      "input": {
+        "grid": [
+          ["Item", "Price"],
+          ["Widget", "19.99"]
+        ]
+      },
+      "expected": {
+        "plain_text": "Item\tPrice\nWidget\t19.99"
+      }
+    },
+    {
+      "id": "VEC-5.1.2-23",
+      "description": "Multi-format clipboard: HTML table serialization for external pasting",
+      "input": {
+        "grid": [["A", "B"]]
+      },
+      "expected": {
+        "html_contains_table": true,
+        "html_contains_td": true
+      }
+    },
+    {
+      "id": "VEC-5.1.2-24",
+      "description": "Inertia physics: exponential velocity deceleration with friction factor mu=0.92",
+      "input": {
+        "v0": 1000.0,
+        "frames": 10,
+        "mu": 0.92
+      },
+      "expected": {
+        "v10_approx": 434.388
+      }
+    },
+    {
+      "id": "VEC-5.1.2-25",
+      "description": "Inertia physics: boundary rubber-banding spring restoration force",
+      "input": {
+        "displacement": -50.0,
+        "velocity": 0.0,
+        "k": 0.15
+      },
+      "expected": {
+        "restoring_force": 7.5
+      }
+    },
+    {
+      "id": "VEC-5.1.2-26",
+      "description": "Vectors manifest validation: all 26 vectors present, sequential, and schema compliant",
+      "input": {
+        "subphase": "5.1.2",
+        "min_vectors": 25
+      },
+      "expected": {
+        "valid": true,
+        "total_vectors": 26
+      }
+    }
+  ]
+}

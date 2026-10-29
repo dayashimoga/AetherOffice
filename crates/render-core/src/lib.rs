@@ -11,6 +11,7 @@
 
 pub mod compiler;
 pub mod compositor;
+pub mod interaction;
 pub mod primitive;
 pub mod rasterizer;
 pub mod spatial;
@@ -22,6 +23,12 @@ pub use compiler::{
     word::{WordDisplayCompiler, WordDisplayLine, WordDisplayPage, WordDisplayTableCell},
 };
 pub use compositor::{Compositor, FrameStats, ViewportConfig};
+pub use interaction::{
+    ClipboardManager, ClipboardPayload, Command, CommandBus, CompoundCommand,
+    CoordinateTransformer, DocumentState, ExcelHitTarget, ExcelRange, ExcelSelection, HitTester,
+    InertiaPhysics, InsertTextCommand, PptHitTarget, PptSelection, ResizeHandle, WordHitTarget,
+    WordSelection,
+};
 pub use primitive::{
     BezierPathBatch, ColorRgba, DisplayCommand, DisplayList, GlyphInstance, GlyphRun, QuadInstance,
     Rect2D, TextScript, TransformMatrix,
