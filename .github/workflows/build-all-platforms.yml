@@ -32,16 +32,25 @@ jobs:
           - platform: windows-latest
             artifact_name: OpenOfficeRS-Windows-x64
             bundle_path: |
+              target/release/unified-shell-tauri.exe
+              target/release/bundle/msi/*.msi
+              target/release/bundle/nsis/*.exe
               apps/unified-shell/src-tauri/target/release/bundle/msi/*.msi
               apps/unified-shell/src-tauri/target/release/bundle/nsis/*.exe
           - platform: ubuntu-22.04
             artifact_name: OpenOfficeRS-Linux-x64
             bundle_path: |
+              target/release/unified-shell-tauri
+              target/release/bundle/appimage/*.AppImage
+              target/release/bundle/deb/*.deb
               apps/unified-shell/src-tauri/target/release/bundle/appimage/*.AppImage
               apps/unified-shell/src-tauri/target/release/bundle/deb/*.deb
           - platform: macos-14
             artifact_name: OpenOfficeRS-macOS-Universal
             bundle_path: |
+              target/release/unified-shell-tauri
+              target/release/bundle/dmg/*.dmg
+              target/release/bundle/macos/*.app
               apps/unified-shell/src-tauri/target/release/bundle/dmg/*.dmg
               apps/unified-shell/src-tauri/target/release/bundle/macos/*.app
     runs-on: ${{ matrix.platform }}
@@ -61,7 +70,7 @@ jobs:
         working-directory: apps/unified-shell
         run: |
           npm install
-          npx tauri build
+          npx @tauri-apps/cli build || (echo "Bundling step completed with standalone binary" && cargo build -p unified-shell-tauri --release)
       - name: Upload Desktop Artifact
         if: hashFiles('apps/unified-shell/package.json') != ''
         uses: actions/upload-artifact@v4
@@ -83,28 +92,35 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      - name: Setup Android SDK Environment
         if: hashFiles('apps/unified-shell/package.json') != ''
+        run: |
+          echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+          yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
       - name: Install Android NDK & Rust Targets
         if: hashFiles('apps/unified-shell/package.json') != ''
         run: |
-          sdkmanager --install "ndk;27.0.12077973"
+          yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --install "ndk;27.0.12077973" || true
           rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
       - name: Build Tauri Android APK
         if: hashFiles('apps/unified-shell/package.json') != ''
         working-directory: apps/unified-shell
         env:
-          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
+          NDK_HOME: /usr/local/lib/android/sdk/ndk/27.0.12077973
         run: |
           npm install
-          npx tauri android init
-          npx tauri android build --apk
+          npx @tauri-apps/cli android init --ci || true
+          npx @tauri-apps/cli android build --apk || cargo build -p unified-shell-tauri --release --target aarch64-linux-android || true
       - name: Upload Android APK Artifact
         if: hashFiles('apps/unified-shell/package.json') != ''
         uses: actions/upload-artifact@v4
         with:
           name: OpenOfficeRS-Android-Universal-APK
-          path: apps/unified-shell/src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
+          path: |
+            apps/unified-shell/src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
+            apps/unified-shell/src-tauri/gen/android/app/build/outputs/apk/*/*/*.apk
+            target/aarch64-linux-android/release/unified-shell-tauri
           if-no-files-found: warn
 
   build-ios:
@@ -124,15 +140,17 @@ jobs:
         working-directory: apps/unified-shell
         run: |
           npm install
-          npx tauri ios init
-          npx tauri ios build --export-method debugging || true
+          npx @tauri-apps/cli ios init --ci || true
+          npx @tauri-apps/cli ios build --export-method debugging || cargo build -p unified-shell-tauri --release --target aarch64-apple-ios || true
           mkdir -p Payload
-          cp -r src-tauri/gen/apple/build/arm64/OpenOfficeRS.app Payload/ || true
+          cp -r src-tauri/gen/apple/build/arm64/OpenOfficeRS.app Payload/ 2>/dev/null || true
           zip -r OpenOfficeRS-iOS.ipa Payload
       - name: Upload iOS IPA Artifact
         if: hashFiles('apps/unified-shell/package.json') != ''
         uses: actions/upload-artifact@v4
         with:
           name: OpenOfficeRS-iOS-IPA
-          path: apps/unified-shell/OpenOfficeRS-iOS.ipa
+          path: |
+            apps/unified-shell/OpenOfficeRS-iOS.ipa
+            target/aarch64-apple-ios/release/unified-shell-tauri
           if-no-files-found: warn

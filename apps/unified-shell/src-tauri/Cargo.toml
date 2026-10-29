@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+tauri = { version = "2.1", features = [] }
 ooxml-opc.workspace = true
 quick-xml.workspace = true
 serde.workspace = true
@@ -14,3 +15,5 @@ excel-engine = { path = "../../../crates/excel-engine" }
 ppt-engine = { path = "../../../crates/ppt-engine" }
 render-core = { path = "../../../crates/render-core" }
 
+[build-dependencies]
+tauri-build = { version = "2.1", features = [] }
