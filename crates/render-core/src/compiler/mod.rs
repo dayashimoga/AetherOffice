@@ -12,10 +12,11 @@ pub use excel::{
     ROW_HEADER_WIDTH,
 };
 pub use ppt::{
-    generate_preset_path, PptDisplayCompiler, PptGizmoHit, PptGizmoModel, PptStageController,
-    PptViewportTransform, PresetShapeType, SlideAddShapeCommand, SlideAspectRatio,
-    SlideCanvasConfig, SlideDeleteShapeCommand, SlideShapeModel, SlideStageModel,
-    SlideTransformCommand, SlideTransformEngine, ZOrderAction,
+    generate_preset_path, MasterTheme, PptDisplayCompiler, PptGizmoHit, PptGizmoModel,
+    PptStageController, PptViewportTransform, PresetShapeType, SlideAddShapeCommand,
+    SlideAspectRatio, SlideCanvasConfig, SlideDeleteShapeCommand, SlideMetadata, SlideShapeModel,
+    SlideShowAction, SlideShowStateMachine, SlideSorterCommand, SlideSorterModel, SlideStageModel,
+    SlideTransformCommand, SlideTransformEngine, SwitchThemeCommand, ThemePreset, ZOrderAction,
 };
 pub use word::{
     CaretNavDirection, PageLayoutMode, PageMargins, PageSize, ParagraphAlignment,

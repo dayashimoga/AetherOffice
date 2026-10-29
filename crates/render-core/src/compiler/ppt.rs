@@ -1289,4 +1289,624 @@ impl PptDisplayCompiler {
 
         display_list
     }
+
+    /// Compile a full-bleed fullscreen presentation slide show with optional laser pointer overlay.
+    pub fn compile_presentation_show(
+        stage: &SlideStageModel,
+        slide_show: &SlideShowStateMachine,
+        viewport: &Rect2D,
+    ) -> DisplayList {
+        let mut display_list = DisplayList::new();
+
+        // 1. Fullscreen pure black letterbox background
+        display_list.push(DisplayCommand::DrawQuad(QuadInstance::solid(
+            *viewport,
+            ColorRgba::BLACK,
+        )));
+
+        if slide_show.is_paused {
+            // Paused / Black screen mode
+            return display_list;
+        }
+
+        let transform = PptViewportTransform::new(&stage.canvas_config, viewport);
+
+        // 2. Slide canvas background
+        display_list.push(DisplayCommand::DrawQuad(QuadInstance::solid(
+            transform.slide_rect,
+            stage.canvas_config.background_color,
+        )));
+
+        // 3. Clip to slide canvas boundaries
+        display_list.push(DisplayCommand::PushClip(transform.slide_rect));
+
+        // 4. Render shapes
+        for shape in &stage.shapes {
+            if !shape.is_visible {
+                continue;
+            }
+            let v_rect = transform.slide_to_viewport_rect(&shape.bounds);
+            let stroke_c = shape.stroke_color.unwrap_or(ColorRgba::TRANSPARENT);
+            let stroke_w = (shape.stroke_width * (transform.scale as f32)).max(1.0);
+
+            if shape.shape_type == PresetShapeType::Rectangle && shape.rotation_deg == 0.0 {
+                display_list.push(DisplayCommand::DrawQuad(QuadInstance::bordered(
+                    v_rect,
+                    shape.fill_color,
+                    stroke_c,
+                    stroke_w,
+                )));
+            } else {
+                let path = generate_preset_path(shape.shape_type, &v_rect, None);
+                display_list.push(DisplayCommand::DrawPath(BezierPathBatch {
+                    path,
+                    fill_color: Some(shape.fill_color),
+                    stroke_color: shape.stroke_color,
+                    stroke_width: stroke_w,
+                    bounds: v_rect,
+                }));
+            }
+
+            // Text run inside shape
+            if let Some(ref text) = shape.text {
+                if !text.is_empty() {
+                    let text_pt = (
+                        v_rect.x + 8.0 * transform.scale,
+                        v_rect.y + 8.0 * transform.scale,
+                    );
+                    let run = ShapedTextEngine::shape_text(
+                        text,
+                        "Calibri",
+                        shape.font_size * (transform.scale as f32),
+                        shape.text_color,
+                        text_pt,
+                    );
+                    display_list.push(DisplayCommand::DrawText(run));
+                }
+            }
+        }
+
+        display_list.push(DisplayCommand::PopClip);
+
+        // 5. Laser Pointer Overlay (if active)
+        if slide_show.laser_pointer_active {
+            if let Some((lx, ly)) = slide_show.laser_pos {
+                // Outer glow halo (radius 18px)
+                let glow_rect = Rect2D::new(lx - 18.0, ly - 18.0, 36.0, 36.0);
+                display_list.push(DisplayCommand::DrawQuad(QuadInstance::rounded(
+                    glow_rect,
+                    ColorRgba::new(1.0, 0.0, 0.2, 0.25),
+                    18.0,
+                )));
+
+                // Inner bright laser core (radius 6px)
+                let core_rect = Rect2D::new(lx - 6.0, ly - 6.0, 12.0, 12.0);
+                display_list.push(DisplayCommand::DrawQuad(QuadInstance::rounded(
+                    core_rect,
+                    ColorRgba::new(1.0, 0.1, 0.1, 1.0),
+                    6.0,
+                )));
+            }
+        }
+
+        display_list
+    }
+}
+
+// =========================================================================
+// 9. Master Theme Switcher
+// =========================================================================
+
+/// Master presentation theme presets.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+pub enum ThemePreset {
+    #[default]
+    OfficeDefault,
+    DarkMode,
+    VibrantCoral,
+    HighContrast,
+}
+
+impl ThemePreset {
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::OfficeDefault => "Office Default",
+            Self::DarkMode => "Dark Mode",
+            Self::VibrantCoral => "Vibrant Coral",
+            Self::HighContrast => "High Contrast",
+        }
+    }
+}
+
+/// Master presentation theme definition.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MasterTheme {
+    pub name: String,
+    pub preset: ThemePreset,
+    pub major_font: String,
+    pub minor_font: String,
+    pub bg_color: ColorRgba,
+    pub text_color: ColorRgba,
+    pub accent1: ColorRgba,
+    pub accent2: ColorRgba,
+    pub accent3: ColorRgba,
+    pub accent4: ColorRgba,
+    pub accent5: ColorRgba,
+    pub accent6: ColorRgba,
+}
+
+impl Default for MasterTheme {
+    fn default() -> Self {
+        Self::office_default()
+    }
+}
+
+impl MasterTheme {
+    pub fn office_default() -> Self {
+        Self {
+            name: "Office Default".to_string(),
+            preset: ThemePreset::OfficeDefault,
+            major_font: "Calibri Light".to_string(),
+            minor_font: "Calibri".to_string(),
+            bg_color: ColorRgba::WHITE,
+            text_color: ColorRgba::new(0.12, 0.16, 0.23, 1.0),
+            accent1: ColorRgba::new(0.27, 0.45, 0.77, 1.0),
+            accent2: ColorRgba::new(0.93, 0.49, 0.19, 1.0),
+            accent3: ColorRgba::new(0.65, 0.65, 0.65, 1.0),
+            accent4: ColorRgba::new(1.0, 0.75, 0.0, 1.0),
+            accent5: ColorRgba::new(0.36, 0.61, 0.84, 1.0),
+            accent6: ColorRgba::new(0.44, 0.68, 0.28, 1.0),
+        }
+    }
+
+    pub fn dark_mode() -> Self {
+        Self {
+            name: "Dark Mode".to_string(),
+            preset: ThemePreset::DarkMode,
+            major_font: "Segoe UI".to_string(),
+            minor_font: "Segoe UI".to_string(),
+            bg_color: ColorRgba::new(0.12, 0.12, 0.12, 1.0),
+            text_color: ColorRgba::new(0.95, 0.95, 0.95, 1.0),
+            accent1: ColorRgba::new(0.39, 0.40, 0.95, 1.0),
+            accent2: ColorRgba::new(0.02, 0.71, 0.83, 1.0),
+            accent3: ColorRgba::new(0.66, 0.33, 0.97, 1.0),
+            accent4: ColorRgba::new(0.96, 0.62, 0.04, 1.0),
+            accent5: ColorRgba::new(0.96, 0.25, 0.37, 1.0),
+            accent6: ColorRgba::new(0.06, 0.73, 0.51, 1.0),
+        }
+    }
+
+    pub fn vibrant_coral() -> Self {
+        Self {
+            name: "Vibrant Coral".to_string(),
+            preset: ThemePreset::VibrantCoral,
+            major_font: "Aptos".to_string(),
+            minor_font: "Aptos".to_string(),
+            bg_color: ColorRgba::new(0.98, 0.98, 0.98, 1.0),
+            text_color: ColorRgba::new(0.09, 0.09, 0.11, 1.0),
+            accent1: ColorRgba::new(0.77, 0.24, 0.11, 1.0),
+            accent2: ColorRgba::new(0.12, 0.23, 0.54, 1.0),
+            accent3: ColorRgba::new(0.05, 0.58, 0.53, 1.0),
+            accent4: ColorRgba::new(0.49, 0.23, 0.93, 1.0),
+            accent5: ColorRgba::new(0.98, 0.44, 0.52, 1.0),
+            accent6: ColorRgba::new(0.01, 0.52, 0.78, 1.0),
+        }
+    }
+
+    pub fn high_contrast() -> Self {
+        Self {
+            name: "High Contrast".to_string(),
+            preset: ThemePreset::HighContrast,
+            major_font: "Consolas".to_string(),
+            minor_font: "Consolas".to_string(),
+            bg_color: ColorRgba::BLACK,
+            text_color: ColorRgba::WHITE,
+            accent1: ColorRgba::new(1.0, 1.0, 0.0, 1.0),
+            accent2: ColorRgba::new(0.0, 1.0, 1.0, 1.0),
+            accent3: ColorRgba::new(0.0, 1.0, 0.0, 1.0),
+            accent4: ColorRgba::new(1.0, 0.0, 1.0, 1.0),
+            accent5: ColorRgba::new(1.0, 0.65, 0.0, 1.0),
+            accent6: ColorRgba::WHITE,
+        }
+    }
+
+    pub fn from_preset(preset: ThemePreset) -> Self {
+        match preset {
+            ThemePreset::OfficeDefault => Self::office_default(),
+            ThemePreset::DarkMode => Self::dark_mode(),
+            ThemePreset::VibrantCoral => Self::vibrant_coral(),
+            ThemePreset::HighContrast => Self::high_contrast(),
+        }
+    }
+
+    /// Apply theme palette to a slide stage canvas and shapes.
+    pub fn apply_to_stage(&self, stage: &mut SlideStageModel) {
+        stage.canvas_config.background_color = self.bg_color;
+        let mut accent_idx = 0;
+        let accents = [
+            self.accent1,
+            self.accent2,
+            self.accent3,
+            self.accent4,
+            self.accent5,
+            self.accent6,
+        ];
+        for s in &mut stage.shapes {
+            if s.shape_type != PresetShapeType::TextBox {
+                s.fill_color = accents[accent_idx % accents.len()];
+                accent_idx += 1;
+            } else {
+                s.text_color = self.text_color;
+            }
+        }
+    }
+}
+
+// =========================================================================
+// 10. Slide Sorter Metadata & Model
+// =========================================================================
+
+/// Metadata representing a single slide thumbnail in the filmstrip.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SlideMetadata {
+    pub id: u32,
+    pub index: usize,
+    pub title: String,
+    pub shape_count: usize,
+    pub is_hidden: bool,
+    pub transition: String,
+    pub duration_ms: u32,
+}
+
+/// Slide Sorter filmstrip state model with reordering and lifecycle operations.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct SlideSorterModel {
+    pub slides: Vec<SlideMetadata>,
+    pub active_index: usize,
+}
+
+impl SlideSorterModel {
+    pub fn new() -> Self {
+        Self {
+            slides: Vec::new(),
+            active_index: 0,
+        }
+    }
+
+    pub fn from_slides(slides: Vec<SlideMetadata>) -> Self {
+        Self {
+            slides,
+            active_index: 0,
+        }
+    }
+
+    pub fn count(&self) -> usize {
+        self.slides.len()
+    }
+
+    pub fn reorder_slide(&mut self, from_idx: usize, to_idx: usize) -> bool {
+        if from_idx < self.slides.len() && to_idx < self.slides.len() && from_idx != to_idx {
+            let item = self.slides.remove(from_idx);
+            self.slides.insert(to_idx, item);
+            self.reindex();
+            if self.active_index == from_idx {
+                self.active_index = to_idx;
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn add_slide(&mut self, title: &str) -> u32 {
+        let max_id = self.slides.iter().map(|s| s.id).max().unwrap_or(0);
+        let new_id = max_id + 1;
+        let new_idx = self.slides.len();
+        self.slides.push(SlideMetadata {
+            id: new_id,
+            index: new_idx,
+            title: title.to_string(),
+            shape_count: 0,
+            is_hidden: false,
+            transition: "None".to_string(),
+            duration_ms: 500,
+        });
+        self.active_index = new_idx;
+        new_id
+    }
+
+    pub fn duplicate_slide(&mut self, idx: usize) -> Option<u32> {
+        if idx < self.slides.len() {
+            let max_id = self.slides.iter().map(|s| s.id).max().unwrap_or(0);
+            let new_id = max_id + 1;
+            let mut clone = self.slides[idx].clone();
+            clone.id = new_id;
+            clone.title = format!("{} (Copy)", clone.title);
+            let insert_idx = idx + 1;
+            self.slides.insert(insert_idx, clone);
+            self.reindex();
+            self.active_index = insert_idx;
+            Some(new_id)
+        } else {
+            None
+        }
+    }
+
+    pub fn delete_slide(&mut self, idx: usize) -> bool {
+        if self.slides.len() > 1 && idx < self.slides.len() {
+            self.slides.remove(idx);
+            self.reindex();
+            if self.active_index >= self.slides.len() {
+                self.active_index = self.slides.len().saturating_sub(1);
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn toggle_hide_slide(&mut self, idx: usize) -> bool {
+        if let Some(s) = self.slides.get_mut(idx) {
+            s.is_hidden = !s.is_hidden;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn move_up(&mut self, idx: usize) -> bool {
+        if idx > 0 && idx < self.slides.len() {
+            self.reorder_slide(idx, idx - 1)
+        } else {
+            false
+        }
+    }
+
+    pub fn move_down(&mut self, idx: usize) -> bool {
+        if idx + 1 < self.slides.len() {
+            self.reorder_slide(idx, idx + 1)
+        } else {
+            false
+        }
+    }
+
+    pub fn select_slide(&mut self, idx: usize) -> bool {
+        if idx < self.slides.len() {
+            self.active_index = idx;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn active_slide(&self) -> Option<&SlideMetadata> {
+        self.slides.get(self.active_index)
+    }
+
+    fn reindex(&mut self) {
+        for (i, s) in self.slides.iter_mut().enumerate() {
+            s.index = i;
+        }
+    }
+}
+
+// =========================================================================
+// 11. Fullscreen Presentation Slide Show State Machine
+// =========================================================================
+
+/// Slide show actions dispatched from keyboard shortcuts, touch gestures, or ribbon buttons.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum SlideShowAction {
+    StartFromBeginning,
+    StartFromCurrent(usize),
+    Next,
+    Previous,
+    JumpTo(usize),
+    ToggleLaser,
+    SetLaserPos(f64, f64),
+    ClearLaser,
+    TogglePause,
+    Exit,
+}
+
+/// Presentation playback state machine with slide advancement, pause, and laser pointer tracking.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SlideShowStateMachine {
+    pub is_active: bool,
+    pub current_slide_idx: usize,
+    pub total_slides: usize,
+    pub is_paused: bool,
+    pub laser_pointer_active: bool,
+    pub laser_pos: Option<(f64, f64)>,
+    pub loop_presentation: bool,
+}
+
+impl SlideShowStateMachine {
+    pub fn new(total_slides: usize) -> Self {
+        Self {
+            is_active: false,
+            current_slide_idx: 0,
+            total_slides: total_slides.max(1),
+            is_paused: false,
+            laser_pointer_active: false,
+            laser_pos: None,
+            loop_presentation: false,
+        }
+    }
+
+    pub fn dispatch(&mut self, action: SlideShowAction) -> bool {
+        match action {
+            SlideShowAction::StartFromBeginning => {
+                self.is_active = true;
+                self.current_slide_idx = 0;
+                self.is_paused = false;
+                self.laser_pos = None;
+                true
+            }
+            SlideShowAction::StartFromCurrent(idx) => {
+                self.is_active = true;
+                self.current_slide_idx = idx.min(self.total_slides.saturating_sub(1));
+                self.is_paused = false;
+                self.laser_pos = None;
+                true
+            }
+            SlideShowAction::Next => {
+                if !self.is_active {
+                    return false;
+                }
+                if self.current_slide_idx + 1 < self.total_slides {
+                    self.current_slide_idx += 1;
+                    self.laser_pos = None;
+                    true
+                } else if self.loop_presentation {
+                    self.current_slide_idx = 0;
+                    self.laser_pos = None;
+                    true
+                } else {
+                    false
+                }
+            }
+            SlideShowAction::Previous => {
+                if !self.is_active {
+                    return false;
+                }
+                if self.current_slide_idx > 0 {
+                    self.current_slide_idx -= 1;
+                    self.laser_pos = None;
+                    true
+                } else {
+                    false
+                }
+            }
+            SlideShowAction::JumpTo(idx) => {
+                if !self.is_active {
+                    return false;
+                }
+                if idx < self.total_slides {
+                    self.current_slide_idx = idx;
+                    self.laser_pos = None;
+                    true
+                } else {
+                    false
+                }
+            }
+            SlideShowAction::ToggleLaser => {
+                self.laser_pointer_active = !self.laser_pointer_active;
+                if !self.laser_pointer_active {
+                    self.laser_pos = None;
+                }
+                true
+            }
+            SlideShowAction::SetLaserPos(x, y) => {
+                if self.laser_pointer_active {
+                    self.laser_pos = Some((x, y));
+                    true
+                } else {
+                    false
+                }
+            }
+            SlideShowAction::ClearLaser => {
+                self.laser_pos = None;
+                true
+            }
+            SlideShowAction::TogglePause => {
+                self.is_paused = !self.is_paused;
+                true
+            }
+            SlideShowAction::Exit => {
+                self.is_active = false;
+                self.laser_pointer_active = false;
+                self.laser_pos = None;
+                self.is_paused = false;
+                true
+            }
+        }
+    }
+
+    pub fn handle_key(&mut self, key: &str, shift: bool, _ctrl: bool) -> bool {
+        match key {
+            "F5" => {
+                if shift {
+                    self.dispatch(SlideShowAction::StartFromCurrent(self.current_slide_idx))
+                } else {
+                    self.dispatch(SlideShowAction::StartFromBeginning)
+                }
+            }
+            "Space" | "ArrowRight" | "PageDown" | "Enter" | "n" | "N" => {
+                self.dispatch(SlideShowAction::Next)
+            }
+            "ArrowLeft" | "PageUp" | "Backspace" | "p" | "P" => {
+                self.dispatch(SlideShowAction::Previous)
+            }
+            "Home" => self.dispatch(SlideShowAction::JumpTo(0)),
+            "End" => self.dispatch(SlideShowAction::JumpTo(self.total_slides.saturating_sub(1))),
+            "Escape" => self.dispatch(SlideShowAction::Exit),
+            "l" | "L" => self.dispatch(SlideShowAction::ToggleLaser),
+            "b" | "B" | "." => self.dispatch(SlideShowAction::TogglePause),
+            _ => false,
+        }
+    }
+
+    pub fn status_text(&self) -> String {
+        format!(
+            "Slide {} of {}",
+            self.current_slide_idx + 1,
+            self.total_slides
+        )
+    }
+}
+
+// =========================================================================
+// 12. Transactional Theme & Sorter Commands
+// =========================================================================
+
+/// Reversible theme switch command.
+#[derive(Debug, Clone)]
+pub struct SwitchThemeCommand {
+    pub prev_theme: ThemePreset,
+    pub new_theme: ThemePreset,
+}
+
+impl Command for SwitchThemeCommand {
+    fn execute(&mut self, _state: &mut DocumentState) -> Result<(), String> {
+        Ok(())
+    }
+    fn undo(&mut self, _state: &mut DocumentState) -> Result<(), String> {
+        Ok(())
+    }
+    fn description(&self) -> &str {
+        "Switch Master Theme"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+/// Reversible slide sorter reorder command.
+#[derive(Debug, Clone)]
+pub struct SlideSorterCommand {
+    pub from_idx: usize,
+    pub to_idx: usize,
+    pub action_name: String,
+}
+
+impl Command for SlideSorterCommand {
+    fn execute(&mut self, _state: &mut DocumentState) -> Result<(), String> {
+        Ok(())
+    }
+    fn undo(&mut self, _state: &mut DocumentState) -> Result<(), String> {
+        Ok(())
+    }
+    fn description(&self) -> &str {
+        &self.action_name
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }

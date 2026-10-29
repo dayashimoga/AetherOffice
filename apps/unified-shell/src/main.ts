@@ -184,16 +184,41 @@ class UnifiedShellApp {
       this.slideSorter = new SlideSorter("sidebar-container");
       this.slideSorter.setCallbacks({
         onSelectSlide: (id) => {
-          this.slideStageCanvas?.selectSlide(id - 1);
-          const docInfo = document.getElementById("status-doc-info");
-          if (docInfo) docInfo.textContent = `Slide ${id} of 3`;
+          slidesState.selectSlide(id - 1);
+          this.slideStageCanvas?.render();
+          this.updateSlideSorter();
+        },
+        onReorder: (fromIdx, toIdx) => {
+          slidesState.reorderSlide(fromIdx, toIdx);
+          this.slideStageCanvas?.render();
+          this.updateSlideSorter();
+          this.tabBar.setDirty(tab.id, true);
+        },
+        onAddSlide: () => {
+          slidesState.addSlide();
+          this.slideStageCanvas?.render();
+          this.updateSlideSorter();
+          this.tabBar.setDirty(tab.id, true);
+        },
+        onDuplicateSlide: (idx) => {
+          slidesState.duplicateSlide(idx);
+          this.slideStageCanvas?.render();
+          this.updateSlideSorter();
+          this.tabBar.setDirty(tab.id, true);
+        },
+        onDeleteSlide: (idx) => {
+          slidesState.deleteSlide(idx);
+          this.slideStageCanvas?.render();
+          this.updateSlideSorter();
+          this.tabBar.setDirty(tab.id, true);
+        },
+        onToggleHide: (idx) => {
+          slidesState.toggleHideSlide(idx);
+          this.updateSlideSorter();
+          this.tabBar.setDirty(tab.id, true);
         },
       });
-      this.slideSorter.setSlides([
-        { id: 1, slideNumber: 1, title: "Title Slide" },
-        { id: 2, slideNumber: 2, title: "Problem Statement" },
-        { id: 3, slideNumber: 3, title: "Solution & Demo" },
-      ]);
+      this.updateSlideSorter();
     } else {
       const sidebar = document.getElementById("sidebar-container");
       if (sidebar) sidebar.innerHTML = '<div class="sidebar-heading">Workbook Sheets</div>';
@@ -253,6 +278,22 @@ class UnifiedShellApp {
     });
   }
 
+  private updateSlideSorter() {
+    if (!this.slideSorter) return;
+    const thumbs = slidesState.slides.map((s, idx) => ({
+      id: idx + 1,
+      slideNumber: idx + 1,
+      title: s.title,
+      shapeCount: s.shapes.length,
+      isHidden: s.isHidden,
+    }));
+    this.slideSorter.setSlides(thumbs, slidesState.currentSlideIndex + 1);
+    const docInfo = document.getElementById("status-doc-info");
+    if (docInfo && this.currentDocType === "PowerPoint") {
+      docInfo.textContent = `Slide ${slidesState.currentSlideIndex + 1} of ${slidesState.slides.length}`;
+    }
+  }
+
   private handleRibbonAction(action: string, payload?: unknown) {
     console.log("Ribbon Action:", action, payload);
     const active = this.tabBar.getActiveTab();
@@ -264,15 +305,24 @@ class UnifiedShellApp {
       this.tabBar.setDirty(active.id, true);
     } else if (this.currentDocType === "PowerPoint") {
       if (action === "StartShowBeginning") {
+        slidesState.startShow(true);
         if (!document.fullscreenElement) {
           document.documentElement.requestFullscreen().catch(() => {});
-        } else {
-          document.exitFullscreen().catch(() => {});
         }
+        this.slideStageCanvas?.render();
+        this.updateSlideSorter();
+      } else if (action === "StartShowCurrent") {
+        slidesState.startShow(false);
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+        this.slideStageCanvas?.render();
+        this.updateSlideSorter();
       } else {
         const changed = slidesState.execCommand(action, payload);
         if (changed) {
           this.slideStageCanvas?.render();
+          this.updateSlideSorter();
           this.tabBar.setDirty(active.id, true);
         }
       }

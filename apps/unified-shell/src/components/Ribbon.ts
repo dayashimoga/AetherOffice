@@ -354,6 +354,16 @@ export class Ribbon {
   }
 
   private renderTransitionsTab(body: HTMLElement) {
+    const themeGroup = this.createGroup("Master Themes");
+    const themeRow = document.createElement("div");
+    themeRow.className = "ribbon-group-row";
+    themeRow.appendChild(this.createButton("Office Default", "🎨 Office", () => this.emit("SetTheme", "OfficeDefault")));
+    themeRow.appendChild(this.createButton("Dark Mode", "🌙 Dark", () => this.emit("SetTheme", "DarkMode")));
+    themeRow.appendChild(this.createButton("Vibrant Coral", "🔥 Coral", () => this.emit("SetTheme", "VibrantCoral")));
+    themeRow.appendChild(this.createButton("High Contrast", "⚡ Contrast", () => this.emit("SetTheme", "HighContrast")));
+    themeGroup.appendChild(themeRow);
+    body.appendChild(themeGroup);
+
     const transGroup = this.createGroup("Transition to This Slide");
     const transRow = document.createElement("div");
     transRow.className = "ribbon-group-row";

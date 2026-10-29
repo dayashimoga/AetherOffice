@@ -36,10 +36,12 @@ pub use compiler::{
         ROW_HEADER_WIDTH,
     },
     ppt::{
-        generate_preset_path, PptDisplayCompiler, PptGizmoHit, PptGizmoModel, PptStageController,
-        PptViewportTransform, PresetShapeType, SlideAddShapeCommand, SlideAspectRatio,
-        SlideCanvasConfig, SlideDeleteShapeCommand, SlideShapeModel, SlideStageModel,
-        SlideTransformCommand, SlideTransformEngine, ZOrderAction,
+        generate_preset_path, MasterTheme, PptDisplayCompiler, PptGizmoHit, PptGizmoModel,
+        PptStageController, PptViewportTransform, PresetShapeType, SlideAddShapeCommand,
+        SlideAspectRatio, SlideCanvasConfig, SlideDeleteShapeCommand, SlideMetadata,
+        SlideShapeModel, SlideShowAction, SlideShowStateMachine, SlideSorterCommand,
+        SlideSorterModel, SlideStageModel, SlideTransformCommand, SlideTransformEngine,
+        SwitchThemeCommand, ThemePreset, ZOrderAction,
     },
     word::{
         CaretNavDirection, PageLayoutMode, PageMargins, PageSize, ParagraphAlignment,
