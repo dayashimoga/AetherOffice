@@ -29,6 +29,8 @@ export interface WordDocumentModel {
   pageOrientation?: "portrait" | "landscape";
   margins?: "normal" | "narrow" | "wide";
   pageSize?: "letter" | "a4" | "legal";
+  headerText?: string;
+  footerText?: string;
 }
 
 export interface CaretPosition {
@@ -438,6 +440,66 @@ export class WriterState {
     this.saveSnapshot();
   }
 
+  public insertPageBreak(): void {
+    this.saveSnapshot();
+    const newPageNum = this.doc.pages.length + 1;
+    const newPage: DocPage = {
+      pageNumber: newPageNum,
+      paragraphs: [
+        {
+          id: `p-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          style: "Normal",
+          alignment: this.activeFormat.alignment,
+          runs: [{ text: "", font: this.activeFormat.font, size: this.activeFormat.size }],
+        },
+      ],
+    };
+    this.doc.pages.push(newPage);
+    this.cursor.pageIndex = this.doc.pages.length - 1;
+    this.cursor.paragraphIndex = 0;
+    this.cursor.runIndex = 0;
+    this.cursor.offset = 0;
+    this.clearSelection();
+  }
+
+  public autoPaginate(maxHeightPx: number = 864): boolean {
+    let pagesChanged = false;
+    for (let pIdx = 0; pIdx < this.doc.pages.length; pIdx++) {
+      const page = this.doc.pages[pIdx];
+      let currentHeight = 0;
+      let overflowStartIndex = -1;
+
+      for (let i = 0; i < page.paragraphs.length; i++) {
+        const p = page.paragraphs[i];
+        const fontSize = p.runs[0]?.size || (p.style === "Heading1" ? 22 : 11);
+        const lineSpacing = fontSize * 1.35;
+        const totalChars = p.runs.reduce((acc, r) => acc + r.text.length, 0);
+        const estimatedLines = Math.max(1, Math.ceil(totalChars / 75));
+        const pHeight = estimatedLines * lineSpacing + (p.style.startsWith("Heading") ? 14 : 8);
+
+        if (currentHeight + pHeight > maxHeightPx && i > 0) {
+          overflowStartIndex = i;
+          break;
+        }
+        currentHeight += pHeight;
+      }
+
+      if (overflowStartIndex !== -1) {
+        pagesChanged = true;
+        const overflowParas = page.paragraphs.splice(overflowStartIndex);
+        if (pIdx + 1 < this.doc.pages.length) {
+          this.doc.pages[pIdx + 1].paragraphs.unshift(...overflowParas);
+        } else {
+          this.doc.pages.push({
+            pageNumber: pIdx + 2,
+            paragraphs: overflowParas,
+          });
+        }
+      }
+    }
+    return pagesChanged;
+  }
+
   public insertLineBreak(): void {
     this.insertText("\n");
   }
@@ -794,25 +856,11 @@ export class WriterState {
         break;
       }
 
+      case "insertBlankPage":
+      case "InsertBlankPage":
       case "insertPageBreak":
       case "InsertPageBreak": {
-        this.saveSnapshot();
-        const newPageNum = this.doc.pages.length + 1;
-        this.doc.pages.push({
-          pageNumber: newPageNum,
-          paragraphs: [
-            {
-              id: `p-${Date.now()}`,
-              style: "Normal",
-              alignment: "left",
-              runs: [{ text: "", font: this.activeFormat.font, size: this.activeFormat.size }],
-            },
-          ],
-        });
-        this.cursor.pageIndex = this.doc.pages.length - 1;
-        this.cursor.paragraphIndex = 0;
-        this.cursor.runIndex = 0;
-        this.cursor.offset = 0;
+        this.insertPageBreak();
         break;
       }
 

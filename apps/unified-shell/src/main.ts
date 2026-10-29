@@ -146,6 +146,12 @@ export class UnifiedShellApp {
     });
 
     this.wordRuler = new WordRuler("sub-header-container");
+    this.wordRuler.setOnMarginsChange((left, right, indent) => {
+      this.writerCanvas?.setMargins(left, right);
+      if (indent !== 0) {
+        writerState.execCommand("indent", indent);
+      }
+    });
 
     // 4. Initialize Sidebars
     this.navPane = new NavigationPane("sidebar-container");
@@ -302,6 +308,10 @@ export class UnifiedShellApp {
     return this.writerCanvas;
   }
 
+  public getWordRuler(): WordRuler {
+    return this.wordRuler;
+  }
+
   public toggleBackstage() {
     if (this.backstageMenu.isOpen()) {
       this.backstageMenu.hide();
@@ -363,7 +373,13 @@ export class UnifiedShellApp {
       } else if (tab.docType === "Word") {
         subHeader.style.display = "flex";
         this.wordRuler = new WordRuler("sub-header-container");
-        this.wordRuler.setMargins(72, 72, 36);
+    this.wordRuler.setOnMarginsChange((left, right, indent) => {
+      this.writerCanvas?.setMargins(left, right);
+      if (indent !== 0) {
+        writerState.execCommand("indent", indent);
+      }
+    });
+        this.wordRuler.setMargins(96, 96, 0);
       } else {
         subHeader.style.display = "none";
       }
@@ -516,8 +532,12 @@ export class UnifiedShellApp {
     if (!active) return;
 
     if (this.currentDocType === "Word") {
-      writerState.execCommand(action, payload);
-      this.writerCanvas?.render();
+      if (action === "InsertBlankPage" || action === "InsertPageBreak") {
+        this.writerCanvas?.insertPageBreak();
+      } else {
+        writerState.execCommand(action, payload);
+        this.writerCanvas?.render();
+      }
       this.tabBar.setDirty(active.id, true);
     } else if (this.currentDocType === "PowerPoint") {
       if (action === "StartShowBeginning") {
