@@ -198,9 +198,9 @@
             "title": "Unified 120fps WebGPU / Cosmic-Text Render Core",
             "crate": "render-core",
             "rea_required": false,
-            "status": "PENDING",
+            "status": "COMPLETED",
             "prompt_file": ".agents/stages/stage-5/subphase-5.1.1.md",
-            "completed_at": null
+            "completed_at": "2026-10-29T10:22:00Z"
         },
         {
             "id": "5.1.2",
