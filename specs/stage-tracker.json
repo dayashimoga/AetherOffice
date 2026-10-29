@@ -220,9 +220,9 @@
             "title": "Tauri v2 Desktop & Laptop Shell (Ribbon, Multi-Tab, Formula Bar)",
             "crate": "render-core",
             "rea_required": false,
-            "status": "PENDING",
+            "status": "COMPLETED",
             "prompt_file": ".agents/stages/stage-5/subphase-5.2.1.md",
-            "completed_at": null
+            "completed_at": "2026-10-29T10:41:30Z"
         },
         {
             "id": "5.2.2",
