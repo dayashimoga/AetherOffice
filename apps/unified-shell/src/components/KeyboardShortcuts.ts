@@ -115,14 +115,22 @@ export class KeyboardShortcuts {
         }
       }
 
-      // 3. Excel Function Keys (F2, F4)
-      if (!isCtrl && !e.altKey && !e.shiftKey) {
-        if (e.key === "F2") {
+      // 3. Excel Function Keys (F2, F4) & PowerPoint Slide Show (F5, Shift+F5)
+      if (!isCtrl && !e.altKey) {
+        if (e.shiftKey && e.key === "F5") {
           e.preventDefault();
-          this.emit("CellEdit");
-        } else if (e.key === "F4") {
-          e.preventDefault();
-          this.emit("ToggleF4");
+          this.emit("StartShowCurrent");
+        } else if (!e.shiftKey) {
+          if (e.key === "F2") {
+            e.preventDefault();
+            this.emit("CellEdit");
+          } else if (e.key === "F4") {
+            e.preventDefault();
+            this.emit("ToggleF4");
+          } else if (e.key === "F5") {
+            e.preventDefault();
+            this.emit("StartShowBeginning");
+          }
         }
       }
     });

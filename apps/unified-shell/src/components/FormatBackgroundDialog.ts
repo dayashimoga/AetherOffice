@@ -245,3 +245,4 @@ export class FormatBackgroundDialog {
     target.style.outline = "2px solid #c43e1c";
   }
 }
+

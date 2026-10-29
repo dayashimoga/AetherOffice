@@ -1,4 +1,10 @@
-import { SlideShape, SlidesState, slidesState } from "../../state/slidesState";
+import {
+  SlideAnimation,
+  SlideShape,
+  SlideTransitionConfig,
+  SlidesState,
+  slidesState,
+} from "../../state/slidesState";
 
 export interface AlignmentGuide {
   orientation: "vertical" | "horizontal";
@@ -1055,6 +1061,72 @@ export class SlideStageCanvas {
       });
       if (ctx.setLineDash) ctx.setLineDash([]);
       ctx.restore();
+    }
+  }
+
+  public async playTransitionPreview(config?: SlideTransitionConfig): Promise<void> {
+    const trans = config || this.state.getSlideTransition();
+    if (!trans || trans.effect === "None") {
+      this.render();
+      return;
+    }
+
+    this.wrapper.style.transition = `all ${trans.duration}s cubic-bezier(0.4, 0, 0.2, 1)`;
+
+    if (trans.effect === "Fade") {
+      this.wrapper.style.opacity = "0";
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      this.render();
+      this.wrapper.style.opacity = "1";
+    } else if (trans.effect === "Push") {
+      const dir = trans.direction || "right";
+      const shift =
+        dir === "left" ? "-80px" : dir === "right" ? "80px" : dir === "top" ? "-80px" : "80px";
+      this.wrapper.style.transform =
+        dir === "left" || dir === "right" ? `translateX(${shift})` : `translateY(${shift})`;
+      this.wrapper.style.opacity = "0.5";
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      this.render();
+      this.wrapper.style.transform = "none";
+      this.wrapper.style.opacity = "1";
+    } else {
+      this.wrapper.style.transform = "scale(0.92)";
+      this.wrapper.style.opacity = "0.6";
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      this.render();
+      this.wrapper.style.transform = "none";
+      this.wrapper.style.opacity = "1";
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, Math.max(100, trans.duration * 300)));
+    this.wrapper.style.transition = "none";
+    this.wrapper.style.transform = "none";
+    this.wrapper.style.opacity = "1";
+  }
+
+  public async playAnimationPreview(anim: SlideAnimation): Promise<void> {
+    const shape = this.state.slides[this.state.currentSlideIndex]?.shapes.find(
+      (s) => s.id === anim.shapeId
+    );
+    if (!shape) return;
+
+    const origStroke = shape.stroke;
+    const origStrokeWidth = shape.strokeWidth;
+    shape.stroke =
+      anim.type === "entrance" ? "#22c55e" : anim.type === "emphasis" ? "#eab308" : "#ef4444";
+    shape.strokeWidth = 4;
+    this.render();
+
+    await new Promise((resolve) => setTimeout(resolve, Math.max(80, anim.duration * 300)));
+    shape.stroke = origStroke;
+    shape.strokeWidth = origStrokeWidth;
+    this.render();
+  }
+
+  public async playAllAnimationsPreview(animations: SlideAnimation[]): Promise<void> {
+    for (const anim of animations) {
+      await this.playAnimationPreview(anim);
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
 }

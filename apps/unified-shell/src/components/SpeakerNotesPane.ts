@@ -121,3 +121,4 @@ export class SpeakerNotesPane {
     return this.rootEl;
   }
 }
+

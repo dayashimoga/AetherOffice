@@ -32,6 +32,8 @@ import { CalcChartOverlay } from "./components/CalcChartOverlay";
 import { SlideLayoutDialog } from "./components/SlideLayoutDialog";
 import { SpeakerNotesPane } from "./components/SpeakerNotesPane";
 import { FormatBackgroundDialog } from "./components/FormatBackgroundDialog";
+import { AnimationPane } from "./components/AnimationPane";
+import { PresentationPlayer } from "./components/PresentationPlayer";
 
 export class UnifiedShellApp {
   private tabBar!: TabBar;
@@ -63,6 +65,8 @@ export class UnifiedShellApp {
   private slideLayoutDialog!: SlideLayoutDialog;
   private formatBackgroundDialog!: FormatBackgroundDialog;
   private speakerNotesPane?: SpeakerNotesPane;
+  private animationPane?: AnimationPane;
+  private presentationPlayer?: PresentationPlayer;
 
   constructor(autoBoot = true) {
     this.init(autoBoot);
@@ -530,6 +534,14 @@ export class UnifiedShellApp {
     return this.speakerNotesPane;
   }
 
+  public getAnimationPane(): AnimationPane | undefined {
+    return this.animationPane;
+  }
+
+  public getPresentationPlayer(): PresentationPlayer | undefined {
+    return this.presentationPlayer;
+  }
+
   public getFormulaBar(): FormulaBar {
     return this.formulaBar;
   }
@@ -784,6 +796,38 @@ export class UnifiedShellApp {
         this.slideStageCanvas.setOnDirty(() => this.tabBar.setDirty(tab.id, true));
         this.speakerNotesPane = new SpeakerNotesPane(viewportContainer, slidesState);
         this.speakerNotesPane.setOnDirty(() => this.tabBar.setDirty(tab.id, true));
+        this.animationPane = new AnimationPane("animation-pane-container", slidesState);
+        this.animationPane.setOnDirty(() => this.tabBar.setDirty(tab.id, true));
+        this.animationPane.setCallbacks({
+          onPlayAll: () => {
+            this.slideStageCanvas?.playAllAnimationsPreview(slidesState.getSlideAnimations());
+          },
+          onPlaySelected: (anim) => {
+            this.slideStageCanvas?.playAnimationPreview(anim);
+          },
+          onDirty: () => this.tabBar.setDirty(tab.id, true),
+        });
+        if (!this.presentationPlayer) {
+          this.presentationPlayer = new PresentationPlayer(slidesState);
+          this.presentationPlayer.setCallbacks({
+            onExit: () => {
+              this.slideStageCanvas?.render();
+              this.updateSlideSorter();
+              this.speakerNotesPane?.refresh();
+              this.animationPane?.refresh();
+            },
+            onSlideChange: (idx) => {
+              this.slideStageCanvas?.render();
+              this.updateSlideSorter();
+              this.speakerNotesPane?.refresh();
+              this.animationPane?.refresh();
+              const docInfo = document.getElementById("status-doc-info");
+              if (docInfo) {
+                docInfo.textContent = `Slide ${idx + 1} of ${slidesState.slides.length}`;
+              }
+            },
+          });
+        }
       } else if (tab.docType === "PDF") {
         this.pdfViewerCanvas = new PdfViewerCanvas(viewportContainer, pdfState);
       }
@@ -899,19 +943,54 @@ export class UnifiedShellApp {
       this.tabBar.setDirty(active.id, true);
     } else if (this.currentDocType === "PowerPoint") {
       if (action === "StartShowBeginning") {
-        slidesState.startShow(true);
-        if (!document.fullscreenElement) {
+        if (!this.presentationPlayer) {
+          this.presentationPlayer = new PresentationPlayer(slidesState);
+        }
+        this.presentationPlayer.startShow(true, false);
+        if (!document.fullscreenElement && typeof document.documentElement.requestFullscreen === "function") {
           document.documentElement.requestFullscreen().catch(() => {});
         }
-        this.slideStageCanvas?.render();
         this.updateSlideSorter();
       } else if (action === "StartShowCurrent") {
-        slidesState.startShow(false);
-        if (!document.fullscreenElement) {
+        if (!this.presentationPlayer) {
+          this.presentationPlayer = new PresentationPlayer(slidesState);
+        }
+        this.presentationPlayer.startShow(false, false);
+        if (!document.fullscreenElement && typeof document.documentElement.requestFullscreen === "function") {
           document.documentElement.requestFullscreen().catch(() => {});
         }
-        this.slideStageCanvas?.render();
         this.updateSlideSorter();
+      } else if (action === "StartPresenterView") {
+        if (!this.presentationPlayer) {
+          this.presentationPlayer = new PresentationPlayer(slidesState);
+        }
+        this.presentationPlayer.startShow(false, true);
+        if (!document.fullscreenElement && typeof document.documentElement.requestFullscreen === "function") {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+        this.updateSlideSorter();
+      } else if (action === "TogglePresenterView") {
+        this.presentationPlayer?.togglePresenterView();
+      } else if (action === "ToggleAnimationPane") {
+        this.animationPane?.toggle();
+      } else if (action === "PreviewTransition") {
+        this.slideStageCanvas?.playTransitionPreview();
+      } else if (action === "PreviewAnimation") {
+        this.slideStageCanvas?.playAllAnimationsPreview(slidesState.getSlideAnimations());
+      } else if (action === "ReorderAnimationEarlier") {
+        const selAnim = slidesState.getSelectedAnimation();
+        if (selAnim) {
+          slidesState.reorderAnimation(selAnim.id, "up");
+          this.animationPane?.refresh();
+          this.tabBar.setDirty(active.id, true);
+        }
+      } else if (action === "ReorderAnimationLater") {
+        const selAnim = slidesState.getSelectedAnimation();
+        if (selAnim) {
+          slidesState.reorderAnimation(selAnim.id, "down");
+          this.animationPane?.refresh();
+          this.tabBar.setDirty(active.id, true);
+        }
       } else if (action === "SlideLayout") {
         this.slideLayoutDialog.open((layout) => {
           slidesState.applyLayout(layout);
@@ -944,6 +1023,7 @@ export class UnifiedShellApp {
           this.slideStageCanvas?.render();
           this.updateSlideSorter();
           this.speakerNotesPane?.refresh();
+          this.animationPane?.refresh();
           this.tabBar.setDirty(active.id, true);
         }
       }

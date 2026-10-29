@@ -310,7 +310,14 @@ export class SlidesRibbon implements AppRibbonComponent {
   }
 
   private renderTransitionsTab(body: HTMLElement, emit: RibbonActionEmitter) {
-    // 1. Transition to This Slide
+    // 1. Preview Group
+    const prevGroup = createRibbonGroup("Preview");
+    prevGroup.appendChild(
+      createRibbonButton("Preview", "▶ Preview", () => emit("PreviewTransition"), false, "slides-btn-preview-trans")
+    );
+    body.appendChild(prevGroup);
+
+    // 2. Transition to This Slide
     const transGroup = createRibbonGroup("Transition to This Slide");
     const transRow1 = document.createElement("div");
     transRow1.className = "ribbon-group-row";
@@ -327,7 +334,7 @@ export class SlidesRibbon implements AppRibbonComponent {
     transGroup.appendChild(transRow2);
     body.appendChild(transGroup);
 
-    // 2. Effect Options
+    // 3. Effect Options
     const effectGroup = createRibbonGroup("Effect Options");
     const effRow = document.createElement("div");
     effRow.className = "ribbon-group-row";
@@ -338,36 +345,54 @@ export class SlidesRibbon implements AppRibbonComponent {
     effectGroup.appendChild(effRow);
     body.appendChild(effectGroup);
 
-    // 3. Timing Group
+    // 4. Timing Group
     const timingGroup = createRibbonGroup("Timing");
-    const timeRow = document.createElement("div");
-    timeRow.className = "ribbon-group-row";
-    timeRow.appendChild(createRibbonButton("Apply To All", "🔄 Apply To All", () => emit("ApplyTransitionToAll")));
-    timeRow.appendChild(createRibbonButton("On Mouse Click", "☑ Click", () => emit("ToggleAdvanceOnClick"), true));
-    timeRow.appendChild(createRibbonButton("After Delay", "⏱ After 3s", () => emit("SetAdvanceDelay", 3)));
-    timingGroup.appendChild(timeRow);
+    const timeRow1 = document.createElement("div");
+    timeRow1.className = "ribbon-group-row";
+    timeRow1.appendChild(createRibbonButton("Duration: 0.5s", "0.5s", () => emit("SetTransitionDuration", 0.5)));
+    timeRow1.appendChild(createRibbonButton("Duration: 1.0s", "1.0s", () => emit("SetTransitionDuration", 1.0)));
+    timeRow1.appendChild(createRibbonButton("Duration: 1.5s", "1.5s", () => emit("SetTransitionDuration", 1.5)));
+    timeRow1.appendChild(createRibbonButton("Duration: 2.0s", "2.0s", () => emit("SetTransitionDuration", 2.0)));
+    timingGroup.appendChild(timeRow1);
+
+    const timeRow2 = document.createElement("div");
+    timeRow2.className = "ribbon-group-row";
+    timeRow2.appendChild(createRibbonButton("Apply To All", "🔄 Apply To All", () => emit("ApplyTransitionToAll")));
+    timeRow2.appendChild(createRibbonButton("On Mouse Click", "☑ Click", () => emit("ToggleAdvanceOnClick"), true));
+    timeRow2.appendChild(createRibbonButton("After Delay", "⏱ After 3s", () => emit("SetAdvanceDelay", 3)));
+    timingGroup.appendChild(timeRow2);
     body.appendChild(timingGroup);
   }
 
   private renderAnimationsTab(body: HTMLElement, emit: RibbonActionEmitter) {
-    // 1. Animation Group
+    // 1. Preview Group
+    const prevGroup = createRibbonGroup("Preview");
+    prevGroup.appendChild(
+      createRibbonButton("Preview", "▶ Preview", () => emit("PreviewAnimation"), false, "slides-btn-preview-anim")
+    );
+    body.appendChild(prevGroup);
+
+    // 2. Animation Group
     const animGroup = createRibbonGroup("Animation");
     const animRow1 = document.createElement("div");
     animRow1.className = "ribbon-group-row";
-    ["None", "Appear", "Fade", "Fly In", "Float In"].forEach((a) => {
-      animRow1.appendChild(createRibbonButton(a, a, () => emit("SetAnimation", a)));
+    ["Appear", "Fade In", "Fly In", "Zoom", "Bounce"].forEach((a) => {
+      const effectName = a === "Fade In" ? "fadeIn" : a === "Fly In" ? "flyIn" : a.toLowerCase();
+      animRow1.appendChild(createRibbonButton(a, `🟢 ${a}`, () => emit("SetAnimation", effectName)));
     });
     animGroup.appendChild(animRow1);
 
     const animRow2 = document.createElement("div");
     animRow2.className = "ribbon-group-row";
-    ["Split", "Wipe", "Shape", "Wheel", "Bounce"].forEach((a) => {
-      animRow2.appendChild(createRibbonButton(a, a, () => emit("SetAnimation", a)));
-    });
+    animRow2.appendChild(createRibbonButton("Pulse", "🟡 Pulse", () => emit("SetAnimation", "pulse")));
+    animRow2.appendChild(createRibbonButton("Spin", "🟡 Spin", () => emit("SetAnimation", "spin")));
+    animRow2.appendChild(createRibbonButton("Fade Out", "🔴 Fade Out", () => emit("SetAnimation", "fadeOut")));
+    animRow2.appendChild(createRibbonButton("Fly Out", "🔴 Fly Out", () => emit("SetAnimation", "flyOut")));
+    animRow2.appendChild(createRibbonButton("None", "None", () => emit("SetAnimation", "none")));
     animGroup.appendChild(animRow2);
     body.appendChild(animGroup);
 
-    // 2. Advanced Animation
+    // 3. Advanced Animation
     const advGroup = createRibbonGroup("Advanced Animation");
     const advRow = document.createElement("div");
     advRow.className = "ribbon-group-row";
@@ -377,14 +402,23 @@ export class SlidesRibbon implements AppRibbonComponent {
     advGroup.appendChild(advRow);
     body.appendChild(advGroup);
 
-    // 3. Timing
+    // 4. Timing
     const timeGroup = createRibbonGroup("Timing");
-    const timeRow = document.createElement("div");
-    timeRow.className = "ribbon-group-row";
-    timeRow.appendChild(createRibbonButton("Start: On Click", "On Click", () => emit("SetAnimStart", "click")));
-    timeRow.appendChild(createRibbonButton("With Previous", "With Prev", () => emit("SetAnimStart", "withPrev")));
-    timeRow.appendChild(createRibbonButton("After Previous", "After Prev", () => emit("SetAnimStart", "afterPrev")));
-    timeGroup.appendChild(timeRow);
+    const timeRow1 = document.createElement("div");
+    timeRow1.className = "ribbon-group-row";
+    timeRow1.appendChild(createRibbonButton("Start: On Click", "On Click", () => emit("SetAnimStart", "click")));
+    timeRow1.appendChild(createRibbonButton("With Previous", "With Prev", () => emit("SetAnimStart", "withPrev")));
+    timeRow1.appendChild(createRibbonButton("After Previous", "After Prev", () => emit("SetAnimStart", "afterPrev")));
+    timeGroup.appendChild(timeRow1);
+
+    const timeRow2 = document.createElement("div");
+    timeRow2.className = "ribbon-group-row";
+    timeRow2.appendChild(createRibbonButton("Duration: 0.5s", "0.5s", () => emit("SetAnimationDuration", 0.5)));
+    timeRow2.appendChild(createRibbonButton("Duration: 1.0s", "1.0s", () => emit("SetAnimationDuration", 1.0)));
+    timeRow2.appendChild(createRibbonButton("Delay: 0.25s", "+0.25s", () => emit("SetAnimationDelay", 0.25)));
+    timeRow2.appendChild(createRibbonButton("Move Earlier", "▲ Earlier", () => emit("ReorderAnimationEarlier")));
+    timeRow2.appendChild(createRibbonButton("Move Later", "▼ Later", () => emit("ReorderAnimationLater")));
+    timeGroup.appendChild(timeRow2);
     body.appendChild(timeGroup);
   }
 
@@ -416,9 +450,15 @@ export class SlidesRibbon implements AppRibbonComponent {
 
     // 3. Monitors
     const monGroup = createRibbonGroup("Monitors");
-    monGroup.appendChild(
+    const monRow = document.createElement("div");
+    monRow.className = "ribbon-group-row";
+    monRow.appendChild(
+      createRibbonButton("Presenter View", "🖥️ Presenter View", () => emit("StartPresenterView"))
+    );
+    monRow.appendChild(
       createRibbonButton("Use Presenter View", "☑ Presenter View", () => emit("TogglePresenterView"), true)
     );
+    monGroup.appendChild(monRow);
     body.appendChild(monGroup);
   }
 

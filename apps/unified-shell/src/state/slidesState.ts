@@ -28,6 +28,80 @@ export type SlideLayoutType =
   | "twoContent"
   | "blank";
 
+export type TransitionEffect =
+  | "None"
+  | "Fade"
+  | "Push"
+  | "Wipe"
+  | "Split"
+  | "Morph"
+  | "Reveal"
+  | "Cover"
+  | "Random Bars"
+  | "Shape";
+
+export type TransitionDirection =
+  | "left"
+  | "right"
+  | "top"
+  | "bottom"
+  | "horizontal"
+  | "vertical";
+
+export interface SlideTransitionConfig {
+  effect: TransitionEffect;
+  duration: number; // in seconds, default 1.0
+  direction?: TransitionDirection;
+}
+
+export type AnimationType = "entrance" | "emphasis" | "exit";
+
+export type AnimationEffect =
+  // Entrance:
+  | "appear"
+  | "fadeIn"
+  | "flyIn"
+  | "zoom"
+  | "bounce"
+  // Emphasis:
+  | "pulse"
+  | "spin"
+  // Exit:
+  | "fadeOut"
+  | "flyOut";
+
+export type AnimationTrigger = "click" | "withPrev" | "afterPrev";
+
+export interface SlideAnimation {
+  id: string;
+  shapeId: string;
+  type: AnimationType;
+  effect: AnimationEffect;
+  trigger: AnimationTrigger;
+  duration: number; // in seconds, default 0.5
+  delay: number; // in seconds, default 0
+  order: number;
+}
+
+export function getAnimationType(effect: AnimationEffect): AnimationType {
+  switch (effect) {
+    case "appear":
+    case "fadeIn":
+    case "flyIn":
+    case "zoom":
+    case "bounce":
+      return "entrance";
+    case "pulse":
+    case "spin":
+      return "emphasis";
+    case "fadeOut":
+    case "flyOut":
+      return "exit";
+    default:
+      return "entrance";
+  }
+}
+
 export interface SlideShape {
   id: string;
   type: PresetShapeKind;
@@ -59,6 +133,8 @@ export interface SlideData {
   shapes: SlideShape[];
   isHidden?: boolean;
   transition?: string;
+  transitionConfig?: SlideTransitionConfig;
+  animations?: SlideAnimation[];
   notes?: string;
   background?: string;
 }
@@ -218,13 +294,17 @@ export class SlidesState {
 
   // Slide Show State
   isShowActive = false;
+  isPresenterMode = false;
+  currentShowStep = 0;
   isLaserActive = false;
   laserPos: { x: number; y: number } | null = null;
+  selectedAnimationId: string | null = null;
 
   private undoStack: SlideData[][] = [];
   private redoStack: SlideData[][] = [];
   private nextShapeCounter = 20;
   private nextSlideCounter = 10;
+  private nextAnimCounter = 10;
 
   public selectSlide(idx: number) {
     if (idx >= 0 && idx < this.slides.length) {
@@ -235,6 +315,10 @@ export class SlidesState {
 
   public selectShape(id: string | null) {
     this.selectedShapeId = id;
+  }
+
+  public getCurrentSlide(): SlideData {
+    return this.slides[this.currentSlideIndex] || this.slides[0];
   }
 
   public getSelectedShape(): SlideShape | null {
@@ -767,19 +851,257 @@ export class SlidesState {
     return this.slides[idx]?.notes || "";
   }
 
-  // --- Slide Show Mode ---
+  // --- Slide Transitions ---
 
-  public startShow(fromBeginning = true) {
+  public setTransition(
+    effect: TransitionEffect,
+    duration = 1.0,
+    direction: TransitionDirection = "right",
+    applyToAll = false
+  ): void {
+    this.commitSnapshot();
+    const config: SlideTransitionConfig = { effect, duration, direction };
+    if (applyToAll) {
+      this.slides.forEach((s) => {
+        s.transition = effect;
+        s.transitionConfig = { ...config };
+      });
+    } else {
+      const slide = this.slides[this.currentSlideIndex];
+      if (slide) {
+        slide.transition = effect;
+        slide.transitionConfig = { ...config };
+      }
+    }
+  }
+
+  public setTransitionDuration(duration: number, applyToAll = false): void {
+    this.commitSnapshot();
+    const safeDur = Math.max(0.1, duration);
+    if (applyToAll) {
+      this.slides.forEach((s) => {
+        if (!s.transitionConfig) {
+          s.transitionConfig = { effect: "None", duration: safeDur, direction: "right" };
+        } else {
+          s.transitionConfig.duration = safeDur;
+        }
+      });
+    } else {
+      const slide = this.slides[this.currentSlideIndex];
+      if (slide) {
+        if (!slide.transitionConfig) {
+          slide.transitionConfig = { effect: "None", duration: safeDur, direction: "right" };
+        } else {
+          slide.transitionConfig.duration = safeDur;
+        }
+      }
+    }
+  }
+
+  public setTransitionDirection(direction: TransitionDirection, applyToAll = false): void {
+    this.commitSnapshot();
+    if (applyToAll) {
+      this.slides.forEach((s) => {
+        if (!s.transitionConfig) {
+          s.transitionConfig = { effect: "None", duration: 1.0, direction };
+        } else {
+          s.transitionConfig.direction = direction;
+        }
+      });
+    } else {
+      const slide = this.slides[this.currentSlideIndex];
+      if (slide) {
+        if (!slide.transitionConfig) {
+          slide.transitionConfig = { effect: "None", duration: 1.0, direction };
+        } else {
+          slide.transitionConfig.direction = direction;
+        }
+      }
+    }
+  }
+
+  public applyTransitionToAll(): void {
+    const cur = this.getSlideTransition();
+    this.setTransition(cur.effect, cur.duration, cur.direction, true);
+  }
+
+  public getSlideTransition(idx = this.currentSlideIndex): SlideTransitionConfig {
+    const slide = this.slides[idx];
+    if (slide?.transitionConfig) {
+      return { ...slide.transitionConfig };
+    }
+    const effect = (slide?.transition as TransitionEffect) || "None";
+    return { effect, duration: 1.0, direction: "right" };
+  }
+
+  // --- Slide Animations ---
+
+  public addAnimation(
+    shapeId: string,
+    effect: AnimationEffect,
+    type?: AnimationType,
+    trigger: AnimationTrigger = "click",
+    duration = 0.5,
+    delay = 0
+  ): SlideAnimation | null {
+    const slide = this.slides[this.currentSlideIndex];
+    if (!slide) return null;
+    const shape = slide.shapes.find((s) => s.id === shapeId);
+    if (!shape) return null;
+
+    if (!slide.animations) {
+      slide.animations = [];
+    }
+
+    this.commitSnapshot();
+    const animType = type || getAnimationType(effect);
+    const order = slide.animations.length + 1;
+    const newAnim: SlideAnimation = {
+      id: `anim_${++this.nextAnimCounter}`,
+      shapeId,
+      type: animType,
+      effect,
+      trigger,
+      duration: Math.max(0.1, duration),
+      delay: Math.max(0, delay),
+      order,
+    };
+    slide.animations.push(newAnim);
+    this.selectedAnimationId = newAnim.id;
+    return newAnim;
+  }
+
+  public removeAnimation(animId: string): boolean {
+    const slide = this.slides[this.currentSlideIndex];
+    if (!slide || !slide.animations) return false;
+    const idx = slide.animations.findIndex((a) => a.id === animId);
+    if (idx === -1) return false;
+
+    this.commitSnapshot();
+    slide.animations.splice(idx, 1);
+    slide.animations.forEach((a, i) => {
+      a.order = i + 1;
+    });
+    if (this.selectedAnimationId === animId) {
+      this.selectedAnimationId =
+        slide.animations.length > 0
+          ? slide.animations[Math.min(idx, slide.animations.length - 1)].id
+          : null;
+    }
+    return true;
+  }
+
+  public reorderAnimation(animId: string, direction: "up" | "down"): boolean {
+    const slide = this.slides[this.currentSlideIndex];
+    if (!slide || !slide.animations) return false;
+    const idx = slide.animations.findIndex((a) => a.id === animId);
+    if (idx === -1) return false;
+
+    if (direction === "up" && idx > 0) {
+      this.commitSnapshot();
+      const temp = slide.animations[idx];
+      slide.animations[idx] = slide.animations[idx - 1];
+      slide.animations[idx - 1] = temp;
+      slide.animations.forEach((a, i) => (a.order = i + 1));
+      return true;
+    } else if (direction === "down" && idx < slide.animations.length - 1) {
+      this.commitSnapshot();
+      const temp = slide.animations[idx];
+      slide.animations[idx] = slide.animations[idx + 1];
+      slide.animations[idx + 1] = temp;
+      slide.animations.forEach((a, i) => (a.order = i + 1));
+      return true;
+    }
+    return false;
+  }
+
+  public getSlideAnimations(idx = this.currentSlideIndex): SlideAnimation[] {
+    const slide = this.slides[idx];
+    return slide?.animations ? [...slide.animations] : [];
+  }
+
+  public getShapeAnimations(shapeId: string, idx = this.currentSlideIndex): SlideAnimation[] {
+    const anims = this.getSlideAnimations(idx);
+    return anims.filter((a) => a.shapeId === shapeId);
+  }
+
+  public getSelectedAnimation(): SlideAnimation | null {
+    if (!this.selectedAnimationId) return null;
+    const anims = this.getSlideAnimations();
+    return anims.find((a) => a.id === this.selectedAnimationId) || null;
+  }
+
+  public selectAnimation(animId: string | null): void {
+    this.selectedAnimationId = animId;
+    if (animId) {
+      const anim = this.getSelectedAnimation();
+      if (anim) {
+        this.selectedShapeId = anim.shapeId;
+      }
+    }
+  }
+
+  public updateAnimation(animId: string, updates: Partial<SlideAnimation>): boolean {
+    const slide = this.slides[this.currentSlideIndex];
+    if (!slide || !slide.animations) return false;
+    const anim = slide.animations.find((a) => a.id === animId);
+    if (!anim) return false;
+
+    this.commitSnapshot();
+    if (updates.effect !== undefined) {
+      anim.effect = updates.effect;
+      anim.type = updates.type || getAnimationType(updates.effect);
+    }
+    if (updates.trigger !== undefined) anim.trigger = updates.trigger;
+    if (updates.duration !== undefined) anim.duration = Math.max(0.1, updates.duration);
+    if (updates.delay !== undefined) anim.delay = Math.max(0, updates.delay);
+    if (updates.order !== undefined) anim.order = updates.order;
+    return true;
+  }
+
+  public setAnimationTrigger(animId: string, trigger: AnimationTrigger): boolean {
+    return this.updateAnimation(animId, { trigger });
+  }
+
+  public setAnimationDuration(animId: string, duration: number): boolean {
+    return this.updateAnimation(animId, { duration });
+  }
+
+  public setAnimationDelay(animId: string, delay: number): boolean {
+    return this.updateAnimation(animId, { delay });
+  }
+
+  public clearSlideAnimations(idx = this.currentSlideIndex): void {
+    const slide = this.slides[idx];
+    if (slide && slide.animations && slide.animations.length > 0) {
+      this.commitSnapshot();
+      slide.animations = [];
+      this.selectedAnimationId = null;
+    }
+  }
+
+  // --- Slide Show Mode & Presenter Engine ---
+
+  public startShow(fromBeginning = true, presenterMode = false) {
     this.isShowActive = true;
+    this.isPresenterMode = presenterMode;
     this.isLaserActive = false;
     this.laserPos = null;
+    this.currentShowStep = 0;
     this.currentSlideIndex = fromBeginning ? 0 : this.currentSlideIndex;
   }
 
   public exitShow() {
     this.isShowActive = false;
+    this.isPresenterMode = false;
     this.isLaserActive = false;
     this.laserPos = null;
+    this.currentShowStep = 0;
+  }
+
+  public togglePresenterView(): boolean {
+    this.isPresenterMode = !this.isPresenterMode;
+    return this.isPresenterMode;
   }
 
   public nextSlide(): boolean {
@@ -791,6 +1113,7 @@ export class SlidesState {
     }
     if (nextIdx < this.slides.length) {
       this.currentSlideIndex = nextIdx;
+      this.currentShowStep = 0;
       this.laserPos = null;
       return true;
     }
@@ -805,10 +1128,99 @@ export class SlidesState {
     }
     if (prevIdx >= 0) {
       this.currentSlideIndex = prevIdx;
+      const prevAnims = this.getSlideAnimations(prevIdx);
+      this.currentShowStep = prevAnims.length;
       this.laserPos = null;
       return true;
     }
     return false;
+  }
+
+  public stepForward(): { slideChanged: boolean; finished: boolean; currentAnimation?: SlideAnimation } {
+    if (!this.isShowActive) return { slideChanged: false, finished: false };
+    const anims = this.getSlideAnimations();
+
+    if (this.currentShowStep < anims.length) {
+      const anim = anims[this.currentShowStep];
+      this.currentShowStep++;
+      return { slideChanged: false, finished: false, currentAnimation: anim };
+    }
+
+    let nextIdx = this.currentSlideIndex + 1;
+    while (nextIdx < this.slides.length && this.slides[nextIdx].isHidden) {
+      nextIdx++;
+    }
+
+    if (nextIdx < this.slides.length) {
+      this.currentSlideIndex = nextIdx;
+      this.currentShowStep = 0;
+      this.laserPos = null;
+      return { slideChanged: true, finished: false };
+    }
+
+    return { slideChanged: false, finished: true };
+  }
+
+  public stepBackward(): { slideChanged: boolean } {
+    if (!this.isShowActive) return { slideChanged: false };
+
+    if (this.currentShowStep > 0) {
+      this.currentShowStep--;
+      return { slideChanged: false };
+    }
+
+    let prevIdx = this.currentSlideIndex - 1;
+    while (prevIdx >= 0 && this.slides[prevIdx].isHidden) {
+      prevIdx--;
+    }
+
+    if (prevIdx >= 0) {
+      this.currentSlideIndex = prevIdx;
+      const prevAnims = this.getSlideAnimations(prevIdx);
+      this.currentShowStep = prevAnims.length;
+      this.laserPos = null;
+      return { slideChanged: true };
+    }
+
+    return { slideChanged: false };
+  }
+
+  public getVisibleShapesForStep(
+    slideIdx = this.currentSlideIndex,
+    step = this.currentShowStep
+  ): {
+    visibleShapeIds: Set<string>;
+    animatingShapeId?: string;
+    currentEffect?: AnimationEffect;
+  } {
+    const slide = this.slides[slideIdx];
+    if (!slide) return { visibleShapeIds: new Set() };
+    const anims = slide.animations || [];
+    const visibleIds = new Set<string>();
+
+    slide.shapes.forEach((sh) => {
+      const entranceAnim = anims.find((a) => a.shapeId === sh.id && a.type === "entrance");
+      if (!entranceAnim) {
+        visibleIds.add(sh.id);
+      }
+    });
+
+    for (let i = 0; i < step && i < anims.length; i++) {
+      const a = anims[i];
+      if (a.type === "entrance") {
+        visibleIds.add(a.shapeId);
+      } else if (a.type === "exit") {
+        visibleIds.delete(a.shapeId);
+      }
+    }
+
+    const currentAnim = step > 0 && step <= anims.length ? anims[step - 1] : undefined;
+
+    return {
+      visibleShapeIds: visibleIds,
+      animatingShapeId: currentAnim?.shapeId,
+      currentEffect: currentAnim?.effect,
+    };
   }
 
   public toggleLaser() {
@@ -1225,6 +1637,91 @@ export class SlidesState {
       case "StartShowCurrent":
         this.startShow(false);
         return true;
+      case "TogglePresenterView":
+        this.togglePresenterView();
+        return true;
+      case "StepShowForward":
+        return this.stepForward().slideChanged || true;
+      case "StepShowBackward":
+        return this.stepBackward().slideChanged || true;
+      case "SetTransition":
+        if (typeof payload === "string") {
+          this.setTransition(payload as TransitionEffect);
+          return true;
+        }
+        return false;
+      case "SetEffectOption":
+        if (typeof payload === "string") {
+          this.setTransitionDirection(payload as TransitionDirection);
+          return true;
+        }
+        return false;
+      case "SetTransitionDuration":
+        if (typeof payload === "number") {
+          this.setTransitionDuration(payload);
+          return true;
+        }
+        return false;
+      case "ApplyTransitionToAll":
+        this.applyTransitionToAll();
+        return true;
+      case "SetAnimation": {
+        const eff = (typeof payload === "string" ? payload : "fadeIn") as AnimationEffect;
+        const sel = this.getSelectedShape();
+        if (sel) {
+          this.addAnimation(sel.id, eff);
+          return true;
+        }
+        return false;
+      }
+      case "AddAnimation": {
+        if (typeof payload === "string") {
+          const sel = this.getSelectedShape();
+          if (sel) {
+            this.addAnimation(sel.id, payload as AnimationEffect);
+            return true;
+          }
+        } else if (payload && typeof payload === "object") {
+          const p = payload as {
+            shapeId: string;
+            effect: AnimationEffect;
+            trigger?: AnimationTrigger;
+            duration?: number;
+          };
+          if (p.shapeId && p.effect) {
+            this.addAnimation(p.shapeId, p.effect, undefined, p.trigger, p.duration);
+            return true;
+          }
+        }
+        return false;
+      }
+      case "RemoveAnimation":
+        if (typeof payload === "string") {
+          return this.removeAnimation(payload);
+        }
+        return false;
+      case "ReorderAnimation":
+        if (payload && typeof payload === "object") {
+          const p = payload as { animId: string; direction: "up" | "down" };
+          return this.reorderAnimation(p.animId, p.direction);
+        }
+        return false;
+      case "SetAnimStart":
+      case "SetAnimationTrigger":
+        if (typeof payload === "string" && this.selectedAnimationId) {
+          return this.setAnimationTrigger(this.selectedAnimationId, payload as AnimationTrigger);
+        }
+        return false;
+      case "SetAnimationDuration":
+        if (typeof payload === "number" && this.selectedAnimationId) {
+          return this.setAnimationDuration(this.selectedAnimationId, payload);
+        }
+        return false;
+      case "SetAnimationDelay":
+        if (typeof payload === "number" && this.selectedAnimationId) {
+          return this.setAnimationDelay(this.selectedAnimationId, payload);
+        }
+        return false;
       case "NextSlide":
         return this.nextSlide();
       case "PrevSlide":
