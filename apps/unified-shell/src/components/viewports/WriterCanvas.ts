@@ -1,4 +1,29 @@
-import { CaretPosition, WriterState, writerState } from "../../state/writerState";
+import {
+  CaretPosition,
+  WriterState,
+  writerState,
+  comparePositions,
+} from "../../state/writerState";
+
+export interface LayoutLine {
+  pageIndex: number;
+  paragraphIndex: number;
+  runIndex: number;
+  text: string;
+  x: number;
+  y: number;
+  height: number;
+  fontSize: number;
+  charAdvances: number[];
+  startOffsetInRun: number;
+  endOffsetInRun: number;
+}
+
+export interface LayoutPage {
+  pageIndex: number;
+  topY: number;
+  lines: LayoutLine[];
+}
 
 export class WriterCanvas {
   private container: HTMLElement;
@@ -17,22 +42,10 @@ export class WriterCanvas {
   private lastActivityTime = Date.now();
   private isMouseDown = false;
   private onStatusChange?: (pageText: string, words: number) => void;
+  private onDocModifiedCallback?: (action: string, payload?: unknown) => void;
 
   // Cached layout lines for hit testing and subpixel caret placement
-  private layoutPages: {
-    pageIndex: number;
-    topY: number;
-    lines: {
-      paragraphIndex: number;
-      runIndex: number;
-      text: string;
-      x: number;
-      y: number;
-      height: number;
-      fontSize: number;
-      charAdvances: number[];
-    }[];
-  }[] = [];
+  private layoutPages: LayoutPage[] = [];
 
   constructor(container: HTMLElement, state: WriterState = writerState) {
     this.container = container;
@@ -71,13 +84,25 @@ export class WriterCanvas {
     this.updateStatus();
   }
 
+  public setOnDocModified(cb: (action: string, payload?: unknown) => void) {
+    this.onDocModifiedCallback = cb;
+  }
+
+  public getCanvasElement(): HTMLCanvasElement {
+    return this.canvas;
+  }
+
+  public getState(): WriterState {
+    return this.state;
+  }
+
   public destroy() {
     if (this.caretTimer) clearInterval(this.caretTimer);
   }
 
-  private initCanvasSize() {
-    const dpr = window.devicePixelRatio || 1;
-    const totalPages = this.state.doc.pages.length;
+  public initCanvasSize() {
+    const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+    const totalPages = Math.max(1, this.state.doc.pages.length);
     const totalHeight = totalPages * this.pageHeight + (totalPages - 1) * this.pageGap + 48;
     const totalWidth = this.pageWidth + 64;
 
@@ -92,22 +117,29 @@ export class WriterCanvas {
 
   private startCaretBlink() {
     if (this.caretTimer) clearInterval(this.caretTimer);
-    this.caretTimer = window.setInterval(() => {
-      const elapsed = Date.now() - this.lastActivityTime;
-      // Solid on for first 500ms after typing/action
-      if (elapsed < 500) {
-        this.caretVisible = true;
-      } else {
-        const phase = Math.floor(elapsed / 530) % 2;
-        this.caretVisible = phase === 0;
-      }
-      this.render();
-    }, 100);
+    if (typeof window !== "undefined") {
+      this.caretTimer = window.setInterval(() => {
+        const elapsed = Date.now() - this.lastActivityTime;
+        if (elapsed < 500) {
+          this.caretVisible = true;
+        } else {
+          const phase = Math.floor(elapsed / 530) % 2;
+          this.caretVisible = phase === 0;
+        }
+        this.render();
+      }, 100);
+    }
   }
 
   private resetBlink() {
     this.lastActivityTime = Date.now();
     this.caretVisible = true;
+  }
+
+  private emitDocChange(action: string, payload?: unknown) {
+    if (this.onDocModifiedCallback) {
+      this.onDocModifiedCallback(action, payload);
+    }
   }
 
   private attachEvents() {
@@ -119,12 +151,21 @@ export class WriterCanvas {
       const pt = this.getCanvasLocalCoords(e);
       const hit = this.hitTest(pt.x, pt.y);
       if (hit) {
-        this.state.cursor = hit;
-        if (e.shiftKey) {
-          const anchor = this.state.selection ? this.state.selection.anchor : this.state.cursor;
-          this.state.selection = { anchor, focus: hit };
+        if (e.detail === 2) {
+          // Double Click: Select Word
+          this.state.selectWord(hit);
+        } else if (e.detail >= 3) {
+          // Triple Click: Select Paragraph
+          this.state.selectParagraph(hit);
         } else {
-          this.state.selection = { anchor: hit, focus: hit };
+          // Single Click: Place Caret or Extend Range
+          this.state.cursor = hit;
+          if (e.shiftKey) {
+            const anchor = this.state.selection ? this.state.selection.anchor : hit;
+            this.state.selection = { anchor, focus: hit };
+          } else {
+            this.state.selection = { anchor: hit, focus: hit };
+          }
         }
         this.render();
       }
@@ -153,6 +194,25 @@ export class WriterCanvas {
       this.handleKeyDown(e);
     });
 
+    // Support input event and IME composition for international typing
+    this.canvas.addEventListener("beforeinput", (e: Event) => {
+      const inputEvent = e as InputEvent;
+      if (inputEvent.data) {
+        e.preventDefault();
+        this.state.insertText(inputEvent.data);
+        this.emitDocChange("InsertText", { text: inputEvent.data });
+        this.render();
+      }
+    });
+
+    this.canvas.addEventListener("compositionend", (e: CompositionEvent) => {
+      if (e.data) {
+        this.state.insertText(e.data);
+        this.emitDocChange("InsertText", { text: e.data });
+        this.render();
+      }
+    });
+
     this.canvas.addEventListener("wheel", (e: WheelEvent) => {
       if (e.ctrlKey) {
         e.preventDefault();
@@ -171,7 +231,7 @@ export class WriterCanvas {
     return { x, y };
   }
 
-  private hitTest(clickX: number, clickY: number): CaretPosition | null {
+  public hitTest(clickX: number, clickY: number): CaretPosition | null {
     if (this.layoutPages.length === 0) return null;
 
     // 1. Find target page
@@ -202,36 +262,36 @@ export class WriterCanvas {
 
     // 3. Subpixel advance hit test
     const relX = clickX - closestLine.x;
-    let offset = 0;
+    let offsetInLine = 0;
     let currX = 0;
     for (let i = 0; i < closestLine.charAdvances.length; i++) {
       const adv = closestLine.charAdvances[i];
       if (relX < currX + adv / 2) {
-        offset = i;
+        offsetInLine = i;
         break;
       } else if (relX < currX + adv) {
-        offset = i + 1;
+        offsetInLine = i + 1;
         break;
       }
       currX += adv;
-      offset = i + 1;
+      offsetInLine = i + 1;
     }
+
+    const clampedOffsetInLine = Math.min(offsetInLine, closestLine.text.length);
+    const finalOffset = closestLine.startOffsetInRun + clampedOffsetInLine;
 
     return {
       pageIndex: targetPage.pageIndex,
       paragraphIndex: closestLine.paragraphIndex,
       runIndex: closestLine.runIndex,
-      offset: Math.min(offset, closestLine.text.length),
+      offset: finalOffset,
     };
   }
 
-  private handleKeyDown(e: KeyboardEvent) {
-    const page = this.state.doc.pages[this.state.cursor.pageIndex] || this.state.doc.pages[0];
-    const para = page.paragraphs[this.state.cursor.paragraphIndex] || page.paragraphs[0];
-    const run = para.runs[this.state.cursor.runIndex] || para.runs[0];
-
+  public handleKeyDown(e: KeyboardEvent) {
     this.resetBlink();
 
+    // 1. Undo / Redo / Select All / Save
     if (e.ctrlKey || e.metaKey) {
       if (e.key === "a" || e.key === "A") {
         e.preventDefault();
@@ -240,105 +300,303 @@ export class WriterCanvas {
         return;
       } else if (e.key === "z" || e.key === "Z") {
         e.preventDefault();
-        this.state.undo();
+        if (e.shiftKey) {
+          this.state.execCommand("redo");
+          this.emitDocChange("Redo");
+        } else {
+          this.state.undo();
+          this.emitDocChange("Undo");
+        }
+        this.render();
+        return;
+      } else if (e.key === "y" || e.key === "Y") {
+        e.preventDefault();
+        this.state.execCommand("redo");
+        this.emitDocChange("Redo");
         this.render();
         return;
       }
     }
 
+    // 2. Cursor Navigation
     if (e.key === "ArrowLeft") {
       e.preventDefault();
-      if (this.state.cursor.offset > 0) {
-        this.state.cursor.offset--;
-      } else if (this.state.cursor.runIndex > 0) {
-        this.state.cursor.runIndex--;
-        this.state.cursor.offset = para.runs[this.state.cursor.runIndex].text.length;
-      } else if (this.state.cursor.paragraphIndex > 0) {
-        this.state.cursor.paragraphIndex--;
-        const prevP = page.paragraphs[this.state.cursor.paragraphIndex];
-        this.state.cursor.runIndex = prevP.runs.length - 1;
-        this.state.cursor.offset = prevP.runs[this.state.cursor.runIndex].text.length;
-      } else if (this.state.cursor.pageIndex > 0) {
-        this.state.cursor.pageIndex--;
-        const prevPage = this.state.doc.pages[this.state.cursor.pageIndex];
-        this.state.cursor.paragraphIndex = prevPage.paragraphs.length - 1;
-        const prevP = prevPage.paragraphs[this.state.cursor.paragraphIndex];
-        this.state.cursor.runIndex = prevP.runs.length - 1;
-        this.state.cursor.offset = prevP.runs[this.state.cursor.runIndex].text.length;
+      const anchor = this.state.selection ? this.state.selection.anchor : { ...this.state.cursor };
+      if (e.ctrlKey || e.altKey) {
+        this.state.moveWordLeft();
+      } else {
+        this.moveCursorLeft();
       }
-      this.state.clearSelection();
-      this.render();
-    } else if (e.key === "ArrowRight") {
-      e.preventDefault();
-      if (this.state.cursor.offset < run.text.length) {
-        this.state.cursor.offset++;
-      } else if (this.state.cursor.runIndex + 1 < para.runs.length) {
-        this.state.cursor.runIndex++;
-        this.state.cursor.offset = 0;
-      } else if (this.state.cursor.paragraphIndex + 1 < page.paragraphs.length) {
-        this.state.cursor.paragraphIndex++;
-        this.state.cursor.runIndex = 0;
-        this.state.cursor.offset = 0;
-      } else if (this.state.cursor.pageIndex + 1 < this.state.doc.pages.length) {
-        this.state.cursor.pageIndex++;
-        this.state.cursor.paragraphIndex = 0;
-        this.state.cursor.runIndex = 0;
-        this.state.cursor.offset = 0;
+      if (e.shiftKey) {
+        this.state.selection = { anchor, focus: { ...this.state.cursor } };
+      } else {
+        this.state.clearSelection();
       }
-      this.state.clearSelection();
       this.render();
-    } else if (e.key === "Home") {
-      e.preventDefault();
-      this.state.cursor.offset = 0;
-      this.state.clearSelection();
-      this.render();
-    } else if (e.key === "End") {
-      e.preventDefault();
-      this.state.cursor.offset = run.text.length;
-      this.state.clearSelection();
-      this.render();
-    } else if (e.key === "Backspace") {
-      e.preventDefault();
-      if (this.state.cursor.offset > 0) {
-        run.text = run.text.slice(0, this.state.cursor.offset - 1) + run.text.slice(this.state.cursor.offset);
-        this.state.cursor.offset--;
-        this.state.saveSnapshot();
-        this.render();
-      }
-    } else if (e.key === "Delete") {
-      e.preventDefault();
-      if (this.state.cursor.offset < run.text.length) {
-        run.text = run.text.slice(0, this.state.cursor.offset) + run.text.slice(this.state.cursor.offset + 1);
-        this.state.saveSnapshot();
-        this.render();
-      }
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      const textAfter = run.text.slice(this.state.cursor.offset);
-      run.text = run.text.slice(0, this.state.cursor.offset);
+      return;
+    }
 
-      page.paragraphs.splice(this.state.cursor.paragraphIndex + 1, 0, {
-        id: `p-${Date.now()}`,
-        style: "Normal",
-        alignment: "left",
-        runs: [{ text: textAfter, font: this.state.activeFormat.font, size: this.state.activeFormat.size }],
-      });
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      const anchor = this.state.selection ? this.state.selection.anchor : { ...this.state.cursor };
+      if (e.ctrlKey || e.altKey) {
+        this.state.moveWordRight();
+      } else {
+        this.moveCursorRight();
+      }
+      if (e.shiftKey) {
+        this.state.selection = { anchor, focus: { ...this.state.cursor } };
+      } else {
+        this.state.clearSelection();
+      }
+      this.render();
+      return;
+    }
+
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      const anchor = this.state.selection ? this.state.selection.anchor : { ...this.state.cursor };
+      this.moveCursorVertical(-1);
+      if (e.shiftKey) {
+        this.state.selection = { anchor, focus: { ...this.state.cursor } };
+      } else {
+        this.state.clearSelection();
+      }
+      this.render();
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      const anchor = this.state.selection ? this.state.selection.anchor : { ...this.state.cursor };
+      this.moveCursorVertical(1);
+      if (e.shiftKey) {
+        this.state.selection = { anchor, focus: { ...this.state.cursor } };
+      } else {
+        this.state.clearSelection();
+      }
+      this.render();
+      return;
+    }
+
+    if (e.key === "Home") {
+      e.preventDefault();
+      const anchor = this.state.selection ? this.state.selection.anchor : { ...this.state.cursor };
+      if (e.ctrlKey) {
+        this.state.cursor = { pageIndex: 0, paragraphIndex: 0, runIndex: 0, offset: 0 };
+      } else {
+        this.state.cursor.offset = 0;
+      }
+      if (e.shiftKey) {
+        this.state.selection = { anchor, focus: { ...this.state.cursor } };
+      } else {
+        this.state.clearSelection();
+      }
+      this.render();
+      return;
+    }
+
+    if (e.key === "End") {
+      e.preventDefault();
+      const anchor = this.state.selection ? this.state.selection.anchor : { ...this.state.cursor };
+      if (e.ctrlKey) {
+        const lastPage = this.state.doc.pages.length - 1;
+        const lastPara = this.state.doc.pages[lastPage].paragraphs.length - 1;
+        const lastRun = this.state.doc.pages[lastPage].paragraphs[lastPara].runs.length - 1;
+        const lastOffset = this.state.doc.pages[lastPage].paragraphs[lastPara].runs[lastRun].text.length;
+        this.state.cursor = { pageIndex: lastPage, paragraphIndex: lastPara, runIndex: lastRun, offset: lastOffset };
+      } else {
+        const page = this.state.doc.pages[this.state.cursor.pageIndex];
+        const para = page?.paragraphs[this.state.cursor.paragraphIndex];
+        const run = para?.runs[this.state.cursor.runIndex];
+        if (run) this.state.cursor.offset = run.text.length;
+      }
+      if (e.shiftKey) {
+        this.state.selection = { anchor, focus: { ...this.state.cursor } };
+      } else {
+        this.state.clearSelection();
+      }
+      this.render();
+      return;
+    }
+
+    if (e.key === "PageUp") {
+      e.preventDefault();
+      const anchor = this.state.selection ? this.state.selection.anchor : { ...this.state.cursor };
+      this.state.cursor.pageIndex = Math.max(0, this.state.cursor.pageIndex - 1);
+      if (e.shiftKey) {
+        this.state.selection = { anchor, focus: { ...this.state.cursor } };
+      } else {
+        this.state.clearSelection();
+      }
+      this.render();
+      return;
+    }
+
+    if (e.key === "PageDown") {
+      e.preventDefault();
+      const anchor = this.state.selection ? this.state.selection.anchor : { ...this.state.cursor };
+      this.state.cursor.pageIndex = Math.min(this.state.doc.pages.length - 1, this.state.cursor.pageIndex + 1);
+      if (e.shiftKey) {
+        this.state.selection = { anchor, focus: { ...this.state.cursor } };
+      } else {
+        this.state.clearSelection();
+      }
+      this.render();
+      return;
+    }
+
+    // 3. Deletions & Typing
+    if (e.key === "Backspace") {
+      e.preventDefault();
+      this.state.deleteBackward();
+      this.emitDocChange("DeleteText");
+      this.render();
+      return;
+    }
+
+    if (e.key === "Delete") {
+      e.preventDefault();
+      this.state.deleteForward();
+      this.emitDocChange("DeleteText");
+      this.render();
+      return;
+    }
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (e.shiftKey) {
+        this.state.insertLineBreak();
+      } else {
+        this.state.splitParagraph();
+      }
+      this.emitDocChange("InsertText", { text: "\n" });
+      this.render();
+      return;
+    }
+
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      this.state.insertText(e.key);
+      this.emitDocChange("InsertText", { text: e.key });
+      this.render();
+      return;
+    }
+  }
+
+  private moveCursorLeft() {
+    const page = this.state.doc.pages[this.state.cursor.pageIndex];
+    if (!page) return;
+    const para = page.paragraphs[this.state.cursor.paragraphIndex];
+    if (!para) return;
+
+    if (this.state.cursor.offset > 0) {
+      this.state.cursor.offset--;
+    } else if (this.state.cursor.runIndex > 0) {
+      this.state.cursor.runIndex--;
+      this.state.cursor.offset = para.runs[this.state.cursor.runIndex].text.length;
+    } else if (this.state.cursor.paragraphIndex > 0) {
+      this.state.cursor.paragraphIndex--;
+      const prevP = page.paragraphs[this.state.cursor.paragraphIndex];
+      this.state.cursor.runIndex = prevP.runs.length - 1;
+      this.state.cursor.offset = prevP.runs[this.state.cursor.runIndex].text.length;
+    } else if (this.state.cursor.pageIndex > 0) {
+      this.state.cursor.pageIndex--;
+      const prevPage = this.state.doc.pages[this.state.cursor.pageIndex];
+      this.state.cursor.paragraphIndex = prevPage.paragraphs.length - 1;
+      const prevP = prevPage.paragraphs[this.state.cursor.paragraphIndex];
+      this.state.cursor.runIndex = prevP.runs.length - 1;
+      this.state.cursor.offset = prevP.runs[this.state.cursor.runIndex].text.length;
+    }
+  }
+
+  private moveCursorRight() {
+    const page = this.state.doc.pages[this.state.cursor.pageIndex];
+    if (!page) return;
+    const para = page.paragraphs[this.state.cursor.paragraphIndex];
+    if (!para) return;
+    const run = para.runs[this.state.cursor.runIndex];
+    if (!run) return;
+
+    if (this.state.cursor.offset < run.text.length) {
+      this.state.cursor.offset++;
+    } else if (this.state.cursor.runIndex + 1 < para.runs.length) {
+      this.state.cursor.runIndex++;
+      this.state.cursor.offset = 0;
+    } else if (this.state.cursor.paragraphIndex + 1 < page.paragraphs.length) {
       this.state.cursor.paragraphIndex++;
       this.state.cursor.runIndex = 0;
       this.state.cursor.offset = 0;
-      this.state.saveSnapshot();
-      this.render();
-    } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault();
-      run.text = run.text.slice(0, this.state.cursor.offset) + e.key + run.text.slice(this.state.cursor.offset);
-      this.state.cursor.offset++;
-      this.render();
+    } else if (this.state.cursor.pageIndex + 1 < this.state.doc.pages.length) {
+      this.state.cursor.pageIndex++;
+      this.state.cursor.paragraphIndex = 0;
+      this.state.cursor.runIndex = 0;
+      this.state.cursor.offset = 0;
     }
+  }
+
+  private moveCursorVertical(direction: -1 | 1) {
+    const allLines: LayoutLine[] = [];
+    for (const pl of this.layoutPages) {
+      allLines.push(...pl.lines);
+    }
+    if (allLines.length === 0) return;
+
+    const cur = this.state.cursor;
+    const currentLineIdx = allLines.findIndex(
+      (l) =>
+        l.pageIndex === cur.pageIndex &&
+        l.paragraphIndex === cur.paragraphIndex &&
+        l.runIndex === cur.runIndex &&
+        cur.offset >= l.startOffsetInRun &&
+        cur.offset <= l.endOffsetInRun
+    );
+
+    if (currentLineIdx === -1) {
+      if (direction === -1) this.moveCursorLeft();
+      else this.moveCursorRight();
+      return;
+    }
+
+    const currentLine = allLines[currentLineIdx];
+    const colInLine = cur.offset - currentLine.startOffsetInRun;
+    let caretX = currentLine.x;
+    for (let i = 0; i < Math.min(colInLine, currentLine.charAdvances.length); i++) {
+      caretX += currentLine.charAdvances[i];
+    }
+
+    const targetLineIdx = currentLineIdx + direction;
+    if (targetLineIdx < 0 || targetLineIdx >= allLines.length) return;
+
+    const targetLine = allLines[targetLineIdx];
+    const relX = caretX - targetLine.x;
+    let offsetInTarget = 0;
+    let currX = 0;
+    for (let i = 0; i < targetLine.charAdvances.length; i++) {
+      const adv = targetLine.charAdvances[i];
+      if (relX < currX + adv / 2) {
+        offsetInTarget = i;
+        break;
+      } else if (relX < currX + adv) {
+        offsetInTarget = i + 1;
+        break;
+      }
+      currX += adv;
+      offsetInTarget = i + 1;
+    }
+
+    this.state.cursor = {
+      pageIndex: targetLine.pageIndex,
+      paragraphIndex: targetLine.paragraphIndex,
+      runIndex: targetLine.runIndex,
+      offset: targetLine.startOffsetInRun + Math.min(offsetInTarget, targetLine.text.length),
+    };
   }
 
   public render() {
     const ctx = this.ctx;
-    const totalPages = this.state.doc.pages.length;
+    this.initCanvasSize();
+    const totalPages = Math.max(1, this.state.doc.pages.length);
     const totalHeight = totalPages * this.pageHeight + (totalPages - 1) * this.pageGap + 48;
     const totalWidth = this.pageWidth + 64;
 
@@ -370,7 +628,12 @@ export class WriterCanvas {
       // 3. Margin Guide (Light dashed)
       ctx.strokeStyle = "#f3f4f6";
       ctx.setLineDash([4, 4]);
-      ctx.strokeRect(pageX + this.marginX, pageY + this.marginY, this.pageWidth - 2 * this.marginX, this.pageHeight - 2 * this.marginY);
+      ctx.strokeRect(
+        pageX + this.marginX,
+        pageY + this.marginY,
+        this.pageWidth - 2 * this.marginX,
+        this.pageHeight - 2 * this.marginY
+      );
       ctx.setLineDash([]);
 
       // 4. Page Header & Number
@@ -379,12 +642,12 @@ export class WriterCanvas {
       ctx.textAlign = "right";
       ctx.fillText(`Page ${pIdx + 1} of ${totalPages}`, pageX + this.pageWidth - this.marginX, pageY + 48);
 
-      const pageLayout = { pageIndex: pIdx, topY: pageY, lines: [] as any[] };
+      const pageLayout: LayoutPage = { pageIndex: pIdx, topY: pageY, lines: [] };
 
       // 5. Layout & Render Paragraphs
       let lineY = pageY + this.marginY + 10;
       page.paragraphs.forEach((p, pIndex) => {
-        let lineX = pageX + this.marginX;
+        const lineX = pageX + this.marginX + (p.indent || 0);
 
         p.runs.forEach((r, rIndex) => {
           const fontSize = r.size || (p.style === "Heading1" ? 22 : p.style === "Heading2" ? 15 : 11);
@@ -397,23 +660,30 @@ export class WriterCanvas {
           if (isBold) fontStyle += "bold ";
           ctx.font = `${fontStyle}${fontSize}px ${fontFamily}, sans-serif`;
 
-          ctx.fillStyle = r.color || (p.style === "Heading1" ? "#1f497d" : p.style === "Heading2" ? "#2e75b6" : "#242424");
+          ctx.fillStyle =
+            r.color ||
+            (p.style === "Heading1" ? "#1f497d" : p.style === "Heading2" ? "#2e75b6" : "#242424");
           ctx.textAlign = "left";
 
           // Word-wrap long paragraphs into multiple lines
           const words = r.text.split(" ");
           let currentLineText = "";
+          let lineStartOffset = 0;
+          let currentCharCounter = 0;
 
           for (let w = 0; w < words.length; w++) {
-            const testLine = currentLineText ? `${currentLineText} ${words[w]}` : words[w];
+            const word = words[w];
+            const testLine = currentLineText ? `${currentLineText} ${word}` : word;
             const testWidth = ctx.measureText(testLine).width;
-            const maxLineWidth = this.pageWidth - 2 * this.marginX;
+            const maxLineWidth = this.pageWidth - 2 * this.marginX - (p.indent || 0);
 
             if (testWidth > maxLineWidth && currentLineText) {
               // Draw line
               this.renderTextLine(ctx, currentLineText, lineX, lineY, fontSize, r.underline || false);
               const charAdv = this.computeCharAdvances(ctx, currentLineText);
+              const lineEndOffset = lineStartOffset + currentLineText.length;
               pageLayout.lines.push({
+                pageIndex: pIdx,
                 paragraphIndex: pIndex,
                 runIndex: rIndex,
                 text: currentLineText,
@@ -422,19 +692,42 @@ export class WriterCanvas {
                 height: fontSize * 1.25,
                 fontSize,
                 charAdvances: charAdv,
+                startOffsetInRun: lineStartOffset,
+                endOffsetInRun: lineEndOffset,
               });
 
+              // Check if caret sits in this line
+              if (
+                pIdx === this.state.cursor.pageIndex &&
+                pIndex === this.state.cursor.paragraphIndex &&
+                rIndex === this.state.cursor.runIndex &&
+                this.state.cursor.offset >= lineStartOffset &&
+                this.state.cursor.offset <= lineEndOffset
+              ) {
+                const textBefore = currentLineText.slice(0, this.state.cursor.offset - lineStartOffset);
+                const subpixelWidth = ctx.measureText(textBefore).width;
+                caretRenderCoords = {
+                  x: lineX + subpixelWidth,
+                  y: lineY - fontSize + 2,
+                  height: fontSize * 1.25,
+                };
+              }
+
               lineY += fontSize * 1.35;
-              currentLineText = words[w];
+              lineStartOffset = lineEndOffset + 1; // skip space
+              currentLineText = word;
             } else {
               currentLineText = testLine;
             }
+            currentCharCounter += word.length + 1;
           }
 
-          if (currentLineText) {
+          if (currentLineText !== "") {
             this.renderTextLine(ctx, currentLineText, lineX, lineY, fontSize, r.underline || false);
             const charAdv = this.computeCharAdvances(ctx, currentLineText);
+            const lineEndOffset = lineStartOffset + currentLineText.length;
             pageLayout.lines.push({
+              pageIndex: pIdx,
               paragraphIndex: pIndex,
               runIndex: rIndex,
               text: currentLineText,
@@ -443,14 +736,52 @@ export class WriterCanvas {
               height: fontSize * 1.25,
               fontSize,
               charAdvances: charAdv,
+              startOffsetInRun: lineStartOffset,
+              endOffsetInRun: lineEndOffset,
             });
 
             // Caret tracking
-            if (pIdx === this.state.cursor.pageIndex && pIndex === this.state.cursor.paragraphIndex && rIndex === this.state.cursor.runIndex) {
-              const textBefore = r.text.slice(0, this.state.cursor.offset);
+            if (
+              pIdx === this.state.cursor.pageIndex &&
+              pIndex === this.state.cursor.paragraphIndex &&
+              rIndex === this.state.cursor.runIndex &&
+              this.state.cursor.offset >= lineStartOffset &&
+              this.state.cursor.offset <= lineEndOffset
+            ) {
+              const textBefore = currentLineText.slice(0, this.state.cursor.offset - lineStartOffset);
               const subpixelWidth = ctx.measureText(textBefore).width;
               caretRenderCoords = {
                 x: lineX + subpixelWidth,
+                y: lineY - fontSize + 2,
+                height: fontSize * 1.25,
+              };
+            }
+
+            lineY += fontSize * 1.35;
+          } else if (r.text === "") {
+            // Empty run / empty paragraph caret support
+            const charAdv = [0];
+            pageLayout.lines.push({
+              pageIndex: pIdx,
+              paragraphIndex: pIndex,
+              runIndex: rIndex,
+              text: "",
+              x: lineX,
+              y: lineY - fontSize + 2,
+              height: fontSize * 1.25,
+              fontSize,
+              charAdvances: charAdv,
+              startOffsetInRun: 0,
+              endOffsetInRun: 0,
+            });
+
+            if (
+              pIdx === this.state.cursor.pageIndex &&
+              pIndex === this.state.cursor.paragraphIndex &&
+              rIndex === this.state.cursor.runIndex
+            ) {
+              caretRenderCoords = {
+                x: lineX,
                 y: lineY - fontSize + 2,
                 height: fontSize * 1.25,
               };
@@ -467,14 +798,51 @@ export class WriterCanvas {
       currentY += this.pageHeight + this.pageGap;
     });
 
-    // 6. Text Selection Highlighting
+    // 6. Text Selection Highlighting across runs, lines, and paragraphs
     if (this.state.selection && !this.state.isSelectionCollapsed()) {
       ctx.fillStyle = "rgba(51, 153, 255, 0.35)";
-      const sel = this.state.selection;
+      const isForward = comparePositions(this.state.selection.anchor, this.state.selection.focus) <= 0;
+      const start = isForward ? this.state.selection.anchor : this.state.selection.focus;
+      const end = isForward ? this.state.selection.focus : this.state.selection.anchor;
+
       for (const pl of this.layoutPages) {
-        if (pl.pageIndex >= sel.anchor.pageIndex && pl.pageIndex <= sel.focus.pageIndex) {
-          for (const l of pl.lines) {
-            ctx.fillRect(l.x, l.y, ctx.measureText(l.text).width, l.height);
+        for (const l of pl.lines) {
+          const lineStartPos: CaretPosition = {
+            pageIndex: l.pageIndex,
+            paragraphIndex: l.paragraphIndex,
+            runIndex: l.runIndex,
+            offset: l.startOffsetInRun,
+          };
+          const lineEndPos: CaretPosition = {
+            pageIndex: l.pageIndex,
+            paragraphIndex: l.paragraphIndex,
+            runIndex: l.runIndex,
+            offset: l.endOffsetInRun,
+          };
+
+          if (comparePositions(lineEndPos, start) <= 0 || comparePositions(lineStartPos, end) >= 0) {
+            continue;
+          }
+
+          const startCol =
+            comparePositions(lineStartPos, start) < 0
+              ? Math.max(0, start.offset - l.startOffsetInRun)
+              : 0;
+          const endCol =
+            comparePositions(lineEndPos, end) > 0
+              ? Math.min(l.text.length, end.offset - l.startOffsetInRun)
+              : l.text.length;
+
+          if (startCol < endCol) {
+            let leftX = l.x;
+            for (let i = 0; i < startCol; i++) {
+              leftX += l.charAdvances[i] || 0;
+            }
+            let width = 0;
+            for (let i = startCol; i < endCol; i++) {
+              width += l.charAdvances[i] || 0;
+            }
+            ctx.fillRect(leftX, l.y, Math.max(2, width), l.height);
           }
         }
       }
@@ -495,7 +863,7 @@ export class WriterCanvas {
     x: number,
     y: number,
     _fontSize: number,
-    underline: boolean,
+    underline: boolean
   ) {
     ctx.fillText(text, x, y);
     if (underline) {
@@ -520,7 +888,7 @@ export class WriterCanvas {
   private updateStatus() {
     if (this.onStatusChange) {
       const pageNum = this.state.cursor.pageIndex + 1;
-      const totalPages = this.state.doc.pages.length;
+      const totalPages = Math.max(1, this.state.doc.pages.length);
       const words = this.state.getTotalWords();
       this.onStatusChange(`Page ${pageNum} of ${totalPages}`, words);
     }

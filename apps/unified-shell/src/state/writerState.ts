@@ -43,6 +43,13 @@ export interface SelectionRange {
   focus: CaretPosition;
 }
 
+export function comparePositions(a: CaretPosition, b: CaretPosition): number {
+  if (a.pageIndex !== b.pageIndex) return a.pageIndex - b.pageIndex;
+  if (a.paragraphIndex !== b.paragraphIndex) return a.paragraphIndex - b.paragraphIndex;
+  if (a.runIndex !== b.runIndex) return a.runIndex - b.runIndex;
+  return a.offset - b.offset;
+}
+
 export class WriterState {
   doc: WordDocumentModel = {
     id: "doc-1",
@@ -214,6 +221,306 @@ export class WriterState {
 
   public clearSelection() {
     this.selection = null;
+  }
+
+  public deleteSelection(): boolean {
+    if (!this.selection || this.isSelectionCollapsed()) return false;
+    this.saveSnapshot();
+
+    const isForward = comparePositions(this.selection.anchor, this.selection.focus) <= 0;
+    const start = isForward ? this.selection.anchor : this.selection.focus;
+    const end = isForward ? this.selection.focus : this.selection.anchor;
+
+    const startPage = this.doc.pages[start.pageIndex];
+    const endPage = this.doc.pages[end.pageIndex];
+    if (!startPage || !endPage) return false;
+
+    const startPara = startPage.paragraphs[start.paragraphIndex];
+    const endPara = endPage.paragraphs[end.paragraphIndex];
+    if (!startPara || !endPara) return false;
+
+    if (start.pageIndex === end.pageIndex && start.paragraphIndex === end.paragraphIndex) {
+      if (start.runIndex === end.runIndex) {
+        const run = startPara.runs[start.runIndex];
+        if (run) {
+          run.text = run.text.slice(0, start.offset) + run.text.slice(end.offset);
+        }
+      } else {
+        const startRun = startPara.runs[start.runIndex];
+        const endRun = startPara.runs[end.runIndex];
+        const remainingEndText = endRun ? endRun.text.slice(end.offset) : "";
+        if (startRun) {
+          startRun.text = startRun.text.slice(0, start.offset) + remainingEndText;
+        }
+        startPara.runs.splice(start.runIndex + 1, end.runIndex - start.runIndex);
+      }
+    } else {
+      const startRun = startPara.runs[start.runIndex];
+      const endRemainingRuns = endPara.runs.slice(end.runIndex);
+      if (endRemainingRuns.length > 0) {
+        endRemainingRuns[0].text = endRemainingRuns[0].text.slice(end.offset);
+      }
+      if (startRun) {
+        startRun.text = startRun.text.slice(0, start.offset);
+      }
+      startPara.runs = startPara.runs.slice(0, start.runIndex + 1).concat(endRemainingRuns);
+
+      if (start.pageIndex === end.pageIndex) {
+        startPage.paragraphs.splice(start.paragraphIndex + 1, end.paragraphIndex - start.paragraphIndex);
+      } else {
+        startPage.paragraphs.splice(start.paragraphIndex + 1);
+        for (let p = start.pageIndex + 1; p < end.pageIndex; p++) {
+          this.doc.pages[p].paragraphs = [];
+        }
+        endPage.paragraphs.splice(0, end.paragraphIndex + 1);
+      }
+    }
+
+    this.cursor = { ...start };
+    this.clearSelection();
+    return true;
+  }
+
+  public insertText(text: string): void {
+    if (this.selection && !this.isSelectionCollapsed()) {
+      this.deleteSelection();
+    }
+    const page = this.doc.pages[this.cursor.pageIndex] || this.doc.pages[0];
+    let para = page.paragraphs[this.cursor.paragraphIndex];
+    if (!para) {
+      para = {
+        id: `p-${Date.now()}`,
+        style: "Normal",
+        alignment: this.activeFormat.alignment,
+        runs: [],
+      };
+      page.paragraphs.push(para);
+      this.cursor.paragraphIndex = page.paragraphs.length - 1;
+    }
+    let run = para.runs[this.cursor.runIndex];
+    if (!run) {
+      run = {
+        text: "",
+        font: this.activeFormat.font,
+        size: this.activeFormat.size,
+        bold: this.activeFormat.bold,
+        italic: this.activeFormat.italic,
+        color: this.activeFormat.color,
+      };
+      para.runs.push(run);
+      this.cursor.runIndex = para.runs.length - 1;
+    }
+
+    run.text = run.text.slice(0, this.cursor.offset) + text + run.text.slice(this.cursor.offset);
+    this.cursor.offset += text.length;
+    this.clearSelection();
+    this.saveSnapshot();
+  }
+
+  public deleteBackward(): void {
+    if (this.selection && !this.isSelectionCollapsed()) {
+      this.deleteSelection();
+      return;
+    }
+    const page = this.doc.pages[this.cursor.pageIndex] || this.doc.pages[0];
+    const para = page.paragraphs[this.cursor.paragraphIndex];
+    if (!para) return;
+    const run = para.runs[this.cursor.runIndex];
+    if (!run) return;
+
+    if (this.cursor.offset > 0) {
+      run.text = run.text.slice(0, this.cursor.offset - 1) + run.text.slice(this.cursor.offset);
+      this.cursor.offset--;
+      this.saveSnapshot();
+    } else if (this.cursor.offset === 0) {
+      if (this.cursor.runIndex > 0) {
+        this.cursor.runIndex--;
+        const prevRun = para.runs[this.cursor.runIndex];
+        this.cursor.offset = prevRun.text.length;
+        if (prevRun.text.length > 0) {
+          prevRun.text = prevRun.text.slice(0, -1);
+          this.cursor.offset--;
+          this.saveSnapshot();
+        }
+      } else if (this.cursor.paragraphIndex > 0) {
+        const prevP = page.paragraphs[this.cursor.paragraphIndex - 1];
+        const lastRunIdx = prevP.runs.length > 0 ? prevP.runs.length - 1 : 0;
+        const lastRun = prevP.runs[lastRunIdx];
+        const mergeOffset = lastRun ? lastRun.text.length : 0;
+
+        prevP.runs.push(...para.runs);
+        page.paragraphs.splice(this.cursor.paragraphIndex, 1);
+
+        this.cursor.paragraphIndex--;
+        this.cursor.runIndex = lastRunIdx;
+        this.cursor.offset = mergeOffset;
+        this.saveSnapshot();
+      } else if (this.cursor.pageIndex > 0) {
+        this.cursor.pageIndex--;
+        const prevPage = this.doc.pages[this.cursor.pageIndex];
+        this.cursor.paragraphIndex = prevPage.paragraphs.length - 1;
+        const prevP = prevPage.paragraphs[this.cursor.paragraphIndex];
+        this.cursor.runIndex = prevP.runs.length - 1;
+        this.cursor.offset = prevP.runs[this.cursor.runIndex].text.length;
+      }
+    }
+  }
+
+  public deleteForward(): void {
+    if (this.selection && !this.isSelectionCollapsed()) {
+      this.deleteSelection();
+      return;
+    }
+    const page = this.doc.pages[this.cursor.pageIndex] || this.doc.pages[0];
+    const para = page.paragraphs[this.cursor.paragraphIndex];
+    if (!para) return;
+    const run = para.runs[this.cursor.runIndex];
+    if (!run) return;
+
+    if (this.cursor.offset < run.text.length) {
+      run.text = run.text.slice(0, this.cursor.offset) + run.text.slice(this.cursor.offset + 1);
+      this.saveSnapshot();
+    } else if (this.cursor.runIndex + 1 < para.runs.length) {
+      const nextRun = para.runs[this.cursor.runIndex + 1];
+      if (nextRun.text.length > 0) {
+        nextRun.text = nextRun.text.slice(1);
+        this.saveSnapshot();
+      }
+    } else if (this.cursor.paragraphIndex + 1 < page.paragraphs.length) {
+      const nextP = page.paragraphs[this.cursor.paragraphIndex + 1];
+      para.runs.push(...nextP.runs);
+      page.paragraphs.splice(this.cursor.paragraphIndex + 1, 1);
+      this.saveSnapshot();
+    }
+  }
+
+  public splitParagraph(): void {
+    if (this.selection && !this.isSelectionCollapsed()) {
+      this.deleteSelection();
+    }
+    const page = this.doc.pages[this.cursor.pageIndex] || this.doc.pages[0];
+    const para = page.paragraphs[this.cursor.paragraphIndex];
+    if (!para) return;
+    const run = para.runs[this.cursor.runIndex];
+    if (!run) return;
+
+    const textBefore = run.text.slice(0, this.cursor.offset);
+    const textAfter = run.text.slice(this.cursor.offset);
+    run.text = textBefore;
+
+    const remainingRuns = para.runs.slice(this.cursor.runIndex + 1);
+    para.runs = para.runs.slice(0, this.cursor.runIndex + 1);
+
+    const newParaRuns: WordRun[] = [
+      {
+        text: textAfter,
+        font: run.font || this.activeFormat.font,
+        size: run.size || this.activeFormat.size,
+        bold: run.bold,
+        italic: run.italic,
+        color: run.color,
+      },
+      ...remainingRuns,
+    ];
+
+    const newPara: WordParagraph = {
+      id: `p-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      style: para.style === "Title" || para.style.startsWith("Heading") ? "Normal" : para.style,
+      alignment: para.alignment,
+      runs: newParaRuns,
+    };
+
+    page.paragraphs.splice(this.cursor.paragraphIndex + 1, 0, newPara);
+    this.cursor.paragraphIndex++;
+    this.cursor.runIndex = 0;
+    this.cursor.offset = 0;
+    this.clearSelection();
+    this.saveSnapshot();
+  }
+
+  public insertLineBreak(): void {
+    this.insertText("\n");
+  }
+
+  public selectWord(pos: CaretPosition): void {
+    const page = this.doc.pages[pos.pageIndex];
+    if (!page) return;
+    const para = page.paragraphs[pos.paragraphIndex];
+    if (!para) return;
+    const run = para.runs[pos.runIndex];
+    if (!run) return;
+
+    const text = run.text;
+    let start = Math.min(pos.offset, text.length);
+    let end = Math.min(pos.offset, text.length);
+
+    while (start > 0 && /\w/.test(text[start - 1])) {
+      start--;
+    }
+    while (end < text.length && /\w/.test(text[end])) {
+      end++;
+    }
+
+    this.selection = {
+      anchor: { ...pos, offset: start },
+      focus: { ...pos, offset: end },
+    };
+    this.cursor = { ...pos, offset: end };
+  }
+
+  public selectParagraph(pos: CaretPosition): void {
+    const page = this.doc.pages[pos.pageIndex];
+    if (!page) return;
+    const para = page.paragraphs[pos.paragraphIndex];
+    if (!para) return;
+
+    const lastRunIdx = Math.max(0, para.runs.length - 1);
+    const lastRun = para.runs[lastRunIdx];
+    const lastOffset = lastRun ? lastRun.text.length : 0;
+
+    this.selection = {
+      anchor: { pageIndex: pos.pageIndex, paragraphIndex: pos.paragraphIndex, runIndex: 0, offset: 0 },
+      focus: { pageIndex: pos.pageIndex, paragraphIndex: pos.paragraphIndex, runIndex: lastRunIdx, offset: lastOffset },
+    };
+    this.cursor = { pageIndex: pos.pageIndex, paragraphIndex: pos.paragraphIndex, runIndex: lastRunIdx, offset: lastOffset };
+  }
+
+  public moveWordLeft(): void {
+    const page = this.doc.pages[this.cursor.pageIndex];
+    if (!page) return;
+    const para = page.paragraphs[this.cursor.paragraphIndex];
+    if (!para) return;
+    const run = para.runs[this.cursor.runIndex];
+    if (!run) return;
+
+    let offset = this.cursor.offset;
+    const text = run.text;
+    while (offset > 0 && /\s/.test(text[offset - 1])) {
+      offset--;
+    }
+    while (offset > 0 && !/\s/.test(text[offset - 1])) {
+      offset--;
+    }
+    this.cursor.offset = offset;
+  }
+
+  public moveWordRight(): void {
+    const page = this.doc.pages[this.cursor.pageIndex];
+    if (!page) return;
+    const para = page.paragraphs[this.cursor.paragraphIndex];
+    if (!para) return;
+    const run = para.runs[this.cursor.runIndex];
+    if (!run) return;
+
+    let offset = this.cursor.offset;
+    const text = run.text;
+    while (offset < text.length && !/\s/.test(text[offset])) {
+      offset++;
+    }
+    while (offset < text.length && /\s/.test(text[offset])) {
+      offset++;
+    }
+    this.cursor.offset = offset;
   }
 
   public getTotalWords(): number {

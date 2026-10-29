@@ -298,6 +298,10 @@ export class UnifiedShellApp {
     return this.hubLauncher;
   }
 
+  public getWriterCanvas(): WriterCanvas | undefined {
+    return this.writerCanvas;
+  }
+
   public toggleBackstage() {
     if (this.backstageMenu.isOpen()) {
       this.backstageMenu.hide();
@@ -436,6 +440,18 @@ export class UnifiedShellApp {
           const wordInfo = document.getElementById("status-word-count");
           if (docInfo) docInfo.textContent = pInfo;
           if (wordInfo) wordInfo.textContent = `${words} words`;
+        });
+        this.writerCanvas.setOnDocModified((action, payload) => {
+          this.tabBar.setDirty(tab.id, true);
+          if (action === "InsertText") {
+            const text = (payload as { text?: string })?.text || "";
+            IPC.dispatchUiAction(tab.id, { type: "InsertText", payload: { text } }).catch(() => {});
+          } else if (action === "DeleteText") {
+            IPC.dispatchUiAction(tab.id, {
+              type: "DeleteTextRange",
+              payload: { offset: 0, length: 1 },
+            }).catch(() => {});
+          }
         });
       } else if (tab.docType === "Excel") {
         this.calcGridCanvas = new CalcGridCanvas(viewportContainer, calcState);
