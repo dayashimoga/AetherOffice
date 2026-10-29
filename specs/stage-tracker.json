@@ -517,9 +517,9 @@
                           "title":  "Slides Home, Insert \u0026 Design Ribbons: Shapes, Images, Tables, Themes \u0026 Backgrounds",
                           "crate":  "ppt-engine",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-11/subphase-11.1.2.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-29T15:22:02Z"
                       },
                       {
                           "id":  "11.2.1",

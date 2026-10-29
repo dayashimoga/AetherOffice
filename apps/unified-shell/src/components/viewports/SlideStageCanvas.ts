@@ -93,12 +93,18 @@ export class SlideStageCanvas {
   }
 
   private initCanvasSize() {
+    const w = this.state.slideWidth;
+    const h = this.state.slideHeight;
     const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
-    this.canvas.width = this.slideWidth * dpr;
-    this.canvas.height = this.slideHeight * dpr;
-    this.canvas.style.width = `${this.slideWidth}px`;
-    this.canvas.style.height = `${this.slideHeight}px`;
-    if (this.ctx.scale) {
+    this.wrapper.style.width = `${w}px`;
+    this.wrapper.style.height = `${h}px`;
+    this.canvas.width = w * dpr;
+    this.canvas.height = h * dpr;
+    this.canvas.style.width = `${w}px`;
+    this.canvas.style.height = `${h}px`;
+    if (this.ctx.setTransform) {
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    } else if (this.ctx.scale) {
       this.ctx.scale(dpr, dpr);
     }
   }
@@ -649,15 +655,35 @@ export class SlideStageCanvas {
   }
 
   public render() {
+    if (
+      this.slideWidth !== this.state.slideWidth ||
+      this.slideHeight !== this.state.slideHeight
+    ) {
+      this.slideWidth = this.state.slideWidth;
+      this.slideHeight = this.state.slideHeight;
+      this.initCanvasSize();
+    }
+
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.slideWidth, this.slideHeight);
 
-    // 1. Slide Surface
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, this.slideWidth, this.slideHeight);
-
     const slide = this.state.slides[this.state.currentSlideIndex];
     if (!slide) return;
+
+    // 1. Slide Surface / Background
+    if (slide.background) {
+      if (slide.background.startsWith("linear-gradient")) {
+        const grad = ctx.createLinearGradient(0, 0, this.slideWidth, this.slideHeight);
+        grad.addColorStop(0, "#f8fafc");
+        grad.addColorStop(1, "#cbd5e1");
+        ctx.fillStyle = grad;
+      } else {
+        ctx.fillStyle = slide.background;
+      }
+    } else {
+      ctx.fillStyle = "#ffffff";
+    }
+    ctx.fillRect(0, 0, this.slideWidth, this.slideHeight);
 
     // 2. Render Slide Shapes
     slide.shapes.forEach((sh) => {
@@ -781,6 +807,145 @@ export class SlideStageCanvas {
           ctx.closePath();
           ctx.fill();
           if (sh.stroke) ctx.stroke();
+          break;
+        }
+
+        case "callout": {
+          const rad = 8;
+          const pointerW = 20;
+          const pointerH = 16;
+          const bodyH = Math.max(20, sh.h - pointerH);
+          ctx.beginPath();
+          ctx.moveTo(sh.x + rad, sh.y);
+          ctx.lineTo(sh.x + sh.w - rad, sh.y);
+          ctx.quadraticCurveTo(sh.x + sh.w, sh.y, sh.x + sh.w, sh.y + rad);
+          ctx.lineTo(sh.x + sh.w, sh.y + bodyH - rad);
+          ctx.quadraticCurveTo(sh.x + sh.w, sh.y + bodyH, sh.x + sh.w - rad, sh.y + bodyH);
+          ctx.lineTo(sh.x + 40 + pointerW, sh.y + bodyH);
+          ctx.lineTo(sh.x + 25, sh.y + sh.h);
+          ctx.lineTo(sh.x + 40, sh.y + bodyH);
+          ctx.lineTo(sh.x + rad, sh.y + bodyH);
+          ctx.quadraticCurveTo(sh.x, sh.y + bodyH, sh.x, sh.y + bodyH - rad);
+          ctx.lineTo(sh.x, sh.y + rad);
+          ctx.quadraticCurveTo(sh.x, sh.y, sh.x + rad, sh.y);
+          ctx.closePath();
+          ctx.fill();
+          if (sh.stroke) ctx.stroke();
+          break;
+        }
+
+        case "heart": {
+          const topH = sh.h * 0.3;
+          ctx.beginPath();
+          ctx.moveTo(sh.x + sh.w / 2, sh.y + topH);
+          ctx.bezierCurveTo(
+            sh.x + sh.w / 2,
+            sh.y,
+            sh.x,
+            sh.y,
+            sh.x,
+            sh.y + topH
+          );
+          ctx.bezierCurveTo(
+            sh.x,
+            sh.y + (sh.h + topH) / 2,
+            sh.x + sh.w / 2,
+            sh.y + (sh.h + topH) / 2,
+            sh.x + sh.w / 2,
+            sh.y + sh.h
+          );
+          ctx.bezierCurveTo(
+            sh.x + sh.w / 2,
+            sh.y + (sh.h + topH) / 2,
+            sh.x + sh.w,
+            sh.y + (sh.h + topH) / 2,
+            sh.x + sh.w,
+            sh.y + topH
+          );
+          ctx.bezierCurveTo(
+            sh.x + sh.w,
+            sh.y,
+            sh.x + sh.w / 2,
+            sh.y,
+            sh.x + sh.w / 2,
+            sh.y + topH
+          );
+          ctx.closePath();
+          ctx.fill();
+          if (sh.stroke) ctx.stroke();
+          break;
+        }
+
+        case "image": {
+          ctx.fillRect(sh.x, sh.y, sh.w, sh.h);
+          if (sh.stroke) ctx.strokeRect(sh.x, sh.y, sh.w, sh.h);
+
+          ctx.save();
+          ctx.fillStyle = "#64748b";
+          ctx.font = "24px Segoe UI, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("🖼️", sh.x + sh.w / 2, sh.y + sh.h / 2 - 12);
+
+          ctx.font = "12px Segoe UI, sans-serif";
+          ctx.fillStyle = "#475569";
+          ctx.fillText(sh.imageAlt || "Picture", sh.x + sh.w / 2, sh.y + sh.h / 2 + 16);
+          ctx.restore();
+          break;
+        }
+
+        case "table": {
+          ctx.fillRect(sh.x, sh.y, sh.w, sh.h);
+          const headers = sh.tableHeaders || ["Col 1", "Col 2", "Col 3"];
+          const data = sh.tableData || [];
+          const totalRows = 1 + data.length;
+          const cols = headers.length;
+          const colW = sh.w / cols;
+          const rowH = sh.h / Math.max(1, totalRows);
+
+          // Header row background
+          ctx.fillStyle = "#c43e1c"; // Accent header
+          ctx.fillRect(sh.x, sh.y, sh.w, rowH);
+
+          // Header text
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 13px Aptos, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          headers.forEach((h, c) => {
+            ctx.fillText(h, sh.x + c * colW + colW / 2, sh.y + rowH / 2);
+          });
+
+          // Data rows
+          ctx.font = "12px Aptos, sans-serif";
+          data.forEach((row, r) => {
+            const rowY = sh.y + (r + 1) * rowH;
+            if (r % 2 === 1) {
+              ctx.fillStyle = "#f8fafc";
+              ctx.fillRect(sh.x, rowY, sh.w, rowH);
+            }
+            ctx.fillStyle = "#1e293b";
+            row.forEach((val, c) => {
+              ctx.fillText(val, sh.x + c * colW + colW / 2, rowY + rowH / 2);
+            });
+          });
+
+          // Grid lines
+          ctx.strokeStyle = sh.stroke || "#cbd5e1";
+          ctx.lineWidth = sh.strokeWidth || 1;
+          ctx.strokeRect(sh.x, sh.y, sh.w, sh.h);
+          for (let c = 1; c < cols; c++) {
+            ctx.beginPath();
+            ctx.moveTo(sh.x + c * colW, sh.y);
+            ctx.lineTo(sh.x + c * colW, sh.y + sh.h);
+            ctx.stroke();
+          }
+          for (let r = 1; r < totalRows; r++) {
+            ctx.beginPath();
+            ctx.moveTo(sh.x, sh.y + r * rowH);
+            ctx.lineTo(sh.x + sh.w, sh.y + r * rowH);
+            ctx.stroke();
+          }
           break;
         }
 

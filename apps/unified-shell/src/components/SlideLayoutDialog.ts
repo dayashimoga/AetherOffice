@@ -241,3 +241,4 @@ export class SlideLayoutDialog {
     this.dialog.appendChild(footer);
   }
 }
+

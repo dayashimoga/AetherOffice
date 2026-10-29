@@ -7,13 +7,20 @@ export type PresetShapeKind =
   | "arrow"
   | "star"
   | "diamond"
-  | "callout";
+  | "callout"
+  | "heart"
+  | "image"
+  | "table";
 
 export type ThemePresetName =
   | "OfficeDefault"
   | "DarkMode"
   | "VibrantCoral"
-  | "HighContrast";
+  | "HighContrast"
+  | "EmeraldForest"
+  | "OceanBreeze"
+  | "SunsetGlow"
+  | "SlateMinimal";
 
 export type SlideLayoutType =
   | "title"
@@ -39,6 +46,10 @@ export interface SlideShape {
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
+  imageUrl?: string;
+  imageAlt?: string;
+  tableData?: string[][];
+  tableHeaders?: string[];
   zIndex?: number;
 }
 
@@ -48,6 +59,8 @@ export interface SlideData {
   shapes: SlideShape[];
   isHidden?: boolean;
   transition?: string;
+  notes?: string;
+  background?: string;
 }
 
 export class SlidesState {
@@ -197,6 +210,11 @@ export class SlidesState {
   currentSlideIndex = 0;
   selectedShapeId: string | null = null;
   currentTheme: ThemePresetName = "OfficeDefault";
+
+  // Slide Dimension State
+  slideAspectRatio: "16:9" | "4:3" = "16:9";
+  slideWidth = 960;
+  slideHeight = 540;
 
   // Slide Show State
   isShowActive = false;
@@ -637,26 +655,76 @@ export class SlidesState {
     let textColor = "#1e293b";
     let primaryAccent = "#2563eb";
     let secondaryAccent = "#10b981";
+    let bg = "#ffffff";
+    let fontFamily = "Aptos, Calibri, sans-serif";
 
-    if (theme === "DarkMode") {
-      textColor = "#f1f1f1";
-      primaryAccent = "#6366f1";
-      secondaryAccent = "#06b6d4";
-    } else if (theme === "VibrantCoral") {
-      textColor = "#18181b";
-      primaryAccent = "#c43e1c";
-      secondaryAccent = "#0d9488";
-    } else if (theme === "HighContrast") {
-      textColor = "#ffffff";
-      primaryAccent = "#ffff00";
-      secondaryAccent = "#00ffff";
+    switch (theme) {
+      case "DarkMode":
+        textColor = "#f8fafc";
+        primaryAccent = "#6366f1";
+        secondaryAccent = "#06b6d4";
+        bg = "#0f172a";
+        fontFamily = "Segoe UI, sans-serif";
+        break;
+      case "VibrantCoral":
+        textColor = "#18181b";
+        primaryAccent = "#c43e1c";
+        secondaryAccent = "#0d9488";
+        bg = "#fff7ed";
+        fontFamily = "Calibri, sans-serif";
+        break;
+      case "HighContrast":
+        textColor = "#ffffff";
+        primaryAccent = "#ffff00";
+        secondaryAccent = "#00ffff";
+        bg = "#000000";
+        fontFamily = "Segoe UI, sans-serif";
+        break;
+      case "EmeraldForest":
+        textColor = "#064e3b";
+        primaryAccent = "#059669";
+        secondaryAccent = "#d97706";
+        bg = "#f0fdf4";
+        fontFamily = "Georgia, serif";
+        break;
+      case "OceanBreeze":
+        textColor = "#0c4a6e";
+        primaryAccent = "#0284c7";
+        secondaryAccent = "#14b8a6";
+        bg = "#f0f9ff";
+        fontFamily = "Arial, sans-serif";
+        break;
+      case "SunsetGlow":
+        textColor = "#701a75";
+        primaryAccent = "#e11d48";
+        secondaryAccent = "#f59e0b";
+        bg = "#fdf2f8";
+        fontFamily = "Century Gothic, sans-serif";
+        break;
+      case "SlateMinimal":
+        textColor = "#334155";
+        primaryAccent = "#475569";
+        secondaryAccent = "#3b82f6";
+        bg = "#f8fafc";
+        fontFamily = "Segoe UI, sans-serif";
+        break;
+      case "OfficeDefault":
+      default:
+        textColor = "#1e293b";
+        primaryAccent = "#2563eb";
+        secondaryAccent = "#10b981";
+        bg = "#ffffff";
+        fontFamily = "Aptos, Calibri, sans-serif";
+        break;
     }
 
     // Apply theme styling across all slides
     this.slides.forEach((slide) => {
+      slide.background = bg;
       slide.shapes.forEach((sh) => {
         if (sh.type === "text") {
           sh.textColor = textColor;
+          sh.fontFamily = fontFamily;
         } else if (sh.id.endsWith("2") || sh.id.endsWith("3")) {
           sh.fill = primaryAccent;
         } else if (sh.id.endsWith("4") || sh.id.endsWith("5")) {
@@ -664,6 +732,39 @@ export class SlidesState {
         }
       });
     });
+  }
+
+  public setSlideSize(ratio: "16:9" | "4:3") {
+    this.commitSnapshot();
+    this.slideAspectRatio = ratio;
+    if (ratio === "4:3") {
+      this.slideWidth = 720;
+      this.slideHeight = 540;
+    } else {
+      this.slideWidth = 960;
+      this.slideHeight = 540;
+    }
+  }
+
+  public setSlideBackground(bg: string, applyToAll = false) {
+    this.commitSnapshot();
+    if (applyToAll) {
+      this.slides.forEach((s) => (s.background = bg));
+    } else {
+      const slide = this.slides[this.currentSlideIndex];
+      if (slide) slide.background = bg;
+    }
+  }
+
+  public setSlideNotes(notes: string, idx = this.currentSlideIndex): boolean {
+    if (idx < 0 || idx >= this.slides.length) return false;
+    this.commitSnapshot();
+    this.slides[idx].notes = notes;
+    return true;
+  }
+
+  public getSlideNotes(idx = this.currentSlideIndex): string {
+    return this.slides[idx]?.notes || "";
   }
 
   // --- Slide Show Mode ---
@@ -742,20 +843,153 @@ export class SlidesState {
       type,
       x,
       y,
-      w: type === "text" ? 280 : w,
-      h: type === "text" ? 60 : h,
-      fill: type === "text" ? "transparent" : fill,
+      w: type === "text" ? 280 : type === "table" ? 480 : type === "image" ? 280 : w,
+      h: type === "text" ? 60 : type === "table" ? 160 : type === "image" ? 180 : h,
+      fill:
+        type === "text"
+          ? "transparent"
+          : type === "image"
+          ? "#f8fafc"
+          : type === "table"
+          ? "#ffffff"
+          : fill,
       stroke: type === "text" ? undefined : "#1e40af",
       strokeWidth: type === "text" ? undefined : 2,
       rotation: 0,
       text: type === "text" ? "Click to add text" : undefined,
-      textColor: this.currentTheme === "DarkMode" || this.currentTheme === "HighContrast" ? "#ffffff" : "#1e293b",
+      textColor:
+        this.currentTheme === "DarkMode" || this.currentTheme === "HighContrast"
+          ? "#ffffff"
+          : "#1e293b",
       fontSize: type === "text" ? 24 : 16,
+      imageUrl: type === "image" ? "assets/sample_graphic.png" : undefined,
+      imageAlt: type === "image" ? "Presentation Graphic" : undefined,
+      tableHeaders:
+        type === "table" ? ["Column 1", "Column 2", "Column 3"] : undefined,
+      tableData:
+        type === "table"
+          ? [
+              ["Data 1", "Data 2", "Data 3"],
+              ["Val 1", "Val 2", "Val 3"],
+            ]
+          : undefined,
     };
 
     slide.shapes.push(newShape);
     this.selectedShapeId = newShape.id;
     return newShape;
+  }
+
+  public insertImage(
+    url = "assets/sample_graphic.png",
+    x = 200,
+    y = 150,
+    w = 280,
+    h = 180
+  ): SlideShape {
+    this.commitSnapshot();
+    const slide = this.slides[this.currentSlideIndex];
+    if (!slide) throw new Error("No active slide");
+
+    const shape: SlideShape = {
+      id: `sh_${++this.nextShapeCounter}`,
+      type: "image",
+      x,
+      y,
+      w,
+      h,
+      fill: "#f8fafc",
+      stroke: "#94a3b8",
+      strokeWidth: 1,
+      rotation: 0,
+      imageUrl: url,
+      imageAlt: "Presentation Graphic",
+    };
+    slide.shapes.push(shape);
+    this.selectedShapeId = shape.id;
+    return shape;
+  }
+
+  public insertTable(
+    rows = 3,
+    cols = 3,
+    x = 100,
+    y = 120,
+    w = 540,
+    h = 180
+  ): SlideShape {
+    this.commitSnapshot();
+    const slide = this.slides[this.currentSlideIndex];
+    if (!slide) throw new Error("No active slide");
+
+    const tableHeaders: string[] = [];
+    for (let c = 0; c < cols; c++) {
+      tableHeaders.push(`Header ${c + 1}`);
+    }
+    const tableData: string[][] = [];
+    for (let r = 0; r < rows; r++) {
+      const row: string[] = [];
+      for (let c = 0; c < cols; c++) {
+        row.push(`R${r + 1}C${c + 1}`);
+      }
+      tableData.push(row);
+    }
+
+    const shape: SlideShape = {
+      id: `sh_${++this.nextShapeCounter}`,
+      type: "table",
+      x,
+      y,
+      w,
+      h,
+      fill: "#ffffff",
+      stroke: "#cbd5e1",
+      strokeWidth: 1,
+      rotation: 0,
+      tableHeaders,
+      tableData,
+    };
+    slide.shapes.push(shape);
+    this.selectedShapeId = shape.id;
+    return shape;
+  }
+
+  public alignSelectedShape(
+    alignment: "left" | "center" | "right" | "top" | "middle" | "bottom"
+  ): boolean {
+    const sh = this.getSelectedShape();
+    if (!sh) return false;
+    this.commitSnapshot();
+
+    switch (alignment) {
+      case "left":
+        sh.x = 80;
+        break;
+      case "center":
+        sh.x = Math.round((this.slideWidth - sh.w) / 2);
+        break;
+      case "right":
+        sh.x = this.slideWidth - 80 - sh.w;
+        break;
+      case "top":
+        sh.y = 50;
+        break;
+      case "middle":
+        sh.y = Math.round((this.slideHeight - sh.h) / 2);
+        break;
+      case "bottom":
+        sh.y = this.slideHeight - 50 - sh.h;
+        break;
+    }
+    return true;
+  }
+
+  public setShapeStrokeWeight(weight: number): boolean {
+    const sh = this.getSelectedShape();
+    if (!sh) return false;
+    this.commitSnapshot();
+    sh.strokeWidth = weight;
+    return true;
   }
 
   public deleteSelectedShape(): boolean {
@@ -1043,6 +1277,54 @@ export class SlidesState {
         return false;
       case "SetFontColor":
         if (typeof payload === "string") return this.setFontColor(payload);
+        return false;
+      case "SetSlideSize":
+        if (payload === "16:9" || payload === "4:3") {
+          this.setSlideSize(payload);
+          return true;
+        }
+        return false;
+      case "SetSlideBackground":
+      case "FormatBackground":
+        if (typeof payload === "string") {
+          this.setSlideBackground(payload);
+          return true;
+        }
+        return false;
+      case "InsertImage":
+      case "InsertPicture":
+        this.insertImage(typeof payload === "string" ? payload : undefined);
+        return true;
+      case "InsertTable":
+        if (payload && typeof payload === "object") {
+          const p = payload as { rows?: number; cols?: number };
+          this.insertTable(p.rows || 3, p.cols || 3);
+        } else {
+          this.insertTable(3, 3);
+        }
+        return true;
+      case "SetOutlineWeight":
+      case "SetStrokeWidth":
+        if (typeof payload === "number") {
+          return this.setShapeStrokeWeight(payload);
+        }
+        return false;
+      case "AlignLeft":
+        return this.alignSelectedShape("left");
+      case "AlignCenter":
+        return this.alignSelectedShape("center");
+      case "AlignRight":
+        return this.alignSelectedShape("right");
+      case "AlignTop":
+        return this.alignSelectedShape("top");
+      case "AlignMiddle":
+        return this.alignSelectedShape("middle");
+      case "AlignBottom":
+        return this.alignSelectedShape("bottom");
+      case "SetSlideNotes":
+        if (typeof payload === "string") {
+          return this.setSlideNotes(payload);
+        }
         return false;
       case "Undo":
         return this.undo();

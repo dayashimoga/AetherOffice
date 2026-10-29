@@ -30,6 +30,8 @@ import { WorkbookSheetsPane } from "./components/WorkbookSheetsPane";
 import { FunctionWizardDialog } from "./components/FunctionWizardDialog";
 import { CalcChartOverlay } from "./components/CalcChartOverlay";
 import { SlideLayoutDialog } from "./components/SlideLayoutDialog";
+import { SpeakerNotesPane } from "./components/SpeakerNotesPane";
+import { FormatBackgroundDialog } from "./components/FormatBackgroundDialog";
 
 export class UnifiedShellApp {
   private tabBar!: TabBar;
@@ -59,6 +61,8 @@ export class UnifiedShellApp {
   private wordCountDialog!: WordCountDialog;
   private functionWizardDialog!: FunctionWizardDialog;
   private slideLayoutDialog!: SlideLayoutDialog;
+  private formatBackgroundDialog!: FormatBackgroundDialog;
+  private speakerNotesPane?: SpeakerNotesPane;
 
   constructor(autoBoot = true) {
     this.init(autoBoot);
@@ -205,6 +209,7 @@ export class UnifiedShellApp {
     this.wordCountDialog = new WordCountDialog();
     this.functionWizardDialog = new FunctionWizardDialog();
     this.slideLayoutDialog = new SlideLayoutDialog();
+    this.formatBackgroundDialog = new FormatBackgroundDialog();
     this.functionWizardDialog.setOnInsert((formulaText) => {
       if (this.currentDocType === "Excel") {
         calcState.commitFormula(formulaText);
@@ -517,6 +522,14 @@ export class UnifiedShellApp {
     return this.slideSorter;
   }
 
+  public getFormatBackgroundDialog(): FormatBackgroundDialog {
+    return this.formatBackgroundDialog;
+  }
+
+  public getSpeakerNotesPane(): SpeakerNotesPane | undefined {
+    return this.speakerNotesPane;
+  }
+
   public getFormulaBar(): FormulaBar {
     return this.formulaBar;
   }
@@ -769,6 +782,8 @@ export class UnifiedShellApp {
       } else if (tab.docType === "PowerPoint") {
         this.slideStageCanvas = new SlideStageCanvas(viewportContainer, slidesState);
         this.slideStageCanvas.setOnDirty(() => this.tabBar.setDirty(tab.id, true));
+        this.speakerNotesPane = new SpeakerNotesPane(viewportContainer, slidesState);
+        this.speakerNotesPane.setOnDirty(() => this.tabBar.setDirty(tab.id, true));
       } else if (tab.docType === "PDF") {
         this.pdfViewerCanvas = new PdfViewerCanvas(viewportContainer, pdfState);
       }
@@ -809,6 +824,7 @@ export class UnifiedShellApp {
       isHidden: s.isHidden,
     }));
     this.slideSorter.setSlides(thumbs, slidesState.currentSlideIndex + 1);
+    this.speakerNotesPane?.refresh();
     const docInfo = document.getElementById("status-doc-info");
     if (docInfo && this.currentDocType === "PowerPoint") {
       docInfo.textContent = `Slide ${slidesState.currentSlideIndex + 1} of ${slidesState.slides.length}`;
@@ -915,11 +931,19 @@ export class UnifiedShellApp {
           this.updateSlideSorter();
           this.tabBar.setDirty(active.id, true);
         }
+      } else if (action === "FormatBackground") {
+        this.formatBackgroundDialog.open((bg, applyToAll) => {
+          slidesState.setSlideBackground(bg, applyToAll);
+          this.slideStageCanvas?.render();
+          this.updateSlideSorter();
+          this.tabBar.setDirty(active.id, true);
+        });
       } else {
         const changed = slidesState.execCommand(action, payload);
         if (changed) {
           this.slideStageCanvas?.render();
           this.updateSlideSorter();
+          this.speakerNotesPane?.refresh();
           this.tabBar.setDirty(active.id, true);
         }
       }
