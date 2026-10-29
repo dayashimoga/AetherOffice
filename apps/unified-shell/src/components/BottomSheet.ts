@@ -44,17 +44,17 @@ export class BottomSheet {
   }
 
   private attachEvents() {
-    const handle = this.el.querySelector(".bottom-sheet-handle");
+    const handle = this.el.querySelector(".bottom-sheet-handle") as HTMLElement | null;
     if (!handle) return;
 
-    handle.addEventListener("touchstart", (e: TouchEvent) => {
+    handle.addEventListener("touchstart", ((e: TouchEvent) => {
       this.startY = e.touches[0].clientY;
       this.currentY = this.startY;
-    });
+    }) as EventListener);
 
-    handle.addEventListener("touchmove", (e: TouchEvent) => {
+    handle.addEventListener("touchmove", ((e: TouchEvent) => {
       this.currentY = e.touches[0].clientY;
-    });
+    }) as EventListener);
 
     handle.addEventListener("touchend", () => {
       const deltaY = this.currentY - this.startY;
@@ -111,3 +111,4 @@ export class BottomSheet {
     this.updatePosition();
   }
 }
+

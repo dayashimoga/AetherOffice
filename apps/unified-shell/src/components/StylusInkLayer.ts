@@ -94,3 +94,4 @@ export class StylusInkLayer {
     this.ctx.stroke();
   }
 }
+

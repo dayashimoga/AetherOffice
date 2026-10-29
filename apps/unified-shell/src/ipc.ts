@@ -8,7 +8,7 @@ export interface SessionSummary {
   session_id: string;
   doc_type: DocumentType;
   title: string;
-  is_dirty: bool;
+  is_dirty: boolean;
   file_path?: string;
 }
 

@@ -30,7 +30,7 @@ export class KeyboardShortcuts {
       }
 
       // If Alt Keytips are active and an alphanumeric key is pressed
-      if (this.altActive && e.key.length === 1 && !e.ctrl && !e.meta) {
+      if (this.altActive && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         if (this.onAltKeytipCallback) {
           this.onAltKeytipCallback(e.key.toUpperCase());

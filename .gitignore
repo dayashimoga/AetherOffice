@@ -1,7 +1,7 @@
-﻿/target
-/node_modules
-/dist
-/.rea-stage
+target/
+node_modules/
+dist/
+.rea-stage/
 *.pdb
 *.idb
 *.i64

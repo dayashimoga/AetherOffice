@@ -185,6 +185,7 @@ class UnifiedShellApp {
     } else if (action === "ToggleReflow") {
       this.reflowReader.toggle();
     } else if (action === "ToggleInk") {
+      this.inkLayer.resize();
       console.log("Ink layer activated for stylus freehand annotations");
     } else if (action === "ToggleLaserPointer") {
       this.laserPointer.setActive(true);
