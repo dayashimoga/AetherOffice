@@ -244,3 +244,4 @@ export class CalcGridCanvas {
     ctx.fill();
   }
 }
+

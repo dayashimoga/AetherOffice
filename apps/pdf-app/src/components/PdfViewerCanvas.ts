@@ -155,3 +155,4 @@ export class PdfViewerCanvas {
     ctx.fillText("SHA256: 9b2d8e41a... | OpenOfficeRS PDF-Engine", 96, 375);
   }
 }
+

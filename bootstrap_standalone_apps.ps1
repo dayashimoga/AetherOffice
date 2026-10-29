@@ -102,3 +102,4 @@ export const pdfState = new PdfState();
 '@ | Set-Content -Path "apps/pdf-app/src/state/pdfState.ts" -Encoding UTF8
 
 Write-Host "4 Independent application engines created with dedicated state stores." -ForegroundColor Green
+

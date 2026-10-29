@@ -1,4 +1,4 @@
-{
+﻿{
     "project":  "OpenOfficeRS",
     "contract":  "GEC-v1.0",
     "total_stages":  7,
@@ -110,9 +110,9 @@
                           "title":  "Virtualized 120fps Grid Viewport (Rows 1..1048576, Cols A..XFD)",
                           "crate":  "render-core",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-2/subphase-2.3.1.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-29T07:35:20Z"
                       },
                       {
                           "id":  "2.3.2",

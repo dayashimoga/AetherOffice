@@ -74,3 +74,4 @@ if ($libContent -notmatch "pub mod commands;") {
 }
 
 Write-Host "Real-time Command Bus installed in crates/render-core/src/commands." -ForegroundColor Green
+
