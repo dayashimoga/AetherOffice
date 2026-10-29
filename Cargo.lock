@@ -2562,6 +2562,7 @@ version = "0.1.0"
 dependencies = [
  "excel-engine",
  "ooxml-opc",
+ "pdf-engine",
  "ppt-engine",
  "quick-xml 0.37.5",
  "rayon",
