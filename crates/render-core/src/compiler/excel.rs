@@ -713,4 +713,968 @@ impl ExcelDisplayCompiler {
 
         list
     }
+
+    /// Compile a dashed or bordered auto-fill preview rectangle around projected cells.
+    pub fn compile_autofill_preview(
+        target: &ExcelSelectionRange,
+        dims: &GridDimensionMap,
+        scroll_x: f64,
+        scroll_y: f64,
+        header_w: f64,
+        header_h: f64,
+    ) -> DisplayList {
+        let mut list = DisplayList::new();
+        let x = dims.col_offset_x(target.min_col) - scroll_x + header_w;
+        let y = dims.row_offset_y(target.min_row) - scroll_y + header_h;
+        let w =
+            dims.col_offset_x(target.max_col.saturating_add(1)) - dims.col_offset_x(target.min_col);
+        let h =
+            dims.row_offset_y(target.max_row.saturating_add(1)) - dims.row_offset_y(target.min_row);
+
+        let rect = Rect2D::new(x, y, w, h);
+        let border = ColorRgba::new(0.4, 0.4, 0.4, 0.9);
+        let fill = ColorRgba::new(0.0, 0.0, 0.0, 0.04);
+        list.push(DisplayCommand::DrawQuad(QuadInstance::bordered(
+            rect, fill, border, 1.5,
+        )));
+        list
+    }
+
+    /// Compile colored visual boundaries for cell/range references in an active formula.
+    pub fn compile_formula_references(
+        references: &[(ExcelSelectionRange, ColorRgba)],
+        dims: &GridDimensionMap,
+        scroll_x: f64,
+        scroll_y: f64,
+        header_w: f64,
+        header_h: f64,
+    ) -> DisplayList {
+        let mut list = DisplayList::new();
+        for (range, color) in references {
+            let x = dims.col_offset_x(range.min_col) - scroll_x + header_w;
+            let y = dims.row_offset_y(range.min_row) - scroll_y + header_h;
+            let w = dims.col_offset_x(range.max_col.saturating_add(1))
+                - dims.col_offset_x(range.min_col);
+            let h = dims.row_offset_y(range.max_row.saturating_add(1))
+                - dims.row_offset_y(range.min_row);
+
+            let rect = Rect2D::new(x, y, w, h);
+            let fill = ColorRgba::new(color.r, color.g, color.b, 0.12);
+            list.push(DisplayCommand::DrawQuad(QuadInstance::bordered(
+                rect, fill, *color, 2.0,
+            )));
+        }
+        list
+    }
+
+    /// Compile multi-range selections including non-contiguous ranges and the primary fill handle.
+    pub fn compile_multi_selection(
+        selection: &MultiRangeSelectionModel,
+        dims: &GridDimensionMap,
+        scroll_x: f64,
+        scroll_y: f64,
+        header_w: f64,
+        header_h: f64,
+    ) -> DisplayList {
+        let mut list = DisplayList::new();
+        let fill = ColorRgba::new(0.063, 0.486, 0.255, 0.18);
+        let border = ColorRgba::new(0.063, 0.486, 0.255, 1.0);
+
+        for (idx, sel) in selection.ranges.iter().enumerate() {
+            let sel_x = dims.col_offset_x(sel.min_col) - scroll_x + header_w;
+            let sel_y = dims.row_offset_y(sel.min_row) - scroll_y + header_h;
+            let sel_w =
+                dims.col_offset_x(sel.max_col.saturating_add(1)) - dims.col_offset_x(sel.min_col);
+            let sel_h =
+                dims.row_offset_y(sel.max_row.saturating_add(1)) - dims.row_offset_y(sel.min_row);
+
+            let sel_rect = Rect2D::new(sel_x, sel_y, sel_w, sel_h);
+            list.push(DisplayCommand::DrawQuad(QuadInstance::bordered(
+                sel_rect, fill, border, 2.0,
+            )));
+
+            // Fill handle only on primary (last) range
+            if idx == selection.ranges.len().saturating_sub(1) {
+                let handle_rect =
+                    Rect2D::new(sel_rect.right() - 3.0, sel_rect.bottom() - 3.0, 6.0, 6.0);
+                list.push(DisplayCommand::DrawQuad(QuadInstance::solid(
+                    handle_rect,
+                    border,
+                )));
+            }
+        }
+        list
+    }
+
+    /// Compile a dashed or bordered auto-fill preview rectangle around projected cells.
+    pub fn compile_autofill_preview(
+        target: &ExcelSelectionRange,
+        dims: &GridDimensionMap,
+        scroll_x: f64,
+        scroll_y: f64,
+        header_w: f64,
+        header_h: f64,
+    ) -> DisplayList {
+        let mut list = DisplayList::new();
+        let x = dims.col_offset_x(target.min_col) - scroll_x + header_w;
+        let y = dims.row_offset_y(target.min_row) - scroll_y + header_h;
+        let w = dims.col_offset_x(target.max_col.saturating_add(1)) - dims.col_offset_x(target.min_col);
+        let h = dims.row_offset_y(target.max_row.saturating_add(1)) - dims.row_offset_y(target.min_row);
+
+        let rect = Rect2D::new(x, y, w, h);
+        let border = ColorRgba::new(0.4, 0.4, 0.4, 0.9);
+        let fill = ColorRgba::new(0.0, 0.0, 0.0, 0.04);
+        list.push(DisplayCommand::DrawQuad(QuadInstance::bordered(
+            rect, fill, border, 1.5,
+        )));
+        list
+    }
+
+    /// Compile colored visual boundaries for cell/range references in an active formula.
+    pub fn compile_formula_references(
+        references: &[(ExcelSelectionRange, ColorRgba)],
+        dims: &GridDimensionMap,
+        scroll_x: f64,
+        scroll_y: f64,
+        header_w: f64,
+        header_h: f64,
+    ) -> DisplayList {
+        let mut list = DisplayList::new();
+        for (range, color) in references {
+            let x = dims.col_offset_x(range.min_col) - scroll_x + header_w;
+            let y = dims.row_offset_y(range.min_row) - scroll_y + header_h;
+            let w = dims.col_offset_x(range.max_col.saturating_add(1)) - dims.col_offset_x(range.min_col);
+            let h = dims.row_offset_y(range.max_row.saturating_add(1)) - dims.row_offset_y(range.min_row);
+
+            let rect = Rect2D::new(x, y, w, h);
+            let fill = ColorRgba::new(color.r, color.g, color.b, 0.12);
+            list.push(DisplayCommand::DrawQuad(QuadInstance::bordered(
+                rect, fill, *color, 2.0,
+            )));
+        }
+        list
+    }
+
+    /// Compile multi-range selections including non-contiguous ranges and the primary fill handle.
+    pub fn compile_multi_selection(
+        selection: &MultiRangeSelectionModel,
+        dims: &GridDimensionMap,
+        scroll_x: f64,
+        scroll_y: f64,
+        header_w: f64,
+        header_h: f64,
+    ) -> DisplayList {
+        let mut list = DisplayList::new();
+        let fill = ColorRgba::new(0.063, 0.486, 0.255, 0.18);
+        let border = ColorRgba::new(0.063, 0.486, 0.255, 1.0);
+
+        for (idx, sel) in selection.ranges.iter().enumerate() {
+            let sel_x = dims.col_offset_x(sel.min_col) - scroll_x + header_w;
+            let sel_y = dims.row_offset_y(sel.min_row) - scroll_y + header_h;
+            let sel_w = dims.col_offset_x(sel.max_col.saturating_add(1)) - dims.col_offset_x(sel.min_col);
+            let sel_h = dims.row_offset_y(sel.max_row.saturating_add(1)) - dims.row_offset_y(sel.min_row);
+
+            let sel_rect = Rect2D::new(sel_x, sel_y, sel_w, sel_h);
+            list.push(DisplayCommand::DrawQuad(QuadInstance::bordered(
+                sel_rect, fill, border, 2.0,
+            )));
+
+            // Fill handle only on primary (last) range
+            if idx == selection.ranges.len().saturating_sub(1) {
+                let handle_rect = Rect2D::new(sel_rect.right() - 3.0, sel_rect.bottom() - 3.0, 6.0, 6.0);
+                list.push(DisplayCommand::DrawQuad(QuadInstance::solid(handle_rect, border)));
+            }
+        }
+        list
+    }
+}
+
+/// Multi-Range Cell Selection Model supporting contiguous and disjoint ranges.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MultiRangeSelectionModel {
+    pub ranges: Vec<ExcelSelectionRange>,
+    pub active_cell: (u32, u32),
+    pub anchor_cell: (u32, u32),
+}
+
+impl Default for MultiRangeSelectionModel {
+    fn default() -> Self {
+        Self::new(0, 0)
+    }
+}
+
+impl MultiRangeSelectionModel {
+    pub fn new(row: u32, col: u32) -> Self {
+        Self {
+            ranges: vec![ExcelSelectionRange::single(row, col)],
+            active_cell: (row, col),
+            anchor_cell: (row, col),
+        }
+    }
+
+    pub fn select_single(&mut self, row: u32, col: u32) {
+        self.ranges.clear();
+        self.ranges.push(ExcelSelectionRange::single(row, col));
+        self.active_cell = (row, col);
+        self.anchor_cell = (row, col);
+    }
+
+    pub fn extend_selection(&mut self, row: u32, col: u32) {
+        let (ar, ac) = self.anchor_cell;
+        let extended = ExcelSelectionRange {
+            min_row: ar.min(row),
+            min_col: ac.min(col),
+            max_row: ar.max(row),
+            max_col: ac.max(col),
+        };
+        if let Some(last) = self.ranges.last_mut() {
+            *last = extended;
+        } else {
+            self.ranges.push(extended);
+        }
+        self.active_cell = (row, col);
+    }
+
+    pub fn add_range(&mut self, range: ExcelSelectionRange) {
+        self.ranges.push(range);
+        self.active_cell = (range.min_row, range.min_col);
+        self.anchor_cell = (range.min_row, range.min_col);
+    }
+
+    pub fn select_row(&mut self, row: u32, max_cols: u32) {
+        let range = ExcelSelectionRange {
+            min_row: row,
+            min_col: 0,
+            max_row: row,
+            max_col: max_cols.saturating_sub(1),
+        };
+        self.ranges.clear();
+        self.ranges.push(range);
+        self.active_cell = (row, 0);
+        self.anchor_cell = (row, 0);
+    }
+
+    pub fn select_col(&mut self, col: u32, max_rows: u32) {
+        let range = ExcelSelectionRange {
+            min_row: 0,
+            min_col: col,
+            max_row: max_rows.saturating_sub(1),
+            max_col: col,
+        };
+        self.ranges.clear();
+        self.ranges.push(range);
+        self.active_cell = (0, col);
+        self.anchor_cell = (0, col);
+    }
+
+    pub fn select_all(&mut self, max_rows: u32, max_cols: u32) {
+        let range = ExcelSelectionRange {
+            min_row: 0,
+            min_col: 0,
+            max_row: max_rows.saturating_sub(1),
+            max_col: max_cols.saturating_sub(1),
+        };
+        self.ranges.clear();
+        self.ranges.push(range);
+        self.active_cell = (0, 0);
+        self.anchor_cell = (0, 0);
+    }
+
+    pub fn is_selected(&self, row: u32, col: u32) -> bool {
+        self.ranges
+            .iter()
+            .any(|r| row >= r.min_row && row <= r.max_row && col >= r.min_col && col <= r.max_col)
+    }
+
+    pub fn primary_range(&self) -> Option<&ExcelSelectionRange> {
+        self.ranges.last()
+    }
+
+    pub fn bounding_box(&self) -> Option<ExcelSelectionRange> {
+        if self.ranges.is_empty() {
+            return None;
+        }
+        let mut min_row = u32::MAX;
+        let mut min_col = u32::MAX;
+        let mut max_row = 0;
+        let mut max_col = 0;
+        for r in &self.ranges {
+            min_row = min_row.min(r.min_row);
+            min_col = min_col.min(r.min_col);
+            max_row = max_row.max(r.max_row);
+            max_col = max_col.max(r.max_col);
+        }
+        Some(ExcelSelectionRange {
+            min_row,
+            min_col,
+            max_row,
+            max_col,
+        })
+    }
+
+    pub fn total_cell_count(&self) -> u64 {
+        self.ranges
+            .iter()
+            .map(|r| {
+                ((r.max_row.saturating_sub(r.min_row).saturating_add(1)) as u64)
+                    * ((r.max_col.saturating_sub(r.min_col).saturating_add(1)) as u64)
+            })
+            .sum()
+    }
+
+    pub fn to_range_string(&self) -> String {
+        self.ranges
+            .iter()
+            .map(|r| r.to_a1_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+}
+
+/// Auto-Fill and series prediction engine.
+pub struct AutoFillEngine;
+
+impl AutoFillEngine {
+    /// Translates a single cell reference or range reference (e.g. "A1", "$A$1", "A1:B10")
+    /// by row_delta and col_delta, keeping '$' fixed dimensions unchanged.
+    pub fn translate_reference(ref_str: &str, row_delta: i32, col_delta: i32) -> String {
+        if let Some((left, right)) = ref_str.split_once(':') {
+            let new_left = Self::translate_reference(left, row_delta, col_delta);
+            let new_right = Self::translate_reference(right, row_delta, col_delta);
+            return format!("{}:{}", new_left, new_right);
+        }
+
+        let bytes = ref_str.as_bytes();
+        if bytes.is_empty() {
+            return ref_str.to_string();
+        }
+
+        let mut i = 0;
+        let col_dollar = if bytes[i] == b'$' {
+            i += 1;
+            true
+        } else {
+            false
+        };
+
+        let col_start = i;
+        while i < bytes.len() && bytes[i].is_ascii_alphabetic() {
+            i += 1;
+        }
+        if i == col_start {
+            return ref_str.to_string();
+        }
+
+        let col_name = &ref_str[col_start..i];
+        let col_idx = match name_to_col(col_name) {
+            Some(c) => c,
+            None => return ref_str.to_string(),
+        };
+
+        if i >= bytes.len() {
+            return ref_str.to_string();
+        }
+
+        let row_dollar = if bytes[i] == b'$' {
+            i += 1;
+            true
+        } else {
+            false
+        };
+
+        let row_start = i;
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+        if i == row_start || i != bytes.len() {
+            return ref_str.to_string();
+        }
+
+        let row_num: u32 = match ref_str[row_start..].parse() {
+            Ok(n) => n,
+            Err(_) => return ref_str.to_string(),
+        };
+        if row_num == 0 || row_num > MAX_EXCEL_ROWS {
+            return ref_str.to_string();
+        }
+        let row_idx = row_num - 1;
+
+        let new_col = if col_dollar {
+            col_idx
+        } else {
+            let shifted = (col_idx as i32) + col_delta;
+            shifted.clamp(0, (MAX_EXCEL_COLS - 1) as i32) as u32
+        };
+
+        let new_row = if row_dollar {
+            row_idx
+        } else {
+            let shifted = (row_idx as i32) + row_delta;
+            shifted.clamp(0, (MAX_EXCEL_ROWS - 1) as i32) as u32
+        };
+
+        let col_prefix = if col_dollar { "$" } else { "" };
+        let row_prefix = if row_dollar { "$" } else { "" };
+        format!(
+            "{}{}{}{}",
+            col_prefix,
+            col_to_name(new_col),
+            row_prefix,
+            new_row.saturating_add(1)
+        )
+    }
+
+    /// Adjusts all relative cell and range references in a formula string.
+    pub fn translate_formula(formula: &str, row_delta: i32, col_delta: i32) -> String {
+        if !formula.starts_with('=') || (row_delta == 0 && col_delta == 0) {
+            return formula.to_string();
+        }
+
+        let tokens = crate::shell::FormulaBarEngine::tokenize_formula(formula);
+        let mut result = String::with_capacity(formula.len() + 16);
+        result.push('=');
+        for token in tokens {
+            if token.token_type == crate::shell::FormulaTokenType::Reference {
+                result.push_str(&Self::translate_reference(
+                    &token.value,
+                    row_delta,
+                    col_delta,
+                ));
+            } else {
+                result.push_str(&token.value);
+            }
+        }
+        result
+    }
+
+    /// Predicts the next `count` values in an auto-fill series.
+    pub fn predict_series(samples: &[String], count: usize, is_horizontal: bool) -> Vec<String> {
+        if samples.is_empty() || count == 0 {
+            return Vec::new();
+        }
+
+        // 1. Check if all samples are formulas
+        if samples.iter().all(|s| s.starts_with('=')) {
+            let mut out = Vec::with_capacity(count);
+            for k in 1..=count {
+                let (row_delta, col_delta) = if is_horizontal {
+                    (0, k as i32)
+                } else {
+                    (k as i32, 0)
+                };
+                let src_idx = (k - 1) % samples.len();
+                out.push(Self::translate_formula(
+                    &samples[src_idx],
+                    row_delta,
+                    col_delta,
+                ));
+            }
+            return out;
+        }
+
+        // 2. Check if all samples are numbers
+        let numbers: Option<Vec<f64>> = samples
+            .iter()
+            .map(|s| s.trim().parse::<f64>().ok())
+            .collect();
+        if let Some(nums) = numbers {
+            let mut out = Vec::with_capacity(count);
+            if nums.len() == 1 {
+                let val = &samples[0];
+                for _ in 0..count {
+                    out.push(val.clone());
+                }
+            } else {
+                let n = nums.len();
+                let step = (nums[n - 1] - nums[0]) / ((n - 1) as f64);
+                let is_integer = nums.iter().all(|x| x.fract() == 0.0) && step.fract() == 0.0;
+                for k in 1..=count {
+                    let next_val = nums[n - 1] + step * (k as f64);
+                    if is_integer {
+                        out.push(format!("{:.0}", next_val));
+                    } else {
+                        out.push(format!("{:.2}", next_val));
+                    }
+                }
+            }
+            return out;
+        }
+
+        // 3. Check alphanumeric pattern (e.g. "Day 1", "Q1", "Item 005")
+        let alpha_num_pattern = samples.iter().all(|s| {
+            let trimmed = s.trim();
+            trimmed.chars().last().is_some_and(|c| c.is_ascii_digit())
+        });
+
+        if alpha_num_pattern {
+            let last_s = samples.last().unwrap_or(&samples[0]);
+            let trimmed = last_s.trim();
+            let num_start = trimmed
+                .rfind(|c: char| !c.is_ascii_digit())
+                .map(|i| i + 1)
+                .unwrap_or(0);
+            let prefix = &trimmed[..num_start];
+            let num_str = &trimmed[num_start..];
+            let num_len = num_str.len();
+
+            if let Ok(last_num) = num_str.parse::<i64>() {
+                let step = if samples.len() >= 2 {
+                    let first_s = &samples[0];
+                    let first_start = first_s
+                        .trim()
+                        .rfind(|c: char| !c.is_ascii_digit())
+                        .map(|i| i + 1)
+                        .unwrap_or(0);
+                    let first_num = first_s[first_start..].parse::<i64>().unwrap_or(last_num);
+                    (last_num - first_num) / ((samples.len() - 1) as i64)
+                } else {
+                    1
+                };
+
+                let mut out = Vec::with_capacity(count);
+                for k in 1..=count {
+                    let next_num = last_num + step * (k as i64);
+                    out.push(format!("{}{:0width$}", prefix, next_num, width = num_len));
+                }
+                return out;
+            }
+        }
+
+        // 4. Default: cycle through samples
+        let mut out = Vec::with_capacity(count);
+        for k in 1..=count {
+            let idx = (k - 1) % samples.len();
+            out.push(samples[idx].clone());
+        }
+        out
+    }
+
+    /// Computes the auto-fill target range based on mouse drag coordinates.
+    pub fn compute_autofill_target(
+        source: &ExcelSelectionRange,
+        drag_cell: (u32, u32),
+    ) -> (ExcelSelectionRange, bool) {
+        let (dr, dc) = drag_cell;
+        let row_diff = if dr > source.max_row {
+            dr - source.max_row
+        } else {
+            source.min_row.saturating_sub(dr)
+        };
+
+        let col_diff = if dc > source.max_col {
+            dc - source.max_col
+        } else {
+            source.min_col.saturating_sub(dc)
+        };
+
+        if col_diff > row_diff {
+            // Horizontal fill
+            let max_c = dc.max(source.max_col);
+            (
+                ExcelSelectionRange {
+                    min_row: source.min_row,
+                    max_row: source.max_row,
+                    min_col: source.min_col,
+                    max_col: max_c,
+                },
+                true,
+            )
+        } else {
+            // Vertical fill
+            let max_r = dr.max(source.max_row);
+            (
+                ExcelSelectionRange {
+                    min_row: source.min_row,
+                    max_row: max_r,
+                    min_col: source.min_col,
+                    max_col: source.max_col,
+                },
+                false,
+            )
+        }
+    }
+}
+
+/// Multi-Range Cell Selection Model supporting contiguous and disjoint ranges.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MultiRangeSelectionModel {
+    pub ranges: Vec<ExcelSelectionRange>,
+    pub active_cell: (u32, u32),
+    pub anchor_cell: (u32, u32),
+}
+
+impl Default for MultiRangeSelectionModel {
+    fn default() -> Self {
+        Self::new(0, 0)
+    }
+}
+
+impl MultiRangeSelectionModel {
+    pub fn new(row: u32, col: u32) -> Self {
+        Self {
+            ranges: vec![ExcelSelectionRange::single(row, col)],
+            active_cell: (row, col),
+            anchor_cell: (row, col),
+        }
+    }
+
+    pub fn select_single(&mut self, row: u32, col: u32) {
+        self.ranges.clear();
+        self.ranges.push(ExcelSelectionRange::single(row, col));
+        self.active_cell = (row, col);
+        self.anchor_cell = (row, col);
+    }
+
+    pub fn extend_selection(&mut self, row: u32, col: u32) {
+        let (ar, ac) = self.anchor_cell;
+        let extended = ExcelSelectionRange {
+            min_row: ar.min(row),
+            min_col: ac.min(col),
+            max_row: ar.max(row),
+            max_col: ac.max(col),
+        };
+        if let Some(last) = self.ranges.last_mut() {
+            *last = extended;
+        } else {
+            self.ranges.push(extended);
+        }
+        self.active_cell = (row, col);
+    }
+
+    pub fn add_range(&mut self, range: ExcelSelectionRange) {
+        self.ranges.push(range);
+        self.active_cell = (range.min_row, range.min_col);
+        self.anchor_cell = (range.min_row, range.min_col);
+    }
+
+    pub fn select_row(&mut self, row: u32, max_cols: u32) {
+        let range = ExcelSelectionRange {
+            min_row: row,
+            min_col: 0,
+            max_row: row,
+            max_col: max_cols.saturating_sub(1),
+        };
+        self.ranges.clear();
+        self.ranges.push(range);
+        self.active_cell = (row, 0);
+        self.anchor_cell = (row, 0);
+    }
+
+    pub fn select_col(&mut self, col: u32, max_rows: u32) {
+        let range = ExcelSelectionRange {
+            min_row: 0,
+            min_col: col,
+            max_row: max_rows.saturating_sub(1),
+            max_col: col,
+        };
+        self.ranges.clear();
+        self.ranges.push(range);
+        self.active_cell = (0, col);
+        self.anchor_cell = (0, col);
+    }
+
+    pub fn select_all(&mut self, max_rows: u32, max_cols: u32) {
+        let range = ExcelSelectionRange {
+            min_row: 0,
+            min_col: 0,
+            max_row: max_rows.saturating_sub(1),
+            max_col: max_cols.saturating_sub(1),
+        };
+        self.ranges.clear();
+        self.ranges.push(range);
+        self.active_cell = (0, 0);
+        self.anchor_cell = (0, 0);
+    }
+
+    pub fn is_selected(&self, row: u32, col: u32) -> bool {
+        self.ranges.iter().any(|r| {
+            row >= r.min_row && row <= r.max_row && col >= r.min_col && col <= r.max_col
+        })
+    }
+
+    pub fn primary_range(&self) -> Option<&ExcelSelectionRange> {
+        self.ranges.last()
+    }
+
+    pub fn bounding_box(&self) -> Option<ExcelSelectionRange> {
+        if self.ranges.is_empty() {
+            return None;
+        }
+        let mut min_row = u32::MAX;
+        let mut min_col = u32::MAX;
+        let mut max_row = 0;
+        let mut max_col = 0;
+        for r in &self.ranges {
+            min_row = min_row.min(r.min_row);
+            min_col = min_col.min(r.min_col);
+            max_row = max_row.max(r.max_row);
+            max_col = max_col.max(r.max_col);
+        }
+        Some(ExcelSelectionRange {
+            min_row,
+            min_col,
+            max_row,
+            max_col,
+        })
+    }
+
+    pub fn total_cell_count(&self) -> u64 {
+        self.ranges
+            .iter()
+            .map(|r| {
+                ((r.max_row.saturating_sub(r.min_row).saturating_add(1)) as u64)
+                    * ((r.max_col.saturating_sub(r.min_col).saturating_add(1)) as u64)
+            })
+            .sum()
+    }
+
+    pub fn to_range_string(&self) -> String {
+        self.ranges.iter().map(|r| r.to_a1_string()).collect::<Vec<_>>().join(", ")
+    }
+}
+
+/// Auto-Fill and series prediction engine.
+pub struct AutoFillEngine;
+
+impl AutoFillEngine {
+    /// Translates a single cell reference or range reference (e.g. "A1", "$A$1", "A1:B10")
+    /// by row_delta and col_delta, keeping '$' fixed dimensions unchanged.
+    pub fn translate_reference(ref_str: &str, row_delta: i32, col_delta: i32) -> String {
+        if let Some((left, right)) = ref_str.split_once(':') {
+            let new_left = Self::translate_reference(left, row_delta, col_delta);
+            let new_right = Self::translate_reference(right, row_delta, col_delta);
+            return format!("{}:{}", new_left, new_right);
+        }
+
+        let bytes = ref_str.as_bytes();
+        if bytes.is_empty() {
+            return ref_str.to_string();
+        }
+
+        let mut i = 0;
+        let col_dollar = if bytes[i] == b'$' {
+            i += 1;
+            true
+        } else {
+            false
+        };
+
+        let col_start = i;
+        while i < bytes.len() && bytes[i].is_ascii_alphabetic() {
+            i += 1;
+        }
+        if i == col_start {
+            return ref_str.to_string();
+        }
+
+        let col_name = &ref_str[col_start..i];
+        let col_idx = match name_to_col(col_name) {
+            Some(c) => c,
+            None => return ref_str.to_string(),
+        };
+
+        if i >= bytes.len() {
+            return ref_str.to_string();
+        }
+
+        let row_dollar = if bytes[i] == b'$' {
+            i += 1;
+            true
+        } else {
+            false
+        };
+
+        let row_start = i;
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+        if i == row_start || i != bytes.len() {
+            return ref_str.to_string();
+        }
+
+        let row_num: u32 = match ref_str[row_start..].parse() {
+            Ok(n) => n,
+            Err(_) => return ref_str.to_string(),
+        };
+        if row_num == 0 || row_num > MAX_EXCEL_ROWS {
+            return ref_str.to_string();
+        }
+        let row_idx = row_num - 1;
+
+        let new_col = if col_dollar {
+            col_idx
+        } else {
+            let shifted = (col_idx as i32) + col_delta;
+            shifted.clamp(0, (MAX_EXCEL_COLS - 1) as i32) as u32
+        };
+
+        let new_row = if row_dollar {
+            row_idx
+        } else {
+            let shifted = (row_idx as i32) + row_delta;
+            shifted.clamp(0, (MAX_EXCEL_ROWS - 1) as i32) as u32
+        };
+
+        let col_prefix = if col_dollar { "$" } else { "" };
+        let row_prefix = if row_dollar { "$" } else { "" };
+        format!(
+            "{}{}{}{}",
+            col_prefix,
+            col_to_name(new_col),
+            row_prefix,
+            new_row.saturating_add(1)
+        )
+    }
+
+    /// Adjusts all relative cell and range references in a formula string.
+    pub fn translate_formula(formula: &str, row_delta: i32, col_delta: i32) -> String {
+        if !formula.starts_with('=') || (row_delta == 0 && col_delta == 0) {
+            return formula.to_string();
+        }
+
+        let tokens = crate::shell::FormulaBarEngine::tokenize_formula(formula);
+        let mut result = String::with_capacity(formula.len() + 16);
+        result.push('=');
+        for token in tokens {
+            if token.token_type == crate::shell::FormulaTokenType::Reference {
+                result.push_str(&Self::translate_reference(&token.value, row_delta, col_delta));
+            } else {
+                result.push_str(&token.value);
+            }
+        }
+        result
+    }
+
+    /// Predicts the next `count` values in an auto-fill series.
+    pub fn predict_series(samples: &[String], count: usize, is_horizontal: bool) -> Vec<String> {
+        if samples.is_empty() || count == 0 {
+            return Vec::new();
+        }
+
+        // 1. Check if all samples are formulas
+        if samples.iter().all(|s| s.starts_with('=')) {
+            let mut out = Vec::with_capacity(count);
+            for k in 1..=count {
+                let (row_delta, col_delta) = if is_horizontal {
+                    (0, k as i32)
+                } else {
+                    (k as i32, 0)
+                };
+                let src_idx = (k - 1) % samples.len();
+                out.push(Self::translate_formula(&samples[src_idx], row_delta, col_delta));
+            }
+            return out;
+        }
+
+        // 2. Check if all samples are numbers
+        let numbers: Option<Vec<f64>> = samples.iter().map(|s| s.trim().parse::<f64>().ok()).collect();
+        if let Some(nums) = numbers {
+            let mut out = Vec::with_capacity(count);
+            if nums.len() == 1 {
+                let val = &samples[0];
+                for _ in 0..count {
+                    out.push(val.clone());
+                }
+            } else {
+                let n = nums.len();
+                let step = (nums[n - 1] - nums[0]) / ((n - 1) as f64);
+                let is_integer = nums.iter().all(|x| x.fract() == 0.0) && step.fract() == 0.0;
+                for k in 1..=count {
+                    let next_val = nums[n - 1] + step * (k as f64);
+                    if is_integer {
+                        out.push(format!("{:.0}", next_val));
+                    } else {
+                        out.push(format!("{:.2}", next_val));
+                    }
+                }
+            }
+            return out;
+        }
+
+        // 3. Check alphanumeric pattern (e.g. "Day 1", "Q1", "Item 005")
+        let alpha_num_pattern = samples.iter().all(|s| {
+            let trimmed = s.trim();
+            trimmed.chars().last().is_some_and(|c| c.is_ascii_digit())
+        });
+
+        if alpha_num_pattern {
+            let last_s = samples.last().unwrap_or(&samples[0]);
+            let trimmed = last_s.trim();
+            let num_start = trimmed.rfind(|c: char| !c.is_ascii_digit()).map(|i| i + 1).unwrap_or(0);
+            let prefix = &trimmed[..num_start];
+            let num_str = &trimmed[num_start..];
+            let num_len = num_str.len();
+
+            if let Ok(last_num) = num_str.parse::<i64>() {
+                let step = if samples.len() >= 2 {
+                    let first_s = &samples[0];
+                    let first_start = first_s.trim().rfind(|c: char| !c.is_ascii_digit()).map(|i| i + 1).unwrap_or(0);
+                    let first_num = first_s[first_start..].parse::<i64>().unwrap_or(last_num);
+                    (last_num - first_num) / ((samples.len() - 1) as i64)
+                } else {
+                    1
+                };
+
+                let mut out = Vec::with_capacity(count);
+                for k in 1..=count {
+                    let next_num = last_num + step * (k as i64);
+                    out.push(format!("{}{:0width$}", prefix, next_num, width = num_len));
+                }
+                return out;
+            }
+        }
+
+        // 4. Default: cycle through samples
+        let mut out = Vec::with_capacity(count);
+        for k in 1..=count {
+            let idx = (k - 1) % samples.len();
+            out.push(samples[idx].clone());
+        }
+        out
+    }
+
+    /// Computes the auto-fill target range based on mouse drag coordinates.
+    pub fn compute_autofill_target(
+        source: &ExcelSelectionRange,
+        drag_cell: (u32, u32),
+    ) -> (ExcelSelectionRange, bool) {
+        let (dr, dc) = drag_cell;
+        let row_diff = if dr > source.max_row {
+            dr - source.max_row
+        } else {
+            source.min_row.saturating_sub(dr)
+        };
+
+        let col_diff = if dc > source.max_col {
+            dc - source.max_col
+        } else {
+            source.min_col.saturating_sub(dc)
+        };
+
+        if col_diff > row_diff {
+            // Horizontal fill
+            let max_c = dc.max(source.max_col);
+            (
+                ExcelSelectionRange {
+                    min_row: source.min_row,
+                    max_row: source.max_row,
+                    min_col: source.min_col,
+                    max_col: max_c,
+                },
+                true,
+            )
+        } else {
+            // Vertical fill
+            let max_r = dr.max(source.max_row);
+            (
+                ExcelSelectionRange {
+                    min_row: source.min_row,
+                    max_row: max_r,
+                    min_col: source.min_col,
+                    max_col: source.max_col,
+                },
+                false,
+            )
+        }
+    }
 }

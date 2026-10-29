@@ -4,6 +4,7 @@ export class FormulaBar {
   private formulaInputEl!: HTMLInputElement;
   private onCommitCallback?: (val: string) => void;
   private onCancelCallback?: () => void;
+  private onNameBoxJumpCallback?: (coordOrRange: string) => void;
   private activeCellText = "";
 
   constructor(containerId: string) {
@@ -16,9 +17,11 @@ export class FormulaBar {
   public setCallbacks(callbacks: {
     onCommit?: (val: string) => void;
     onCancel?: () => void;
+    onNameBoxJump?: (coordOrRange: string) => void;
   }) {
     this.onCommitCallback = callbacks.onCommit;
     this.onCancelCallback = callbacks.onCancel;
+    this.onNameBoxJumpCallback = callbacks.onNameBoxJump;
   }
 
   public setActiveCell(a1Coord: string, formulaOrValue: string) {
@@ -44,7 +47,14 @@ export class FormulaBar {
     this.nameBoxEl = document.createElement("input");
     this.nameBoxEl.className = "name-box";
     this.nameBoxEl.value = "A1";
-    this.nameBoxEl.readOnly = true;
+    this.nameBoxEl.title = "Name Box (type coordinate and press Enter)";
+    this.nameBoxEl.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        if (this.onNameBoxJumpCallback) {
+          this.onNameBoxJumpCallback(this.nameBoxEl.value.trim().toUpperCase());
+        }
+      }
+    };
 
     // 2. Commit / Cancel / fx Buttons
     const btnBox = document.createElement("div");

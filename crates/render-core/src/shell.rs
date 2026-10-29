@@ -11,7 +11,9 @@
 //! - Desktop keyboard shortcut engine (Accelerators & Alt Keytip state machine)
 //! - Desktop Session Manager coordinating CommandBus instances
 
+use crate::compiler::excel::ExcelSelectionRange;
 use crate::interaction::CommandBus;
+use crate::primitive::ColorRgba;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -474,6 +476,51 @@ impl FormulaBarEngine {
             // Col-fixed "$A1" -> Relative "A1"
             (true, false) => format!("{pure_col}{row_full}"),
         }
+    }
+
+    /// Parse Name Box input into an active selection range (e.g. "B4" or "A1:C10").
+    pub fn parse_name_box(input: &str) -> Option<ExcelSelectionRange> {
+        let trimmed = input.trim();
+        if let Some((start_str, end_str)) = trimmed.split_once(':') {
+            let (r1, c1) = Self::a1_to_coord(start_str)?;
+            let (r2, c2) = Self::a1_to_coord(end_str)?;
+            Some(ExcelSelectionRange {
+                min_row: r1.min(r2),
+                min_col: c1.min(c2),
+                max_row: r1.max(r2),
+                max_col: c1.max(c2),
+            })
+        } else {
+            let (row, col) = Self::a1_to_coord(trimmed)?;
+            Some(ExcelSelectionRange::single(row, col))
+        }
+    }
+
+    /// Extract cell/range references from a formula along with matching visual highlight colors.
+    pub fn extract_colored_references(formula: &str) -> Vec<(ExcelSelectionRange, ColorRgba)> {
+        let palette = [
+            ColorRgba::new(0.12, 0.53, 0.90, 1.0), // Blue
+            ColorRgba::new(0.06, 0.49, 0.25, 1.0), // Green
+            ColorRgba::new(0.55, 0.25, 0.70, 1.0), // Purple
+            ColorRgba::new(0.85, 0.40, 0.10, 1.0), // Orange
+            ColorRgba::new(0.80, 0.10, 0.20, 1.0), // Red
+        ];
+
+        let tokens = Self::tokenize_formula(formula);
+        let mut refs = Vec::new();
+        let mut color_idx = 0;
+
+        for token in tokens {
+            if token.token_type == FormulaTokenType::Reference {
+                if let Some(range) = Self::parse_name_box(&token.value) {
+                    let color = palette[color_idx % palette.len()];
+                    color_idx += 1;
+                    refs.push((range, color));
+                }
+            }
+        }
+
+        refs
     }
 }
 

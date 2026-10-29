@@ -67,6 +67,10 @@ class UnifiedShellApp {
         this.calcGridCanvas?.render();
       },
       onCancel: () => console.log("Formula cancelled"),
+      onNameBoxJump: (coord) => {
+        calcState.selectCell(coord);
+        this.calcGridCanvas?.render();
+      },
     });
 
     this.wordRuler = new WordRuler("sub-header-container");
@@ -152,6 +156,10 @@ class UnifiedShellApp {
             this.calcGridCanvas?.render();
           },
           onCancel: () => console.log("Formula cancelled"),
+          onNameBoxJump: (coord) => {
+            calcState.selectCell(coord);
+            this.calcGridCanvas?.render();
+          },
         });
         this.formulaBar.setActiveCell("A1", "=SUM(B2:B10)");
       } else if (tab.docType === "Word") {

@@ -11,6 +11,8 @@ export class CalcGridCanvas {
   private headerHeight = 26;
   private scrollX = 0;
   private scrollY = 0;
+  private isDraggingFillHandle = false;
+  private isSelecting = false;
   private onCellSelected?: (coord: string, value: string) => void;
 
   constructor(container: HTMLElement, state: CalcState = calcState) {
@@ -51,33 +53,25 @@ export class CalcGridCanvas {
     this.render();
   }
 
-  public selectCell(coord: string) {
-    this.state.selectCell(coord);
+  public selectCell(coord: string, extend = false, multi = false) {
+    this.state.selectCell(coord, extend, multi);
     this.render();
     if (this.onCellSelected) {
       this.onCellSelected(coord, this.state.formulaBarText);
     }
   }
 
-  private colIndexToLetter(idx: number): string {
-    let letter = "";
-    idx++;
-    while (idx > 0) {
-      const rem = (idx - 1) % 26;
-      letter = String.fromCharCode(65 + rem) + letter;
-      idx = Math.floor((idx - 1) / 26);
-    }
-    return letter;
-  }
+  private isNearFillHandle(x: number, y: number): boolean {
+    const primary = this.state.selectedRanges[this.state.selectedRanges.length - 1];
+    if (!primary) return false;
 
-  private coordToColRow(coord: string): { col: number; row: number } {
-    const match = coord.match(/^([A-Z]+)([0-9]+)$/);
-    if (!match) return { col: 0, row: 0 };
-    let col = 0;
-    for (let i = 0; i < match[1].length; i++) {
-      col = col * 26 + (match[1].charCodeAt(i) - 64);
-    }
-    return { col: col - 1, row: parseInt(match[2], 10) - 1 };
+    const maxCol = Math.max(primary.minCol, primary.maxCol);
+    const maxRow = Math.max(primary.minRow, primary.maxRow);
+
+    const hx = this.headerWidth + (maxCol + 1) * this.colWidth - this.scrollX;
+    const hy = this.headerHeight + (maxRow + 1) * this.rowHeight - this.scrollY;
+
+    return Math.abs(x - hx) <= 6 && Math.abs(y - hy) <= 6;
   }
 
   private attachEvents() {
@@ -88,16 +82,68 @@ export class CalcGridCanvas {
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
 
+      if (this.isNearFillHandle(x, y)) {
+        this.isDraggingFillHandle = true;
+        return;
+      }
+
       if (x > this.headerWidth && y > this.headerHeight) {
+        this.isSelecting = true;
         const colIdx = Math.floor((x - this.headerWidth + this.scrollX) / this.colWidth);
         const rowIdx = Math.floor((y - this.headerHeight + this.scrollY) / this.rowHeight);
-        const coord = `${this.colIndexToLetter(colIdx)}${rowIdx + 1}`;
-        this.selectCell(coord);
+        const coord = `${this.state.colIndexToLetter(colIdx)}${rowIdx + 1}`;
+
+        this.selectCell(coord, e.shiftKey, e.ctrlKey || e.metaKey);
       }
     });
 
+    this.canvas.addEventListener("mousemove", (e: MouseEvent) => {
+      const rect = this.canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      if (this.isNearFillHandle(x, y)) {
+        this.canvas.style.cursor = "crosshair";
+      } else {
+        this.canvas.style.cursor = "cell";
+      }
+
+      if (this.isDraggingFillHandle) {
+        const primary = this.state.selectedRanges[this.state.selectedRanges.length - 1];
+        if (!primary) return;
+        const colIdx = Math.max(primary.minCol, Math.floor((x - this.headerWidth + this.scrollX) / this.colWidth));
+        const rowIdx = Math.max(primary.minRow, Math.floor((y - this.headerHeight + this.scrollY) / this.rowHeight));
+
+        this.state.autoFillPreview = {
+          minRow: primary.minRow,
+          maxRow: rowIdx,
+          minCol: primary.minCol,
+          maxCol: colIdx,
+        };
+        this.render();
+      } else if (this.isSelecting && (e.buttons & 1) === 1) {
+        const colIdx = Math.floor((x - this.headerWidth + this.scrollX) / this.colWidth);
+        const rowIdx = Math.floor((y - this.headerHeight + this.scrollY) / this.rowHeight);
+        const coord = `${this.state.colIndexToLetter(colIdx)}${rowIdx + 1}`;
+        this.selectCell(coord, true, false);
+      }
+    });
+
+    window.addEventListener("mouseup", () => {
+      if (this.isDraggingFillHandle && this.state.autoFillPreview) {
+        const primary = this.state.selectedRanges[this.state.selectedRanges.length - 1];
+        if (primary) {
+          this.state.applyAutoFill(primary, this.state.autoFillPreview);
+        }
+        this.state.autoFillPreview = null;
+        this.isDraggingFillHandle = false;
+        this.render();
+      }
+      this.isSelecting = false;
+    });
+
     this.canvas.addEventListener("keydown", (e: KeyboardEvent) => {
-      const cur = this.coordToColRow(this.state.selectedCell);
+      const cur = this.state.coordToColRow(this.state.selectedCell);
       let changed = false;
 
       if (e.key === "ArrowDown") { cur.row++; changed = true; }
@@ -107,8 +153,8 @@ export class CalcGridCanvas {
 
       if (changed) {
         e.preventDefault();
-        const coord = `${this.colIndexToLetter(cur.col)}${cur.row + 1}`;
-        this.selectCell(coord);
+        const coord = `${this.state.colIndexToLetter(cur.col)}${cur.row + 1}`;
+        this.selectCell(coord, e.shiftKey, false);
       }
     });
   }
@@ -137,7 +183,7 @@ export class CalcGridCanvas {
 
       for (let c = 0; c < colsInView; c++) {
         const x = this.headerWidth + c * this.colWidth;
-        const colLetter = this.colIndexToLetter(c);
+        const colLetter = this.state.colIndexToLetter(c);
         const coord = `${colLetter}${rowNum}`;
 
         // Cell border
@@ -172,26 +218,80 @@ export class CalcGridCanvas {
       }
     }
 
-    // 3. Active Cell Selection Box
-    const sel = this.coordToColRow(this.state.selectedCell);
-    const selX = this.headerWidth + sel.col * this.colWidth;
-    const selY = this.headerHeight + sel.row * this.rowHeight;
+    // 3. Render Formula References Highlights (when editing formula)
+    this.state.formulaReferences.forEach((ref) => {
+      const rx = this.headerWidth + Math.min(ref.range.minCol, ref.range.maxCol) * this.colWidth - this.scrollX;
+      const ry = this.headerHeight + Math.min(ref.range.minRow, ref.range.maxRow) * this.rowHeight - this.scrollY;
+      const rw = (Math.abs(ref.range.maxCol - ref.range.minCol) + 1) * this.colWidth;
+      const rh = (Math.abs(ref.range.maxRow - ref.range.minRow) + 1) * this.rowHeight;
 
-    ctx.strokeStyle = "#107c41"; // Excel forest green
-    ctx.lineWidth = 2;
-    ctx.strokeRect(selX, selY, this.colWidth, this.rowHeight);
+      ctx.save();
+      ctx.strokeStyle = ref.color;
+      ctx.lineWidth = 2;
+      ctx.fillStyle = ref.color + "18";
+      ctx.fillRect(rx, ry, rw, rh);
+      ctx.strokeRect(rx, ry, rw, rh);
+      ctx.restore();
+    });
 
-    // Fill handle (bottom-right handle)
-    ctx.fillStyle = "#107c41";
-    ctx.fillRect(selX + this.colWidth - 3, selY + this.rowHeight - 3, 6, 6);
+    // 4. Render Multi-Range Selection Boxes
+    this.state.selectedRanges.forEach((range, idx) => {
+      const minCol = Math.min(range.minCol, range.maxCol);
+      const maxCol = Math.max(range.minCol, range.maxCol);
+      const minRow = Math.min(range.minRow, range.maxRow);
+      const maxRow = Math.max(range.minRow, range.maxRow);
 
-    // 4. Column Headers
+      const selX = this.headerWidth + minCol * this.colWidth - this.scrollX;
+      const selY = this.headerHeight + minRow * this.rowHeight - this.scrollY;
+      const selW = (maxCol - minCol + 1) * this.colWidth;
+      const selH = (maxRow - minRow + 1) * this.rowHeight;
+
+      ctx.fillStyle = "rgba(16, 124, 65, 0.12)";
+      ctx.fillRect(selX, selY, selW, selH);
+
+      ctx.strokeStyle = "#107c41"; // Excel forest green
+      ctx.lineWidth = 2;
+      ctx.strokeRect(selX, selY, selW, selH);
+
+      // Fill handle on last (active) range
+      if (idx === this.state.selectedRanges.length - 1) {
+        ctx.fillStyle = "#107c41";
+        ctx.fillRect(selX + selW - 3, selY + selH - 3, 6, 6);
+      }
+    });
+
+    // 5. Render Auto-Fill Preview Box
+    if (this.state.autoFillPreview) {
+      const p = this.state.autoFillPreview;
+      const minCol = Math.min(p.minCol, p.maxCol);
+      const maxCol = Math.max(p.minCol, p.maxCol);
+      const minRow = Math.min(p.minRow, p.maxRow);
+      const maxRow = Math.max(p.minRow, p.maxRow);
+
+      const px = this.headerWidth + minCol * this.colWidth - this.scrollX;
+      const py = this.headerHeight + minRow * this.rowHeight - this.scrollY;
+      const pw = (maxCol - minCol + 1) * this.colWidth;
+      const ph = (maxRow - minRow + 1) * this.rowHeight;
+
+      ctx.save();
+      ctx.strokeStyle = "#666666";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(px, py, pw, ph);
+      ctx.restore();
+    }
+
+    // 6. Column Headers
     ctx.fillStyle = "#f3f2f1";
     ctx.fillRect(0, 0, w, this.headerHeight);
 
+    const primaryRange = this.state.selectedRanges[this.state.selectedRanges.length - 1];
+    const activeCol = primaryRange ? primaryRange.maxCol : 0;
+    const activeRow = primaryRange ? primaryRange.maxRow : 0;
+
     for (let c = 0; c < colsInView; c++) {
       const x = this.headerWidth + c * this.colWidth;
-      const isColActive = c === sel.col;
+      const isColActive = c === activeCol;
 
       if (isColActive) {
         ctx.fillStyle = "#caead8";
@@ -205,16 +305,16 @@ export class CalcGridCanvas {
       ctx.fillStyle = isColActive ? "#107c41" : "#494745";
       ctx.font = isColActive ? "bold 11px Calibri, sans-serif" : "11px Calibri, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText(this.colIndexToLetter(c), x + this.colWidth / 2, 17);
+      ctx.fillText(this.state.colIndexToLetter(c), x + this.colWidth / 2, 17);
     }
 
-    // 5. Row Headers
+    // 7. Row Headers
     ctx.fillStyle = "#f3f2f1";
     ctx.fillRect(0, 0, this.headerWidth, h);
 
     for (let r = 0; r < rowsInView; r++) {
       const y = this.headerHeight + r * this.rowHeight;
-      const isRowActive = r === sel.row;
+      const isRowActive = r === activeRow;
 
       if (isRowActive) {
         ctx.fillStyle = "#caead8";
@@ -231,7 +331,7 @@ export class CalcGridCanvas {
       ctx.fillText(String(r + 1), this.headerWidth / 2, y + 16);
     }
 
-    // 6. Top-left Select-all box
+    // 8. Top-left Select-all box
     ctx.fillStyle = "#e1dfdd";
     ctx.fillRect(0, 0, this.headerWidth, this.headerHeight);
     ctx.strokeStyle = "#c8c6c4";
@@ -244,4 +344,3 @@ export class CalcGridCanvas {
     ctx.fill();
   }
 }
-
