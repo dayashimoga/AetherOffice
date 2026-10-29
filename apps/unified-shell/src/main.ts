@@ -23,6 +23,8 @@ import { slidesState } from "./state/slidesState";
 import { pdfState } from "./state/pdfState";
 import { HubLauncher } from "./apps/hub/HubLauncher";
 import { BackstageMenu } from "./components/BackstageMenu";
+import { FindReplaceDialog } from "./components/FindReplaceDialog";
+import { WordCountDialog } from "./components/WordCountDialog";
 
 export class UnifiedShellApp {
   private tabBar!: TabBar;
@@ -45,6 +47,8 @@ export class UnifiedShellApp {
   private pdfViewerCanvas?: PdfViewerCanvas;
   private hubLauncher?: HubLauncher;
   private backstageMenu!: BackstageMenu;
+  private findReplaceDialog!: FindReplaceDialog;
+  private wordCountDialog!: WordCountDialog;
 
   constructor(autoBoot = true) {
     this.init(autoBoot);
@@ -186,7 +190,32 @@ export class UnifiedShellApp {
 
     this.laserPointer = new LaserPointer("laser-pointer-dot");
 
-    // 6. Initialize Keyboard Shortcuts
+    // 6. Initialize Find & Replace + Word Count Dialogs
+    this.findReplaceDialog = new FindReplaceDialog();
+    this.wordCountDialog = new WordCountDialog();
+
+    const wordCountSpan = document.getElementById("status-word-count");
+    if (wordCountSpan) {
+      wordCountSpan.style.cursor = "pointer";
+      wordCountSpan.title = "Click for detailed word count statistics";
+      wordCountSpan.onclick = () => this.showWordCount();
+    }
+
+    const zoomSlider = document.getElementById("zoom-slider") as HTMLInputElement | null;
+    const zoomLevel = document.getElementById("status-zoom-level");
+    if (zoomSlider) {
+      zoomSlider.oninput = (e) => {
+        const val = parseInt((e.target as HTMLInputElement).value, 10) || 100;
+        if (zoomLevel) zoomLevel.textContent = `${val}%`;
+        const zoom = val / 100;
+        if (this.currentDocType === "Word" && this.writerCanvas) {
+          this.writerCanvas.getState().setZoom(zoom);
+          this.writerCanvas.render();
+        }
+      };
+    }
+
+    // 7. Initialize Keyboard Shortcuts
     this.shortcuts = new KeyboardShortcuts();
     this.shortcuts.setCallbacks({
       onAction: (act) => this.handleShortcutAction(act),
@@ -348,6 +377,56 @@ export class UnifiedShellApp {
         this.writerCanvas?.render();
       }
     });
+  }
+
+  public showFindReplace(mode: "find" | "replace" = "find") {
+    this.findReplaceDialog.setCallbacks({
+      onFind: (query, matchCase) => writerState.findMatches(query, matchCase),
+      onSelectMatch: (m) => {
+        writerState.cursor = {
+          pageIndex: m.pageIndex,
+          paragraphIndex: m.paragraphIndex,
+          runIndex: m.runIndex,
+          offset: m.offset,
+        };
+        writerState.selection = {
+          anchor: { ...writerState.cursor },
+          focus: { ...writerState.cursor, offset: m.offset + m.length },
+        };
+        this.writerCanvas?.render();
+      },
+      onReplace: (m, rep) => {
+        writerState.replaceMatch(m, rep);
+        this.writerCanvas?.render();
+        const active = this.tabBar.getActiveTab();
+        if (active) this.tabBar.setDirty(active.id, true);
+      },
+      onReplaceAll: (query, rep, matchCase) => {
+        const count = writerState.replaceAllMatches(query, rep, matchCase);
+        this.writerCanvas?.render();
+        const active = this.tabBar.getActiveTab();
+        if (active) this.tabBar.setDirty(active.id, true);
+        return count;
+      },
+      onClose: () => {
+        writerState.clearSelection();
+        this.writerCanvas?.render();
+      },
+    });
+    this.findReplaceDialog.show(mode);
+  }
+
+  public showWordCount() {
+    const stats = writerState.getDetailedWordCount();
+    this.wordCountDialog.show(stats);
+  }
+
+  public getFindReplaceDialog(): FindReplaceDialog {
+    return this.findReplaceDialog;
+  }
+
+  public getWordCountDialog(): WordCountDialog {
+    return this.wordCountDialog;
   }
 
   public toggleBackstage() {
@@ -560,6 +639,46 @@ export class UnifiedShellApp {
       this.toggleBackstage();
       return;
     }
+    if (action === "Find") {
+      this.showFindReplace("find");
+      return;
+    }
+    if (action === "Replace") {
+      this.showFindReplace("replace");
+      return;
+    }
+    if (action === "WordCount") {
+      this.showWordCount();
+      return;
+    }
+    if (action === "ToggleRuler") {
+      const subHeader = document.getElementById("sub-header-container");
+      if (subHeader) {
+        subHeader.style.display = subHeader.style.display === "none" ? "flex" : "none";
+      }
+      return;
+    }
+    if (action === "ToggleNavPane") {
+      const sidebar = document.getElementById("sidebar-container");
+      if (sidebar) {
+        sidebar.style.display = sidebar.style.display === "none" ? "block" : "none";
+      }
+      return;
+    }
+    if (action === "ViewWebLayout") {
+      writerState.doc.viewMode = "web";
+      this.writerCanvas?.render();
+      return;
+    }
+    if (action === "ViewPrintLayout") {
+      writerState.doc.viewMode = "print";
+      this.writerCanvas?.render();
+      return;
+    }
+    if (action === "ViewReadMode") {
+      this.reflowReader.toggle();
+      return;
+    }
 
     const active = this.tabBar.getActiveTab();
     if (!active) return;
@@ -664,6 +783,12 @@ export class UnifiedShellApp {
         break;
       case "Close":
         this.tabBar.closeTab(active.id);
+        break;
+      case "Find":
+        this.showFindReplace("find");
+        break;
+      case "Replace":
+        this.showFindReplace("replace");
         break;
       case "CellEdit":
         if (this.currentDocType === "Excel") {

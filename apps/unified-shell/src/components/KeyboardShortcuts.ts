@@ -100,6 +100,10 @@ export class KeyboardShortcuts {
             e.preventDefault();
             this.emit("Find");
             break;
+          case "h":
+            e.preventDefault();
+            this.emit("Replace");
+            break;
           case "tab":
             e.preventDefault();
             if (e.shiftKey) {

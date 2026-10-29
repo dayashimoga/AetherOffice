@@ -10,6 +10,44 @@ export interface WordRun {
   size?: number;
   color?: string;
   highlight?: string;
+  linkUrl?: string;
+  insertion?: boolean;
+  deletion?: boolean;
+}
+
+export interface WordTableCell {
+  text: string;
+}
+
+export interface WordTableRow {
+  cells: WordTableCell[];
+}
+
+export interface WordTableData {
+  rows: WordTableRow[];
+  colCount: number;
+}
+
+export interface WordImageData {
+  src: string;
+  width: number;
+  height: number;
+  caption?: string;
+}
+
+export interface WordShapeData {
+  shapeType: "rect" | "roundRect" | "ellipse" | "triangle" | "arrow" | "star";
+  width: number;
+  height: number;
+  color?: string;
+}
+
+export interface WordComment {
+  id: string;
+  text: string;
+  author: string;
+  createdAt: string;
+  paragraphId?: string;
 }
 
 export interface WordParagraph {
@@ -19,6 +57,10 @@ export interface WordParagraph {
   alignment: "left" | "center" | "right" | "justify";
   indent?: number;
   lineSpacing?: number;
+  table?: WordTableData;
+  image?: WordImageData;
+  shape?: WordShapeData;
+  commentId?: string;
 }
 
 export interface DocPage {
@@ -36,6 +78,9 @@ export interface WordDocumentModel {
   columns?: number;
   headerText?: string;
   footerText?: string;
+  comments?: WordComment[];
+  trackChanges?: boolean;
+  viewMode?: "print" | "web" | "read";
 }
 
 export interface CaretPosition {
@@ -304,6 +349,26 @@ export class WriterState {
       page.paragraphs.push(para);
       this.cursor.paragraphIndex = page.paragraphs.length - 1;
     }
+
+    if (this.doc.trackChanges) {
+      const trackedRun: WordRun = {
+        text,
+        font: this.activeFormat.font,
+        size: this.activeFormat.size,
+        bold: this.activeFormat.bold,
+        italic: this.activeFormat.italic,
+        color: "#2563eb",
+        underline: true,
+        insertion: true,
+      };
+      para.runs.splice(this.cursor.runIndex + 1, 0, trackedRun);
+      this.cursor.runIndex++;
+      this.cursor.offset = text.length;
+      this.clearSelection();
+      this.saveSnapshot();
+      return;
+    }
+
     let run = para.runs[this.cursor.runIndex];
     if (!run) {
       run = {
@@ -334,6 +399,25 @@ export class WriterState {
     if (!para) return;
     const run = para.runs[this.cursor.runIndex];
     if (!run) return;
+
+    if (this.doc.trackChanges) {
+      if (this.cursor.offset > 0) {
+        const charToDelete = run.text.slice(this.cursor.offset - 1, this.cursor.offset);
+        run.text = run.text.slice(0, this.cursor.offset - 1) + run.text.slice(this.cursor.offset);
+        const delRun: WordRun = {
+          text: charToDelete,
+          font: run.font,
+          size: run.size,
+          color: "#dc2626",
+          strikethrough: true,
+          deletion: true,
+        };
+        para.runs.splice(this.cursor.runIndex + 1, 0, delRun);
+        this.cursor.offset--;
+        this.saveSnapshot();
+        return;
+      }
+    }
 
     if (this.cursor.offset > 0) {
       run.text = run.text.slice(0, this.cursor.offset - 1) + run.text.slice(this.cursor.offset);
@@ -604,6 +688,280 @@ export class WriterState {
 
   public getTotalPages(): number {
     return this.doc.pages.length;
+  }
+
+  public getDetailedWordCount() {
+    let words = 0;
+    let charactersNoSpaces = 0;
+    let charactersWithSpaces = 0;
+    let paragraphs = 0;
+    let lines = 0;
+
+    this.doc.pages.forEach((page) => {
+      paragraphs += page.paragraphs.length;
+      page.paragraphs.forEach((p) => {
+        const fullText = p.runs.map((r) => r.text).join("");
+        const pWords = fullText.trim().split(/\s+/).filter(Boolean);
+        words += pWords.length;
+        charactersWithSpaces += fullText.length;
+        charactersNoSpaces += fullText.replace(/\s+/g, "").length;
+        lines += Math.max(1, Math.ceil(fullText.length / 75));
+      });
+    });
+
+    return {
+      pages: Math.max(1, this.doc.pages.length),
+      words,
+      charactersNoSpaces,
+      charactersWithSpaces,
+      paragraphs,
+      lines,
+    };
+  }
+
+  public insertTable(rowCount = 3, colCount = 3): void {
+    this.saveSnapshot();
+    const page = this.doc.pages[this.cursor.pageIndex] || this.doc.pages[0];
+    const rows: WordTableRow[] = [];
+    for (let r = 0; r < rowCount; r++) {
+      const cells: WordTableCell[] = [];
+      for (let c = 0; c < colCount; c++) {
+        cells.push({ text: r === 0 ? `Header ${c + 1}` : `Data ${r},${c + 1}` });
+      }
+      rows.push({ cells });
+    }
+
+    const tablePara: WordParagraph = {
+      id: `tbl-${Date.now()}`,
+      style: "Normal",
+      alignment: "left",
+      runs: [{ text: "", font: "Calibri", size: 11 }],
+      table: { rows, colCount },
+    };
+
+    page.paragraphs.splice(this.cursor.paragraphIndex + 1, 0, tablePara);
+    this.cursor.paragraphIndex++;
+  }
+
+  public addTableRow(): void {
+    this.saveSnapshot();
+    const page = this.doc.pages[this.cursor.pageIndex];
+    const para = page?.paragraphs[this.cursor.paragraphIndex];
+    if (para?.table) {
+      const newCells: WordTableCell[] = [];
+      for (let c = 0; c < para.table.colCount; c++) {
+        newCells.push({ text: `Row ${para.table.rows.length + 1}, Col ${c + 1}` });
+      }
+      para.table.rows.push({ cells: newCells });
+    }
+  }
+
+  public deleteTableRow(): void {
+    this.saveSnapshot();
+    const page = this.doc.pages[this.cursor.pageIndex];
+    const para = page?.paragraphs[this.cursor.paragraphIndex];
+    if (para?.table && para.table.rows.length > 1) {
+      para.table.rows.pop();
+    }
+  }
+
+  public addTableColumn(): void {
+    this.saveSnapshot();
+    const page = this.doc.pages[this.cursor.pageIndex];
+    const para = page?.paragraphs[this.cursor.paragraphIndex];
+    if (para?.table) {
+      para.table.colCount++;
+      para.table.rows.forEach((row, rIdx) => {
+        row.cells.push({
+          text: rIdx === 0 ? `Header ${para.table!.colCount}` : `Cell ${rIdx + 1},${para.table!.colCount}`,
+        });
+      });
+    }
+  }
+
+  public deleteTableColumn(): void {
+    this.saveSnapshot();
+    const page = this.doc.pages[this.cursor.pageIndex];
+    const para = page?.paragraphs[this.cursor.paragraphIndex];
+    if (para?.table && para.table.colCount > 1) {
+      para.table.colCount--;
+      para.table.rows.forEach((row) => {
+        row.cells.pop();
+      });
+    }
+  }
+
+  public insertPicture(
+    src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='60'></svg>",
+    width = 320,
+    height = 180,
+    caption = "Embedded Picture"
+  ): void {
+    this.saveSnapshot();
+    const page = this.doc.pages[this.cursor.pageIndex] || this.doc.pages[0];
+    const imgPara: WordParagraph = {
+      id: `img-${Date.now()}`,
+      style: "Normal",
+      alignment: "center",
+      runs: [{ text: `[Picture: ${caption}]`, font: "Calibri", size: 10, italic: true, color: "#6b7280" }],
+      image: { src, width, height, caption },
+    };
+    page.paragraphs.splice(this.cursor.paragraphIndex + 1, 0, imgPara);
+    this.cursor.paragraphIndex++;
+  }
+
+  public insertShape(shapeType: "rect" | "roundRect" | "ellipse" | "triangle" | "arrow" | "star" = "rect"): void {
+    this.saveSnapshot();
+    const page = this.doc.pages[this.cursor.pageIndex] || this.doc.pages[0];
+    const shapePara: WordParagraph = {
+      id: `shp-${Date.now()}`,
+      style: "Normal",
+      alignment: "center",
+      runs: [{ text: `[Shape: ${shapeType}]`, font: "Calibri", size: 10, italic: true, color: "#6b7280" }],
+      shape: { shapeType, width: 220, height: 120, color: "#2563eb" },
+    };
+    page.paragraphs.splice(this.cursor.paragraphIndex + 1, 0, shapePara);
+    this.cursor.paragraphIndex++;
+  }
+
+  public insertHyperlink(text: string, url: string): void {
+    this.saveSnapshot();
+    this.insertText(text);
+    this.applyRunMutation((r) => {
+      r.color = "#2563eb";
+      r.underline = true;
+      r.linkUrl = url;
+    });
+  }
+
+  public insertComment(text: string, author = "Reviewer"): WordComment {
+    this.saveSnapshot();
+    if (!this.doc.comments) this.doc.comments = [];
+    const comment: WordComment = {
+      id: `c-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      text,
+      author,
+      createdAt: new Date().toLocaleTimeString(),
+    };
+    const page = this.doc.pages[this.cursor.pageIndex];
+    const para = page?.paragraphs[this.cursor.paragraphIndex];
+    if (para) {
+      para.commentId = comment.id;
+      comment.paragraphId = para.id;
+    }
+    this.doc.comments.push(comment);
+    return comment;
+  }
+
+  public deleteComment(id?: string): void {
+    if (!this.doc.comments) return;
+    this.saveSnapshot();
+    if (id) {
+      this.doc.comments = this.doc.comments.filter((c) => c.id !== id);
+    } else {
+      const page = this.doc.pages[this.cursor.pageIndex];
+      const para = page?.paragraphs[this.cursor.paragraphIndex];
+      if (para?.commentId) {
+        const commentId = para.commentId;
+        this.doc.comments = this.doc.comments.filter((c) => c.id !== commentId);
+        delete para.commentId;
+      }
+    }
+  }
+
+  public toggleTrackChanges(): boolean {
+    this.doc.trackChanges = !this.doc.trackChanges;
+    return !!this.doc.trackChanges;
+  }
+
+  public acceptChanges(): void {
+    this.saveSnapshot();
+    this.doc.pages.forEach((page) => {
+      page.paragraphs.forEach((p) => {
+        p.runs = p.runs.filter((r) => !r.deletion);
+        p.runs.forEach((r) => {
+          if (r.insertion) {
+            r.insertion = false;
+            r.color = "#242424";
+            r.underline = false;
+          }
+        });
+      });
+    });
+  }
+
+  public rejectChanges(): void {
+    this.saveSnapshot();
+    this.doc.pages.forEach((page) => {
+      page.paragraphs.forEach((p) => {
+        p.runs = p.runs.filter((r) => !r.insertion);
+        p.runs.forEach((r) => {
+          if (r.deletion) {
+            r.deletion = false;
+            r.strikethrough = false;
+            r.color = "#242424";
+          }
+        });
+      });
+    });
+  }
+
+  public findMatches(query: string, matchCase = false): { pageIndex: number; paragraphIndex: number; runIndex: number; offset: number; length: number; text: string }[] {
+    const matches: { pageIndex: number; paragraphIndex: number; runIndex: number; offset: number; length: number; text: string }[] = [];
+    if (!query) return matches;
+
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(matchCase ? query : escaped, matchCase ? "g" : "gi");
+
+    this.doc.pages.forEach((page, pIdx) => {
+      page.paragraphs.forEach((para, paraIdx) => {
+        para.runs.forEach((run, rIdx) => {
+          regex.lastIndex = 0;
+          let m: RegExpExecArray | null;
+          while ((m = regex.exec(run.text)) !== null) {
+            matches.push({
+              pageIndex: pIdx,
+              paragraphIndex: paraIdx,
+              runIndex: rIdx,
+              offset: m.index,
+              length: m[0].length,
+              text: m[0],
+            });
+          }
+        });
+      });
+    });
+    return matches;
+  }
+
+  public replaceMatch(match: { pageIndex: number; paragraphIndex: number; runIndex: number; offset: number; length: number }, replacement: string): void {
+    this.saveSnapshot();
+    const page = this.doc.pages[match.pageIndex];
+    const para = page?.paragraphs[match.paragraphIndex];
+    const run = para?.runs[match.runIndex];
+    if (run) {
+      run.text = run.text.slice(0, match.offset) + replacement + run.text.slice(match.offset + match.length);
+    }
+  }
+
+  public replaceAllMatches(query: string, replacement: string, matchCase = false): number {
+    this.saveSnapshot();
+    let count = 0;
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(matchCase ? query : escaped, matchCase ? "g" : "gi");
+
+    this.doc.pages.forEach((page) => {
+      page.paragraphs.forEach((para) => {
+        para.runs.forEach((run) => {
+          const newText = run.text.replace(regex, () => {
+            count++;
+            return replacement;
+          });
+          run.text = newText;
+        });
+      });
+    });
+    return count;
   }
 
   private applyRunMutation(mutate: (r: WordRun) => void) {
@@ -914,24 +1272,122 @@ export class WriterState {
 
       case "insertTable":
       case "InsertTable": {
-        this.saveSnapshot();
-        const page = this.doc.pages[this.cursor.pageIndex] || this.doc.pages[0];
-        page.paragraphs.splice(this.cursor.paragraphIndex + 1, 0, {
-          id: `tbl-${Date.now()}`,
-          style: "Normal",
-          alignment: "left",
-          runs: [
-            { text: "┌────────────┬────────────┬────────────┐\n", font: "Consolas", size: 10, color: "#1f497d" },
-            { text: "│ Item 1     │ Quantity   │ Price      │\n", font: "Consolas", size: 10, bold: true },
-            { text: "├────────────┼────────────┼────────────┤\n", font: "Consolas", size: 10, color: "#1f497d" },
-            { text: "│ Widget A   │ 10         │ $45.00     │\n", font: "Consolas", size: 10 },
-            { text: "│ Widget B   │ 25         │ $120.00    │\n", font: "Consolas", size: 10 },
-            { text: "└────────────┴────────────┴────────────┘", font: "Consolas", size: 10, color: "#1f497d" },
-          ],
-        });
-        this.cursor.paragraphIndex++;
+        const rows = val?.rows || 3;
+        const cols = val?.cols || 3;
+        this.insertTable(rows, cols);
         break;
       }
+
+      case "addTableRow":
+      case "AddTableRow":
+        this.addTableRow();
+        break;
+
+      case "deleteTableRow":
+      case "DeleteTableRow":
+        this.deleteTableRow();
+        break;
+
+      case "addTableColumn":
+      case "AddTableColumn":
+        this.addTableColumn();
+        break;
+
+      case "deleteTableColumn":
+      case "DeleteTableColumn":
+        this.deleteTableColumn();
+        break;
+
+      case "insertPicture":
+      case "InsertPicture": {
+        const src = typeof val === "string" ? val : val?.src;
+        const width = val?.width || 320;
+        const height = val?.height || 180;
+        const caption = val?.caption || "Embedded Image";
+        this.insertPicture(src, width, height, caption);
+        break;
+      }
+
+      case "insertShape":
+      case "InsertShape":
+        this.insertShape((val as any) || "rect");
+        break;
+
+      case "insertHyperlink":
+      case "InsertHyperlink":
+      case "insertLink":
+      case "InsertLink": {
+        const text = val?.text || "AetherOffice Link";
+        const url = val?.url || "https://aetheroffice.org";
+        this.insertHyperlink(text, url);
+        break;
+      }
+
+      case "insertComment":
+      case "InsertComment":
+      case "newComment":
+      case "NewComment":
+        this.insertComment(typeof val === "string" ? val : val?.text || "Needs review", val?.author);
+        break;
+
+      case "deleteComment":
+      case "DeleteComment":
+        this.deleteComment(typeof val === "string" ? val : val?.id);
+        break;
+
+      case "toggleTrackChanges":
+      case "ToggleTrackChanges":
+        this.toggleTrackChanges();
+        break;
+
+      case "acceptChange":
+      case "AcceptChange":
+      case "acceptChanges":
+      case "AcceptChanges":
+        this.acceptChanges();
+        break;
+
+      case "rejectChange":
+      case "RejectChange":
+      case "rejectChanges":
+      case "RejectChanges":
+        this.rejectChanges();
+        break;
+
+      case "viewPrintLayout":
+      case "ViewPrintLayout":
+        this.doc.viewMode = "print";
+        break;
+
+      case "viewWebLayout":
+      case "ViewWebLayout":
+        this.doc.viewMode = "web";
+        break;
+
+      case "viewReadMode":
+      case "ViewReadMode":
+        this.doc.viewMode = "read";
+        break;
+
+      case "zoom100":
+      case "Zoom100":
+        this.setZoom(1.0);
+        break;
+
+      case "zoomOnePage":
+      case "ZoomOnePage":
+        this.setZoom(0.85);
+        break;
+
+      case "zoomMultiplePages":
+      case "ZoomMultiplePages":
+        this.setZoom(0.65);
+        break;
+
+      case "zoomPageWidth":
+      case "ZoomPageWidth":
+        this.setZoom(1.25);
+        break;
 
       case "insertBlankPage":
       case "InsertBlankPage":

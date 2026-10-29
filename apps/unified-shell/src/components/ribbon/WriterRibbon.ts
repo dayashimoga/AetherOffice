@@ -169,27 +169,32 @@ export class WriterRibbon implements AppRibbonComponent {
 
     // 2. Tables Group
     const tableGroup = createRibbonGroup("Tables");
-    tableGroup.appendChild(
-      createRibbonButton("Insert Table", "📊 Table", () => emit("InsertTable", { rows: 3, cols: 3 }))
+    const tableRow = document.createElement("div");
+    tableRow.className = "ribbon-group-row";
+    tableRow.appendChild(
+      createRibbonButton("Insert Table", "📊 Table", () => emit("InsertTable", { rows: 3, cols: 3 }), false, "btn-insert-table")
     );
+    tableRow.appendChild(createRibbonButton("Add Row", "+ Row", () => emit("AddTableRow"), false, "btn-add-table-row"));
+    tableRow.appendChild(createRibbonButton("Add Col", "+ Col", () => emit("AddTableColumn"), false, "btn-add-table-col"));
+    tableGroup.appendChild(tableRow);
     body.appendChild(tableGroup);
 
     // 3. Illustrations & Shapes Group
     const illustGroup = createRibbonGroup("Illustrations");
     const illustRow1 = document.createElement("div");
     illustRow1.className = "ribbon-group-row";
-    illustRow1.appendChild(createRibbonButton("Picture", "🖼️ Picture", () => emit("InsertPicture")));
-    illustRow1.appendChild(createRibbonButton("Rectangle", "⬛ Rect", () => emit("InsertShape", "rect")));
-    illustRow1.appendChild(createRibbonButton("Rounded", "▢ Round", () => emit("InsertShape", "roundRect")));
-    illustRow1.appendChild(createRibbonButton("Ellipse", "⚪ Ellipse", () => emit("InsertShape", "ellipse")));
+    illustRow1.appendChild(createRibbonButton("Picture", "🖼️ Picture", () => emit("InsertPicture"), false, "btn-insert-picture"));
+    illustRow1.appendChild(createRibbonButton("Rectangle", "⬛ Rect", () => emit("InsertShape", "rect"), false, "btn-shape-rect"));
+    illustRow1.appendChild(createRibbonButton("Rounded", "▢ Round", () => emit("InsertShape", "roundRect"), false, "btn-shape-round"));
+    illustRow1.appendChild(createRibbonButton("Ellipse", "⚪ Ellipse", () => emit("InsertShape", "ellipse"), false, "btn-shape-ellipse"));
     illustGroup.appendChild(illustRow1);
 
     const illustRow2 = document.createElement("div");
     illustRow2.className = "ribbon-group-row";
-    illustRow2.appendChild(createRibbonButton("Triangle", "▲ Tri", () => emit("InsertShape", "triangle")));
-    illustRow2.appendChild(createRibbonButton("Arrow", "➔ Arrow", () => emit("InsertShape", "arrow")));
-    illustRow2.appendChild(createRibbonButton("Star", "★ Star", () => emit("InsertShape", "star")));
-    illustRow2.appendChild(createRibbonButton("Chart", "📈 Chart", () => emit("InsertChart")));
+    illustRow2.appendChild(createRibbonButton("Triangle", "▲ Tri", () => emit("InsertShape", "triangle"), false, "btn-shape-triangle"));
+    illustRow2.appendChild(createRibbonButton("Arrow", "➔ Arrow", () => emit("InsertShape", "arrow"), false, "btn-shape-arrow"));
+    illustRow2.appendChild(createRibbonButton("Star", "★ Star", () => emit("InsertShape", "star"), false, "btn-shape-star"));
+    illustRow2.appendChild(createRibbonButton("Chart", "📈 Chart", () => emit("InsertChart"), false, "btn-insert-chart"));
     illustGroup.appendChild(illustRow2);
     body.appendChild(illustGroup);
 
@@ -197,9 +202,9 @@ export class WriterRibbon implements AppRibbonComponent {
     const hfGroup = createRibbonGroup("Header & Footer");
     const hfRow = document.createElement("div");
     hfRow.className = "ribbon-group-row";
-    hfRow.appendChild(createRibbonButton("Header", "Header", () => emit("InsertHeader")));
-    hfRow.appendChild(createRibbonButton("Footer", "Footer", () => emit("InsertFooter")));
-    hfRow.appendChild(createRibbonButton("Page Number", "# Page No", () => emit("InsertPageNumber")));
+    hfRow.appendChild(createRibbonButton("Header", "Header", () => emit("InsertHeader"), false, "btn-insert-header"));
+    hfRow.appendChild(createRibbonButton("Footer", "Footer", () => emit("InsertFooter"), false, "btn-insert-footer"));
+    hfRow.appendChild(createRibbonButton("Page Number", "# Page No", () => emit("InsertPageNumber"), false, "btn-insert-page-number"));
     hfGroup.appendChild(hfRow);
     body.appendChild(hfGroup);
 
@@ -207,16 +212,20 @@ export class WriterRibbon implements AppRibbonComponent {
     const textGroup = createRibbonGroup("Text");
     const textRow = document.createElement("div");
     textRow.className = "ribbon-group-row";
-    textRow.appendChild(createRibbonButton("Text Box", "🔤 Text Box", () => emit("InsertTextBox")));
-    textRow.appendChild(createRibbonButton("WordArt", "🎨 WordArt", () => emit("InsertWordArt")));
-    textRow.appendChild(createRibbonButton("Drop Cap", "🔠 Drop Cap", () => emit("InsertDropCap")));
+    textRow.appendChild(createRibbonButton("Text Box", "🔤 Text Box", () => emit("InsertTextBox"), false, "btn-insert-textbox"));
+    textRow.appendChild(createRibbonButton("WordArt", "🎨 WordArt", () => emit("InsertWordArt"), false, "btn-insert-wordart"));
+    textRow.appendChild(createRibbonButton("Drop Cap", "🔠 Drop Cap", () => emit("InsertDropCap"), false, "btn-insert-dropcap"));
     textGroup.appendChild(textRow);
     body.appendChild(textGroup);
 
-    // 6. Links Group
-    const linksGroup = createRibbonGroup("Links");
-    linksGroup.appendChild(createRibbonButton("Link", "🔗 Link", () => emit("InsertLink")));
-    linksGroup.appendChild(createRibbonButton("Bookmark", "🔖 Bookmark", () => emit("InsertBookmark")));
+    // 6. Links & Comments Group
+    const linksGroup = createRibbonGroup("Links & Comments");
+    const linksRow = document.createElement("div");
+    linksRow.className = "ribbon-group-row";
+    linksRow.appendChild(createRibbonButton("Link", "🔗 Link", () => emit("InsertLink"), false, "btn-insert-link"));
+    linksRow.appendChild(createRibbonButton("Comment", "💬 Comment", () => emit("InsertComment"), false, "btn-insert-comment"));
+    linksRow.appendChild(createRibbonButton("Bookmark", "🔖 Bookmark", () => emit("InsertBookmark"), false, "btn-insert-bookmark"));
+    linksGroup.appendChild(linksRow);
     body.appendChild(linksGroup);
   }
 
@@ -305,24 +314,24 @@ export class WriterRibbon implements AppRibbonComponent {
     const proofGroup = createRibbonGroup("Proofing");
     const proofRow = document.createElement("div");
     proofRow.className = "ribbon-group-row";
-    proofRow.appendChild(createRibbonButton("Spelling & Grammar", "✓ Spelling", () => emit("CheckSpelling")));
-    proofRow.appendChild(createRibbonButton("Thesaurus", "📖 Thesaurus", () => emit("Thesaurus")));
-    proofRow.appendChild(createRibbonButton("Word Count", "🔢 Word Count", () => emit("WordCount")));
+    proofRow.appendChild(createRibbonButton("Spelling & Grammar", "✓ Spelling", () => emit("CheckSpelling"), false, "btn-spelling"));
+    proofRow.appendChild(createRibbonButton("Thesaurus", "📖 Thesaurus", () => emit("Thesaurus"), false, "btn-thesaurus"));
+    proofRow.appendChild(createRibbonButton("Word Count", "🔢 Word Count", () => emit("WordCount"), false, "btn-word-count"));
     proofGroup.appendChild(proofRow);
     body.appendChild(proofGroup);
 
     // 2. Language Group
     const langGroup = createRibbonGroup("Language");
-    langGroup.appendChild(createRibbonButton("Translate", "🌐 Translate", () => emit("Translate")));
-    langGroup.appendChild(createRibbonButton("Proofing Language", "Language", () => emit("SetLanguage")));
+    langGroup.appendChild(createRibbonButton("Translate", "🌐 Translate", () => emit("Translate"), false, "btn-translate"));
+    langGroup.appendChild(createRibbonButton("Proofing Language", "Language", () => emit("SetLanguage"), false, "btn-language"));
     body.appendChild(langGroup);
 
     // 3. Comments Group
     const commGroup = createRibbonGroup("Comments");
     const commRow = document.createElement("div");
     commRow.className = "ribbon-group-row";
-    commRow.appendChild(createRibbonButton("New Comment", "💬 New Comment", () => emit("NewComment")));
-    commRow.appendChild(createRibbonButton("Delete Comment", "🗑️ Delete", () => emit("DeleteComment")));
+    commRow.appendChild(createRibbonButton("New Comment", "💬 New Comment", () => emit("NewComment"), false, "btn-new-comment"));
+    commRow.appendChild(createRibbonButton("Delete Comment", "🗑️ Delete", () => emit("DeleteComment"), false, "btn-delete-comment"));
     commGroup.appendChild(commRow);
     body.appendChild(commGroup);
 
@@ -331,10 +340,10 @@ export class WriterRibbon implements AppRibbonComponent {
     const trackRow = document.createElement("div");
     trackRow.className = "ribbon-group-row";
     trackRow.appendChild(
-      createRibbonButton("Track Changes", "📝 Track", () => emit("ToggleTrackChanges"), true)
+      createRibbonButton("Track Changes", "📝 Track", () => emit("ToggleTrackChanges"), true, "btn-track-changes")
     );
-    trackRow.appendChild(createRibbonButton("Accept Change", "✓ Accept", () => emit("AcceptChange")));
-    trackRow.appendChild(createRibbonButton("Reject Change", "✕ Reject", () => emit("RejectChange")));
+    trackRow.appendChild(createRibbonButton("Accept Change", "✓ Accept", () => emit("AcceptChange"), false, "btn-accept-change"));
+    trackRow.appendChild(createRibbonButton("Reject Change", "✕ Reject", () => emit("RejectChange"), false, "btn-reject-change"));
     trackGroup.appendChild(trackRow);
     body.appendChild(trackGroup);
   }
@@ -344,9 +353,9 @@ export class WriterRibbon implements AppRibbonComponent {
     const viewsGroup = createRibbonGroup("Views");
     const viewsRow = document.createElement("div");
     viewsRow.className = "ribbon-group-row";
-    viewsRow.appendChild(createRibbonButton("Print Layout", "📄 Print Layout", () => emit("ViewPrintLayout")));
-    viewsRow.appendChild(createRibbonButton("Web Layout", "🌐 Web Layout", () => emit("ViewWebLayout")));
-    viewsRow.appendChild(createRibbonButton("Read Mode", "📖 Read Mode", () => emit("ViewReadMode")));
+    viewsRow.appendChild(createRibbonButton("Print Layout", "📄 Print Layout", () => emit("ViewPrintLayout"), false, "btn-view-print"));
+    viewsRow.appendChild(createRibbonButton("Web Layout", "🌐 Web Layout", () => emit("ViewWebLayout"), false, "btn-view-web"));
+    viewsRow.appendChild(createRibbonButton("Read Mode", "📖 Read Mode", () => emit("ViewReadMode"), false, "btn-view-read"));
     viewsGroup.appendChild(viewsRow);
     body.appendChild(viewsGroup);
 
@@ -354,9 +363,9 @@ export class WriterRibbon implements AppRibbonComponent {
     const showGroup = createRibbonGroup("Show");
     const showRow = document.createElement("div");
     showRow.className = "ribbon-group-row";
-    showRow.appendChild(createRibbonButton("Ruler", "📏 Ruler", () => emit("ToggleRuler"), true));
-    showRow.appendChild(createRibbonButton("Gridlines", "🔲 Gridlines", () => emit("ToggleGridlines"), true));
-    showRow.appendChild(createRibbonButton("Navigation Pane", "📑 Nav Pane", () => emit("ToggleNavPane"), true));
+    showRow.appendChild(createRibbonButton("Ruler", "📏 Ruler", () => emit("ToggleRuler"), true, "btn-toggle-ruler"));
+    showRow.appendChild(createRibbonButton("Gridlines", "🔲 Gridlines", () => emit("ToggleGridlines"), true, "btn-toggle-gridlines"));
+    showRow.appendChild(createRibbonButton("Navigation Pane", "📑 Nav Pane", () => emit("ToggleNavPane"), true, "btn-toggle-nav"));
     showGroup.appendChild(showRow);
     body.appendChild(showGroup);
 
@@ -364,10 +373,10 @@ export class WriterRibbon implements AppRibbonComponent {
     const zoomGroup = createRibbonGroup("Zoom");
     const zoomRow = document.createElement("div");
     zoomRow.className = "ribbon-group-row";
-    zoomRow.appendChild(createRibbonButton("100%", "🔍 100%", () => emit("Zoom100")));
-    zoomRow.appendChild(createRibbonButton("One Page", "📄 One Page", () => emit("ZoomOnePage")));
-    zoomRow.appendChild(createRibbonButton("Multiple Pages", "📄📄 Multi Pages", () => emit("ZoomMultiplePages")));
-    zoomRow.appendChild(createRibbonButton("Page Width", "↔️ Page Width", () => emit("ZoomPageWidth")));
+    zoomRow.appendChild(createRibbonButton("100%", "🔍 100%", () => emit("Zoom100"), false, "btn-zoom-100"));
+    zoomRow.appendChild(createRibbonButton("One Page", "📄 One Page", () => emit("ZoomOnePage"), false, "btn-zoom-one"));
+    zoomRow.appendChild(createRibbonButton("Multiple Pages", "📄📄 Multi Pages", () => emit("ZoomMultiplePages"), false, "btn-zoom-multiple"));
+    zoomRow.appendChild(createRibbonButton("Page Width", "↔️ Page Width", () => emit("ZoomPageWidth"), false, "btn-zoom-width"));
     zoomGroup.appendChild(zoomRow);
     body.appendChild(zoomGroup);
   }

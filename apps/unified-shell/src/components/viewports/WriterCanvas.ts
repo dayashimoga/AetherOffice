@@ -793,6 +793,87 @@ export class WriterCanvas {
         page.paragraphs.forEach((p, pIndex) => {
           const lineX = this.marginX + (p.indent || 0);
 
+          // 4a. Render Table if present
+          if (p.table) {
+            const tableWidth = this.pageWidth - 2 * this.marginX - (p.indent || 0);
+            const colWidth = tableWidth / Math.max(1, p.table.colCount);
+            const rowHeight = 26;
+
+            p.table.rows.forEach((row, rIdx) => {
+              row.cells.forEach((cell, cIdx) => {
+                const cellX = lineX + cIdx * colWidth;
+                const cellY = lineY;
+                ctx.strokeStyle = "#9ca3af";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(cellX, cellY, colWidth, rowHeight);
+
+                if (rIdx === 0) {
+                  ctx.fillStyle = "#f3f4f6";
+                  ctx.fillRect(cellX + 1, cellY + 1, colWidth - 2, rowHeight - 2);
+                  ctx.fillStyle = "#111827";
+                  ctx.font = "bold 11px Calibri, sans-serif";
+                } else {
+                  ctx.fillStyle = "#374151";
+                  ctx.font = "11px Calibri, sans-serif";
+                }
+                ctx.fillText(cell.text, cellX + 6, cellY + 17);
+              });
+              lineY += rowHeight;
+            });
+            lineY += 12;
+            return;
+          }
+
+          // 4b. Render Image if present
+          if (p.image) {
+            const imgWidth = Math.min(p.image.width, this.pageWidth - 2 * this.marginX);
+            const imgHeight = p.image.height;
+            const imgX = this.marginX + (this.pageWidth - 2 * this.marginX - imgWidth) / 2;
+
+            ctx.fillStyle = "#f9fafb";
+            ctx.fillRect(imgX, lineY, imgWidth, imgHeight);
+            ctx.strokeStyle = "#cbd5e1";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(imgX, lineY, imgWidth, imgHeight);
+
+            ctx.fillStyle = "#475569";
+            ctx.font = "12px Calibri, sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(
+              `🖼️ ${p.image.caption || "Image"} (${imgWidth}x${imgHeight})`,
+              imgX + imgWidth / 2,
+              lineY + imgHeight / 2
+            );
+            ctx.textAlign = "left";
+
+            lineY += imgHeight + 14;
+            return;
+          }
+
+          // 4c. Render Shape if present
+          if (p.shape) {
+            const shpWidth = p.shape.width;
+            const shpHeight = p.shape.height;
+            const shpX = this.marginX + (this.pageWidth - 2 * this.marginX - shpWidth) / 2;
+
+            ctx.fillStyle = p.shape.color || "#2563eb";
+            ctx.strokeStyle = "#1d4ed8";
+            ctx.lineWidth = 2;
+
+            if (p.shape.shapeType === "ellipse") {
+              ctx.beginPath();
+              ctx.ellipse(shpX + shpWidth / 2, lineY + shpHeight / 2, shpWidth / 2, shpHeight / 2, 0, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.stroke();
+            } else {
+              ctx.fillRect(shpX, lineY, shpWidth, shpHeight);
+              ctx.strokeRect(shpX, lineY, shpWidth, shpHeight);
+            }
+
+            lineY += shpHeight + 14;
+            return;
+          }
+
           p.runs.forEach((r, rIndex) => {
             const fontSize = r.size || (p.style === "Heading1" ? 22 : p.style === "Heading2" ? 15 : 11);
             const fontFamily = r.font || "Calibri";
