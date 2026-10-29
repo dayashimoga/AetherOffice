@@ -22,9 +22,11 @@ pub mod text;
 pub mod window;
 
 pub use adaptive::{
-    BottomSheetState, BottomSheetStateMachine, CardField, CardFieldType, FormFactor, InkPoint,
-    InkStroke, LaserPointerEngine, RowCardInspectorEngine, SafeAreaInsets, TouchRibbonState,
-    ViewportMetrics, WordReflowReaderEngine,
+    AdaptiveShellController, AddInkStrokeTransaction, BottomSheetState, BottomSheetStateMachine,
+    CardEditorSession, CardField, CardFieldType, ClearInkTransaction, DeviceOrientation,
+    FormFactor, InkPoint, InkStroke, LaserPointerEngine, PointerModality, RowCardInspectorEngine,
+    SafeAreaInsets, SplitOrientation, SplitViewConfig, TouchRibbonState, ViewportMetrics,
+    WordReflowReaderEngine,
 };
 pub use commands::*;
 pub use window::{

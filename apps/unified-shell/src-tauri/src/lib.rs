@@ -7,14 +7,15 @@
 //! - Headless SVG / Rasterization export
 
 use render_core::{
-    DesktopSessionManager, DocumentType, FormattingState, RibbonModel, RibbonTabId, SessionSummary,
-    TabBarModel,
+    AdaptiveShellController, DesktopSessionManager, DocumentType, FormFactor, FormattingState,
+    PointerModality, RibbonModel, RibbonTabId, SessionSummary, TabBarModel,
 };
 use std::sync::Mutex;
 
 pub struct ShellState {
     pub session_manager: Mutex<DesktopSessionManager>,
     pub formatting: Mutex<FormattingState>,
+    pub adaptive_controller: Mutex<AdaptiveShellController>,
 }
 
 impl Default for ShellState {
@@ -28,6 +29,11 @@ impl ShellState {
         Self {
             session_manager: Mutex::new(DesktopSessionManager::new()),
             formatting: Mutex::new(FormattingState::default()),
+            adaptive_controller: Mutex::new(AdaptiveShellController::new(
+                1280.0,
+                800.0,
+                PointerModality::Fine,
+            )),
         }
     }
 }
@@ -221,6 +227,23 @@ pub fn build_child_process_config(
     )
 }
 
+pub fn resize_viewport(state: &ShellState, width: f64, height: f64) -> Result<FormFactor, String> {
+    let mut ctrl = state
+        .adaptive_controller
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    ctrl.resize(width, height);
+    Ok(ctrl.form_factor())
+}
+
+pub fn get_form_factor(state: &ShellState) -> Result<FormFactor, String> {
+    let ctrl = state
+        .adaptive_controller
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    Ok(ctrl.form_factor())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -234,6 +257,27 @@ mod tests {
         assert_eq!(summary.title, "Test.docx");
         assert_eq!(summary.doc_type, DocumentType::Word);
         assert!(!summary.is_dirty);
+    }
+
+    #[test]
+    fn test_adaptive_viewport_breakpoint_transitions() {
+        let state = ShellState::new();
+        assert_eq!(get_form_factor(&state).unwrap(), FormFactor::Desktop);
+
+        // Resize to Tablet (768..1023px)
+        let ff_tablet = resize_viewport(&state, 820.0, 1180.0).unwrap();
+        assert_eq!(ff_tablet, FormFactor::Tablet);
+
+        // Resize to Mobile (< 768px)
+        let ff_mobile = resize_viewport(&state, 390.0, 844.0).unwrap();
+        assert_eq!(ff_mobile, FormFactor::Mobile);
+
+        // Verify mobile mode toggles
+        let ctrl = state.adaptive_controller.lock().unwrap();
+        assert!(ctrl.should_show_bottom_sheet());
+        assert!(!ctrl.should_show_full_ribbon());
+        assert!(ctrl.word_reflow_mode);
+        assert!(ctrl.excel_card_mode);
     }
 
     #[test]

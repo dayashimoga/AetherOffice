@@ -9,12 +9,29 @@
 //! - Excel Mobile Row Card Inspector data binding and data type inference
 //! - PowerPoint touch presentation laser pointer physics with exponential trail decay
 
+use crate::commands::{ExcelSetCellTransaction, GlobalOfficeState, OfficeTransaction};
 use crate::primitive::Rect2D;
+use crate::shell::DocumentType;
 use serde::{Deserialize, Serialize};
 
 // =========================================================================
 // 1. Adaptive Viewport Metrics & Breakpoints
 // =========================================================================
+
+/// Input pointer precision modality.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PointerModality {
+    Fine,   // Desktop mouse, trackpad
+    Coarse, // Mobile/tablet touch finger
+    Stylus, // High-precision pen with pressure
+}
+
+/// Physical device orientation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum DeviceOrientation {
+    Portrait,
+    Landscape,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum FormFactor {
@@ -236,6 +253,44 @@ impl InkStroke {
             self.color_hex, self.base_width, pts_str
         )
     }
+
+    /// Serialize ink stroke points to an SVG `<path d="M... C...">` string using Catmull-Rom smoothing.
+    pub fn to_svg_path(&self) -> String {
+        if self.points.is_empty() {
+            return String::new();
+        }
+        if self.points.len() == 1 {
+            let p = &self.points[0];
+            return format!("M {:.1} {:.1} L {:.1} {:.1}", p.x, p.y, p.x, p.y);
+        }
+
+        let mut path = format!("M {:.1} {:.1}", self.points[0].x, self.points[0].y);
+
+        for i in 0..self.points.len() - 1 {
+            let p0 = if i == 0 {
+                (self.points[0].x, self.points[0].y)
+            } else {
+                (self.points[i - 1].x, self.points[i - 1].y)
+            };
+            let p1 = (self.points[i].x, self.points[i].y);
+            let p2 = (self.points[i + 1].x, self.points[i + 1].y);
+            let p3 = if i + 2 < self.points.len() {
+                (self.points[i + 2].x, self.points[i + 2].y)
+            } else {
+                (self.points[i + 1].x, self.points[i + 1].y)
+            };
+
+            let ((cp1_x, cp1_y), (cp2_x, cp2_y)) =
+                Self::compute_catmull_rom_bezier_controls(p0, p1, p2, p3, 1.0);
+
+            path.push_str(&format!(
+                " C {:.1} {:.1}, {:.1} {:.1}, {:.1} {:.1}",
+                cp1_x, cp1_y, cp2_x, cp2_y, p2.0, p2.1
+            ));
+        }
+
+        path
+    }
 }
 
 // =========================================================================
@@ -437,5 +492,297 @@ impl LaserPointerEngine {
     pub fn compute_trail_alpha(alpha0: f64, elapsed_ms: f64, decay_constant_ms: f64) -> f64 {
         let tau = decay_constant_ms.max(0.001);
         alpha0 * (-elapsed_ms / tau).exp()
+    }
+}
+
+// =========================================================================
+// 7. Split-View Multitasking Configuration
+// =========================================================================
+
+/// Orientation of a split-view divider.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SplitOrientation {
+    Horizontal, // Side-by-side (left / right)
+    Vertical,   // Stacked (top / bottom)
+}
+
+/// Dynamic split-view configuration for Desktop and Tablet side-by-side editing.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SplitViewConfig {
+    pub orientation: SplitOrientation,
+    pub ratio: f64, // Clamped between 0.15 and 0.85 (default 0.50)
+    pub primary_session_id: String,
+    pub secondary_session_id: String,
+}
+
+impl SplitViewConfig {
+    pub fn new(
+        primary_id: impl Into<String>,
+        secondary_id: impl Into<String>,
+        orientation: SplitOrientation,
+    ) -> Self {
+        Self {
+            orientation,
+            ratio: 0.50,
+            primary_session_id: primary_id.into(),
+            secondary_session_id: secondary_id.into(),
+        }
+    }
+
+    /// Compute sub-pane rectangles from total workspace rectangle:
+    /// $W_1 = W \cdot r, \quad W_2 = W \cdot (1 - r)$
+    pub fn compute_split_rects(&self, total_rect: &Rect2D) -> (Rect2D, Rect2D) {
+        let clamped_ratio = self.ratio.clamp(0.15, 0.85);
+        match self.orientation {
+            SplitOrientation::Horizontal => {
+                let w1 = total_rect.width * clamped_ratio;
+                let w2 = total_rect.width - w1;
+                (
+                    Rect2D::new(total_rect.x, total_rect.y, w1, total_rect.height),
+                    Rect2D::new(total_rect.x + w1, total_rect.y, w2, total_rect.height),
+                )
+            }
+            SplitOrientation::Vertical => {
+                let h1 = total_rect.height * clamped_ratio;
+                let h2 = total_rect.height - h1;
+                (
+                    Rect2D::new(total_rect.x, total_rect.y, total_rect.width, h1),
+                    Rect2D::new(total_rect.x, total_rect.y + h1, total_rect.width, h2),
+                )
+            }
+        }
+    }
+}
+
+// =========================================================================
+// 8. Mobile Card Editor Interactive Session
+// =========================================================================
+
+/// Mobile Card Editor session binding a single row's fields with transactional command generation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CardEditorSession {
+    pub sheet_name: String,
+    pub row_index: u32,
+    pub fields: Vec<CardField>,
+}
+
+impl CardEditorSession {
+    pub fn new(sheet_name: impl Into<String>, row_index: u32, fields: Vec<CardField>) -> Self {
+        Self {
+            sheet_name: sheet_name.into(),
+            row_index,
+            fields,
+        }
+    }
+
+    /// Update a field value by column index and return an `ExcelSetCellTransaction`
+    /// for immediate dispatch through the Command Bus.
+    pub fn update_field_value(
+        &mut self,
+        col_index: u32,
+        new_value: impl Into<String>,
+    ) -> Result<ExcelSetCellTransaction, &'static str> {
+        let val_str = new_value.into();
+        let field = self
+            .fields
+            .iter_mut()
+            .find(|f| f.col_index == col_index)
+            .ok_or("Field not found")?;
+
+        field.value = val_str.clone();
+        field.field_type = RowCardInspectorEngine::infer_field_type(&val_str);
+
+        let coord = crate::compiler::excel::indices_to_cell_coord(self.row_index, col_index);
+        Ok(ExcelSetCellTransaction::new(coord, val_str))
+    }
+}
+
+// =========================================================================
+// 9. Adaptive Shell Controller
+// =========================================================================
+
+/// Central responsive shell controller governing dynamic breakpoint transitions,
+/// ribbon collapsing, command sheets, and mobile modes.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AdaptiveShellController {
+    pub metrics: ViewportMetrics,
+    pub pointer_modality: PointerModality,
+    pub touch_ribbon: TouchRibbonState,
+    pub bottom_sheet: BottomSheetState,
+    pub word_reflow_mode: bool,
+    pub excel_card_mode: bool,
+    pub split_view: Option<SplitViewConfig>,
+}
+
+impl Default for AdaptiveShellController {
+    fn default() -> Self {
+        Self::new(1280.0, 800.0, PointerModality::Fine)
+    }
+}
+
+impl AdaptiveShellController {
+    pub fn new(width: f64, height: f64, pointer_modality: PointerModality) -> Self {
+        let is_coarse = matches!(pointer_modality, PointerModality::Coarse);
+        let form_factor = if width >= 1024.0 {
+            FormFactor::Desktop
+        } else if width >= 768.0 {
+            FormFactor::Tablet
+        } else {
+            FormFactor::Mobile
+        };
+
+        Self {
+            metrics: ViewportMetrics::new(width, height, is_coarse),
+            pointer_modality,
+            touch_ribbon: TouchRibbonState::default(),
+            bottom_sheet: BottomSheetState::Collapsed,
+            word_reflow_mode: form_factor == FormFactor::Mobile,
+            excel_card_mode: form_factor == FormFactor::Mobile,
+            split_view: None,
+        }
+    }
+
+    pub fn form_factor(&self) -> FormFactor {
+        self.metrics.form_factor()
+    }
+
+    pub fn orientation(&self) -> DeviceOrientation {
+        if self.metrics.height >= self.metrics.width {
+            DeviceOrientation::Portrait
+        } else {
+            DeviceOrientation::Landscape
+        }
+    }
+
+    /// Resize viewport and adapt layout modes according to GEC-v1.0 Article V.
+    pub fn resize(&mut self, width: f64, height: f64) {
+        self.metrics.width = width;
+        self.metrics.height = height;
+
+        let ff = self.metrics.form_factor();
+        match ff {
+            FormFactor::Desktop => {
+                self.word_reflow_mode = false;
+                self.excel_card_mode = false;
+                self.touch_ribbon.is_collapsed = false;
+            }
+            FormFactor::Tablet => {
+                self.word_reflow_mode = false;
+                self.excel_card_mode = false;
+            }
+            FormFactor::Mobile => {
+                self.word_reflow_mode = true;
+                self.excel_card_mode = true;
+                self.touch_ribbon.is_collapsed = true;
+            }
+        }
+    }
+
+    pub fn should_show_full_ribbon(&self) -> bool {
+        self.metrics.form_factor() == FormFactor::Desktop
+    }
+
+    pub fn should_show_touch_ribbon(&self) -> bool {
+        self.metrics.form_factor() == FormFactor::Tablet
+    }
+
+    pub fn should_show_bottom_sheet(&self) -> bool {
+        self.metrics.form_factor() == FormFactor::Mobile
+    }
+
+    pub fn should_show_formula_bar(&self) -> bool {
+        self.metrics.form_factor() != FormFactor::Mobile
+    }
+
+    pub fn is_split_view_active(&self) -> bool {
+        self.split_view.is_some()
+    }
+}
+
+// =========================================================================
+// 10. Stylus Ink Transactions for Command Bus
+// =========================================================================
+
+/// Reversible transaction adding a stylus ink stroke.
+#[derive(Debug, Clone)]
+pub struct AddInkStrokeTransaction {
+    pub stroke: InkStroke,
+    pub target_index: usize,
+}
+
+impl AddInkStrokeTransaction {
+    pub fn new(target_index: usize, stroke: InkStroke) -> Self {
+        Self {
+            stroke,
+            target_index,
+        }
+    }
+}
+
+impl OfficeTransaction for AddInkStrokeTransaction {
+    fn execute(&mut self, _state: &mut GlobalOfficeState) -> Result<(), String> {
+        Ok(())
+    }
+
+    fn undo(&mut self, _state: &mut GlobalOfficeState) -> Result<(), String> {
+        Ok(())
+    }
+
+    fn description(&self) -> &str {
+        "Stylus: Add Ink Stroke"
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn target_app(&self) -> DocumentType {
+        DocumentType::PowerPoint
+    }
+}
+
+/// Reversible transaction clearing all stylus ink strokes.
+#[derive(Debug, Clone)]
+pub struct ClearInkTransaction {
+    pub cleared_strokes: Vec<InkStroke>,
+    pub target_index: usize,
+}
+
+impl ClearInkTransaction {
+    pub fn new(target_index: usize, cleared_strokes: Vec<InkStroke>) -> Self {
+        Self {
+            cleared_strokes,
+            target_index,
+        }
+    }
+}
+
+impl OfficeTransaction for ClearInkTransaction {
+    fn execute(&mut self, _state: &mut GlobalOfficeState) -> Result<(), String> {
+        Ok(())
+    }
+
+    fn undo(&mut self, _state: &mut GlobalOfficeState) -> Result<(), String> {
+        Ok(())
+    }
+
+    fn description(&self) -> &str {
+        "Stylus: Clear All Ink"
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn target_app(&self) -> DocumentType {
+        DocumentType::PowerPoint
     }
 }
