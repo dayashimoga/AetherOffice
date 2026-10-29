@@ -2,6 +2,7 @@
 
 pub mod excel;
 pub mod pdf;
+pub mod pdf_editor;
 pub mod ppt;
 pub mod word;
 
@@ -17,6 +18,12 @@ pub use pdf::{
     PdfHitTester, PdfPageLayout, PdfPageLayoutMode, PdfSelectionHelper, PdfTextPoint,
     PdfTextSelection, PdfTile, PdfTileVirtualizer, PdfViewportConfig, DEFAULT_PAGE_GAP,
     DEFAULT_TILE_SIZE, MAX_PDF_ZOOM, MIN_PDF_ZOOM, ZOOM_PRESETS,
+};
+pub use pdf_editor::{
+    PdfActiveTextState, PdfEditTextCommand, PdfEditorDisplayRenderer, PdfFormFiller, PdfGizmoHit,
+    PdfMoveObjectCommand, PdfObjectEditor, PdfObjectGizmo, PdfObjectType, PdfPageDescriptor,
+    PdfPageObject, PdfPageOrganiser, PdfRotatePageCommand, PdfSetFormFieldCommand, PdfTextEditor,
+    PdfTextStyle, PdfThumbnailLayout,
 };
 pub use ppt::{
     generate_preset_path, MasterTheme, PptDisplayCompiler, PptGizmoHit, PptGizmoModel,

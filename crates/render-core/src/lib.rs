@@ -41,6 +41,12 @@ pub use compiler::{
         PdfTextPoint, PdfTextSelection, PdfTile, PdfTileVirtualizer, PdfViewportConfig,
         DEFAULT_PAGE_GAP, DEFAULT_TILE_SIZE, MAX_PDF_ZOOM, MIN_PDF_ZOOM, ZOOM_PRESETS,
     },
+    pdf_editor::{
+        PdfActiveTextState, PdfEditTextCommand, PdfEditorDisplayRenderer, PdfFormFiller,
+        PdfGizmoHit, PdfMoveObjectCommand, PdfObjectEditor, PdfObjectGizmo, PdfObjectType,
+        PdfPageDescriptor, PdfPageObject, PdfPageOrganiser, PdfRotatePageCommand,
+        PdfSetFormFieldCommand, PdfTextEditor, PdfTextStyle, PdfThumbnailLayout,
+    },
     ppt::{
         generate_preset_path, MasterTheme, PptDisplayCompiler, PptGizmoHit, PptGizmoModel,
         PptStageController, PptViewportTransform, PresetShapeType, SlideAddShapeCommand,
