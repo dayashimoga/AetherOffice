@@ -7,6 +7,7 @@
 //! - 3-tier property, placeholder, and theme cascade engine (SlideMaster -> SlideLayout -> Slide)
 //! - Zero-loss OPC package round-trip fidelity
 
+pub mod animation;
 pub mod cascade;
 pub mod drawingml;
 pub mod model;
@@ -14,6 +15,13 @@ pub mod package;
 pub mod parser;
 pub mod serializer;
 
+pub use animation::{
+    apply_accel_decel, compute_node_progress, solve_cubic_bezier_easing, AnimatedSceneState,
+    AnimatedShapeState, AnimationTimeline, ColorAnimation, ColorDirection, ColorSpace,
+    CommonTimeNode, EffectAnimation, EffectTransition, GenericAnimation, MotionAnimation,
+    RotationAnimation, ScaleAnimation, SetAnimation, SlideTiming, TargetElement, TimeNode,
+    TimeNodeFill, TimeNodeKind, TimeNodeRestart, TriggerType,
+};
 pub use cascade::{InheritanceResolver, ResolvedParagraph, ResolvedRun, ResolvedShape};
 pub use drawingml::{
     get_preset_geometry, list_preset_names, CustomGeometry, CustomPath, DrawingPath, GeomGuide,

@@ -139,6 +139,7 @@ pub struct Slide {
     pub show_master_ph_anim: bool,
     pub common_slide_data: CommonSlideData,
     pub color_map_override: Option<ColorMapOverride>,
+    pub timing: Option<crate::animation::SlideTiming>,
     pub raw_elements: Vec<RawXmlNode>,
 }
 

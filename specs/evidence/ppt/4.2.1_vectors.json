@@ -1,0 +1,165 @@
+{
+  "subphase": "4.2.1",
+  "name": "SMIL Animation Timing Tree (p:timing) State Machine",
+  "crate": "ppt-engine",
+  "ecma_standard": "ECMA-376 Part 1 Section 19.5 (Animation)",
+  "total_vectors": 26,
+  "vectors": [
+    {
+      "id": "PPT-ANIM-001",
+      "category": "Easing",
+      "description": "Pure linear easing when accel=0 and decel=0",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-002",
+      "category": "Easing",
+      "description": "Acceleration profile slows start and ramps velocity to peak",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-003",
+      "category": "Easing",
+      "description": "Deceleration profile ramps down velocity to ease into finish",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-004",
+      "category": "Easing",
+      "description": "Symmetric S-curve profile with accel=0.3 and decel=0.3",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-005",
+      "category": "Easing",
+      "description": "Cubic Bezier easing solver for keySplines ease-in-out",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-006",
+      "category": "Timing Dynamics",
+      "description": "Node progress evaluation with start delay and hold fill",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-007",
+      "category": "Timing Dynamics",
+      "description": "Multi-cycle finite repeat count progression",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-008",
+      "category": "Timing Dynamics",
+      "description": "Auto-reverse ping-pong animation forward and backward cycles",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-009",
+      "category": "Motion Path",
+      "description": "Linear motion path point-to-point interpolation",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-010",
+      "category": "Motion Path",
+      "description": "Multi-segment arc-length normalized motion path traversal",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-011",
+      "category": "Rotation",
+      "description": "Rotation interpolation across relative and absolute angular spans",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-012",
+      "category": "Scale",
+      "description": "Uniform and non-uniform 2D scale factor interpolation",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-013",
+      "category": "Color",
+      "description": "RGB linear color space transition",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-014",
+      "category": "Color",
+      "description": "HSL color space hue wheel traversal with direction control",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-015",
+      "category": "Effect",
+      "description": "Fade and wipe reveal transition progress and opacity",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-016",
+      "category": "120Hz Timeline",
+      "description": "Deterministic 120Hz frame sampling budget (8.333ms per frame)",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-017",
+      "category": "120Hz Timeline",
+      "description": "Parallel container synchronization across multiple properties",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-018",
+      "category": "120Hz Timeline",
+      "description": "Sequential afterPrev scheduling with automatic chaining",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-019",
+      "category": "Click State Machine",
+      "description": "Interactive click trigger step progression and previous state holding",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-020",
+      "category": "Click State Machine",
+      "description": "Random access click step seeking and clamped navigation",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-021",
+      "category": "120Hz Timeline",
+      "description": "Multi-shape concurrent animated scene state accumulation",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-022",
+      "category": "120Hz Timeline",
+      "description": "Frame-accurate auto-reverse ping-pong trajectory verification",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-023",
+      "category": "XML Parsing",
+      "description": "Streaming XML parsing of p:timing tree into structured DOM",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-024",
+      "category": "XML Serialization",
+      "description": "Deterministic round-trip serialization of timing trees",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-025",
+      "category": "Package Integration",
+      "description": "PresentationPackage package timing preservation",
+      "status": "PASS"
+    },
+    {
+      "id": "PPT-ANIM-026",
+      "category": "Manifest Gate",
+      "description": "Evidence manifest schema validation against 4.2.1_vectors.json",
+      "status": "PASS"
+    }
+  ]
+}

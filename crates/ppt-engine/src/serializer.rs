@@ -14,6 +14,7 @@ use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, Event};
 use quick_xml::Writer;
 use std::io::Cursor;
 
+use crate::animation::*;
 use crate::drawingml::{CustomGeometry, PathInstruction};
 use crate::model::*;
 
@@ -297,6 +298,11 @@ pub fn serialize_slide(slide: &Slide) -> Result<Vec<u8>, EngineError> {
     // clrMapOvr
     if let Some(ref ovr) = slide.color_map_override {
         serialize_color_map_override(&mut writer, ovr)?;
+    }
+
+    // timing
+    if let Some(ref timing) = slide.timing {
+        serialize_slide_timing(&mut writer, timing)?;
     }
 
     writer
@@ -1600,5 +1606,262 @@ fn serialize_color_map_override<W: std::io::Write>(
     writer
         .write_event(Event::End(BytesEnd::new("p:clrMapOvr")))
         .map_err(EngineError::Io)?;
+    Ok(())
+}
+
+fn serialize_slide_timing<W: std::io::Write>(
+    writer: &mut Writer<W>,
+    timing: &SlideTiming,
+) -> Result<(), EngineError> {
+    writer
+        .write_event(Event::Start(BytesStart::new("p:timing")))
+        .map_err(EngineError::Io)?;
+
+    if let Some(ref root) = timing.root_node {
+        writer
+            .write_event(Event::Start(BytesStart::new("p:tnLst")))
+            .map_err(EngineError::Io)?;
+        serialize_time_node(writer, root)?;
+        writer
+            .write_event(Event::End(BytesEnd::new("p:tnLst")))
+            .map_err(EngineError::Io)?;
+    }
+
+    writer
+        .write_event(Event::End(BytesEnd::new("p:timing")))
+        .map_err(EngineError::Io)?;
+
+    Ok(())
+}
+
+fn serialize_time_node<W: std::io::Write>(
+    writer: &mut Writer<W>,
+    node: &TimeNode,
+) -> Result<(), EngineError> {
+    match &node.kind {
+        TimeNodeKind::Parallel(children) => {
+            writer
+                .write_event(Event::Start(BytesStart::new("p:par")))
+                .map_err(EngineError::Io)?;
+            serialize_common_time_node(writer, &node.common)?;
+            if !children.is_empty() {
+                writer
+                    .write_event(Event::Start(BytesStart::new("p:childTnLst")))
+                    .map_err(EngineError::Io)?;
+                for child in children {
+                    serialize_time_node(writer, child)?;
+                }
+                writer
+                    .write_event(Event::End(BytesEnd::new("p:childTnLst")))
+                    .map_err(EngineError::Io)?;
+            }
+            writer
+                .write_event(Event::End(BytesEnd::new("p:par")))
+                .map_err(EngineError::Io)?;
+        }
+        TimeNodeKind::Sequential(children) => {
+            writer
+                .write_event(Event::Start(BytesStart::new("p:seq")))
+                .map_err(EngineError::Io)?;
+            serialize_common_time_node(writer, &node.common)?;
+            if !children.is_empty() {
+                writer
+                    .write_event(Event::Start(BytesStart::new("p:childTnLst")))
+                    .map_err(EngineError::Io)?;
+                for child in children {
+                    serialize_time_node(writer, child)?;
+                }
+                writer
+                    .write_event(Event::End(BytesEnd::new("p:childTnLst")))
+                    .map_err(EngineError::Io)?;
+            }
+            writer
+                .write_event(Event::End(BytesEnd::new("p:seq")))
+                .map_err(EngineError::Io)?;
+        }
+        TimeNodeKind::Motion(motion) => {
+            writer
+                .write_event(Event::Start(BytesStart::new("p:animMotion")))
+                .map_err(EngineError::Io)?;
+            serialize_common_behavior(writer, &node.common, motion.target.shape_id)?;
+            let mut elem = BytesStart::new("p:animMotion");
+            elem.push_attribute(("path", motion.path.as_str()));
+            if motion.rotate_to_path {
+                elem.push_attribute(("rAng", "1"));
+            }
+            writer
+                .write_event(Event::Empty(elem))
+                .map_err(EngineError::Io)?;
+            writer
+                .write_event(Event::End(BytesEnd::new("p:animMotion")))
+                .map_err(EngineError::Io)?;
+        }
+        TimeNodeKind::Rotation(rot) => {
+            let mut elem = BytesStart::new("p:animRot");
+            if let Some(by) = rot.by_deg {
+                let by_em = (by * 60_000.0).round() as i64;
+                elem.push_attribute(("by", by_em.to_string().as_str()));
+            }
+            writer
+                .write_event(Event::Start(elem))
+                .map_err(EngineError::Io)?;
+            serialize_common_behavior(writer, &node.common, rot.target.shape_id)?;
+            writer
+                .write_event(Event::End(BytesEnd::new("p:animRot")))
+                .map_err(EngineError::Io)?;
+        }
+        TimeNodeKind::Scale(scale) => {
+            writer
+                .write_event(Event::Start(BytesStart::new("p:animScale")))
+                .map_err(EngineError::Io)?;
+            serialize_common_behavior(writer, &node.common, scale.target.shape_id)?;
+            if let Some((sx, sy)) = scale.by_scale {
+                let mut by_elem = BytesStart::new("p:by");
+                let bx_str = ((sx * 100_000.0).round() as i64).to_string();
+                let by_str = ((sy * 100_000.0).round() as i64).to_string();
+                by_elem.push_attribute(("x", bx_str.as_str()));
+                by_elem.push_attribute(("y", by_str.as_str()));
+                writer
+                    .write_event(Event::Empty(by_elem))
+                    .map_err(EngineError::Io)?;
+            }
+            writer
+                .write_event(Event::End(BytesEnd::new("p:animScale")))
+                .map_err(EngineError::Io)?;
+        }
+        TimeNodeKind::Color(clr) => {
+            let mut elem = BytesStart::new("p:animClr");
+            let clr_spc = match clr.color_space {
+                ColorSpace::Rgb => "rgb",
+                ColorSpace::Hsl => "hsl",
+            };
+            elem.push_attribute(("clrSpc", clr_spc));
+            writer
+                .write_event(Event::Start(elem))
+                .map_err(EngineError::Io)?;
+            serialize_common_behavior(writer, &node.common, clr.target.shape_id)?;
+            writer
+                .write_event(Event::End(BytesEnd::new("p:animClr")))
+                .map_err(EngineError::Io)?;
+        }
+        TimeNodeKind::Effect(eff) => {
+            let mut elem = BytesStart::new("p:animEffect");
+            elem.push_attribute(("type", eff.effect_type.as_str()));
+            let trans = match eff.transition {
+                EffectTransition::In => "in",
+                EffectTransition::Out => "out",
+            };
+            elem.push_attribute(("transition", trans));
+            writer
+                .write_event(Event::Start(elem))
+                .map_err(EngineError::Io)?;
+            serialize_common_behavior(writer, &node.common, eff.target.shape_id)?;
+            writer
+                .write_event(Event::End(BytesEnd::new("p:animEffect")))
+                .map_err(EngineError::Io)?;
+        }
+        TimeNodeKind::Generic(generic) => {
+            writer
+                .write_event(Event::Start(BytesStart::new("p:anim")))
+                .map_err(EngineError::Io)?;
+            serialize_common_behavior(writer, &node.common, generic.target.shape_id)?;
+            writer
+                .write_event(Event::End(BytesEnd::new("p:anim")))
+                .map_err(EngineError::Io)?;
+        }
+        TimeNodeKind::Set(set) => {
+            writer
+                .write_event(Event::Start(BytesStart::new("p:set")))
+                .map_err(EngineError::Io)?;
+            serialize_common_behavior(writer, &node.common, set.target.shape_id)?;
+            writer
+                .write_event(Event::End(BytesEnd::new("p:set")))
+                .map_err(EngineError::Io)?;
+        }
+    }
+    Ok(())
+}
+
+fn serialize_common_time_node<W: std::io::Write>(
+    writer: &mut Writer<W>,
+    ctn: &CommonTimeNode,
+) -> Result<(), EngineError> {
+    let mut elem = BytesStart::new("p:cTn");
+    elem.push_attribute(("id", ctn.id.to_string().as_str()));
+    if let Some(dur) = ctn.duration_ms {
+        elem.push_attribute(("dur", dur.to_string().as_str()));
+    } else {
+        elem.push_attribute(("dur", "indefinite"));
+    }
+    if ctn.auto_reverse {
+        elem.push_attribute(("autoRev", "1"));
+    }
+    if ctn.accel_ratio > 0.0 {
+        let a = ((ctn.accel_ratio * 100_000.0).round() as i64).to_string();
+        elem.push_attribute(("accel", a.as_str()));
+    }
+    if ctn.decel_ratio > 0.0 {
+        let d = ((ctn.decel_ratio * 100_000.0).round() as i64).to_string();
+        elem.push_attribute(("decel", d.as_str()));
+    }
+    let node_type = match ctn.trigger_type {
+        TriggerType::OnClick => "clickEffect",
+        TriggerType::WithPrev => "withEffect",
+        TriggerType::AfterPrev => "afterEffect",
+    };
+    elem.push_attribute(("nodeType", node_type));
+
+    writer
+        .write_event(Event::Start(elem))
+        .map_err(EngineError::Io)?;
+
+    if ctn.delay_ms != 0 {
+        writer
+            .write_event(Event::Start(BytesStart::new("p:stCondLst")))
+            .map_err(EngineError::Io)?;
+        let mut cond = BytesStart::new("p:cond");
+        cond.push_attribute(("delay", ctn.delay_ms.to_string().as_str()));
+        writer
+            .write_event(Event::Empty(cond))
+            .map_err(EngineError::Io)?;
+        writer
+            .write_event(Event::End(BytesEnd::new("p:stCondLst")))
+            .map_err(EngineError::Io)?;
+    }
+
+    writer
+        .write_event(Event::End(BytesEnd::new("p:cTn")))
+        .map_err(EngineError::Io)?;
+
+    Ok(())
+}
+
+fn serialize_common_behavior<W: std::io::Write>(
+    writer: &mut Writer<W>,
+    ctn: &CommonTimeNode,
+    shape_id: u32,
+) -> Result<(), EngineError> {
+    writer
+        .write_event(Event::Start(BytesStart::new("p:cBhvr")))
+        .map_err(EngineError::Io)?;
+
+    serialize_common_time_node(writer, ctn)?;
+
+    writer
+        .write_event(Event::Start(BytesStart::new("p:tgtEl")))
+        .map_err(EngineError::Io)?;
+    let mut sp_tgt = BytesStart::new("p:spTgt");
+    sp_tgt.push_attribute(("spid", shape_id.to_string().as_str()));
+    writer
+        .write_event(Event::Empty(sp_tgt))
+        .map_err(EngineError::Io)?;
+    writer
+        .write_event(Event::End(BytesEnd::new("p:tgtEl")))
+        .map_err(EngineError::Io)?;
+
+    writer
+        .write_event(Event::End(BytesEnd::new("p:cBhvr")))
+        .map_err(EngineError::Io)?;
+
     Ok(())
 }

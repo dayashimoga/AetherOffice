@@ -14,6 +14,7 @@ use quick_xml::events::{BytesStart, Event};
 use quick_xml::Reader;
 use std::collections::BTreeMap;
 
+use crate::animation::*;
 use crate::drawingml::{CustomGeometry, CustomPath, GeomGuide, PathFillMode, PathInstruction};
 use crate::model::*;
 
@@ -322,6 +323,9 @@ pub fn parse_slide(xml: &[u8]) -> Result<Slide, EngineError> {
                 }
                 "clrMapOvr" => {
                     slide.color_map_override = Some(parse_color_map_override(&mut reader)?);
+                }
+                "timing" => {
+                    slide.timing = Some(parse_slide_timing(&mut reader)?);
                 }
                 _ => {}
             },
@@ -1654,4 +1658,423 @@ fn parse_points(
     }
 
     Ok(pts)
+}
+
+fn parse_slide_timing(reader: &mut Reader<&[u8]>) -> Result<SlideTiming, EngineError> {
+    let mut timing = SlideTiming::default();
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Start(ref e) => {
+                if local_name(e.name().into_inner()) == "tnLst" {
+                    timing.root_node = parse_time_node_list(reader)?;
+                }
+            }
+            Event::End(ref e) if local_name(e.name().into_inner()) == "timing" => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(timing)
+}
+
+fn parse_time_node_list(reader: &mut Reader<&[u8]>) -> Result<Option<TimeNode>, EngineError> {
+    let mut root = None;
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Start(ref e) => {
+                let tag = local_name(e.name().into_inner()).to_string();
+                if tag == "par" || tag == "seq" {
+                    root = Some(parse_time_node(reader, &tag)?);
+                }
+            }
+            Event::End(ref e) if local_name(e.name().into_inner()) == "tnLst" => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(root)
+}
+
+fn parse_time_node(
+    reader: &mut Reader<&[u8]>,
+    container_tag: &str,
+) -> Result<TimeNode, EngineError> {
+    let mut common = CommonTimeNode::default();
+    let mut children = Vec::new();
+    let mut motion = None;
+    let mut rotation = None;
+    let mut scale = None;
+    let mut color = None;
+    let mut effect = None;
+    let mut generic = None;
+    let mut set = None;
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Start(ref e) => {
+                let tag = local_name(e.name().into_inner()).to_string();
+                match tag.as_str() {
+                    "cTn" => {
+                        common = parse_common_time_node(e, reader)?;
+                    }
+                    "par" | "seq" => {
+                        children.push(parse_time_node(reader, &tag)?);
+                    }
+                    "animMotion" => {
+                        motion = Some(parse_anim_motion(reader)?);
+                    }
+                    "animRot" => {
+                        rotation = Some(parse_anim_rot(e, reader)?);
+                    }
+                    "animScale" => {
+                        scale = Some(parse_anim_scale(reader)?);
+                    }
+                    "animClr" => {
+                        color = Some(parse_anim_color(e, reader)?);
+                    }
+                    "animEffect" => {
+                        effect = Some(parse_anim_effect(e, reader)?);
+                    }
+                    "anim" => {
+                        generic = Some(parse_generic_anim(reader)?);
+                    }
+                    "set" => {
+                        set = Some(parse_set_anim(reader)?);
+                    }
+                    _ => {}
+                }
+            }
+            Event::End(ref e) if local_name(e.name().into_inner()) == container_tag => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    let kind = if let Some(m) = motion {
+        TimeNodeKind::Motion(m)
+    } else if let Some(r) = rotation {
+        TimeNodeKind::Rotation(r)
+    } else if let Some(s) = scale {
+        TimeNodeKind::Scale(s)
+    } else if let Some(c) = color {
+        TimeNodeKind::Color(c)
+    } else if let Some(eff) = effect {
+        TimeNodeKind::Effect(eff)
+    } else if let Some(g) = generic {
+        TimeNodeKind::Generic(g)
+    } else if let Some(st) = set {
+        TimeNodeKind::Set(st)
+    } else if container_tag == "seq" {
+        TimeNodeKind::Sequential(children)
+    } else {
+        TimeNodeKind::Parallel(children)
+    };
+
+    Ok(TimeNode { common, kind })
+}
+
+fn parse_common_time_node(
+    e_ctn: &BytesStart,
+    reader: &mut Reader<&[u8]>,
+) -> Result<CommonTimeNode, EngineError> {
+    let id = parse_u32_attr(e_ctn, "id").unwrap_or(0);
+    let duration_ms = get_attr_val(e_ctn, "dur").and_then(|s| {
+        if s == "indefinite" {
+            None
+        } else {
+            s.parse::<u64>().ok()
+        }
+    });
+    let auto_reverse = parse_bool_attr(e_ctn, "autoRev");
+    let accel_ratio = parse_i64_attr(e_ctn, "accel")
+        .map(|v| v as f32 / 100_000.0)
+        .unwrap_or(0.0);
+    let decel_ratio = parse_i64_attr(e_ctn, "decel")
+        .map(|v| v as f32 / 100_000.0)
+        .unwrap_or(0.0);
+    let trigger_type = match get_attr_val(e_ctn, "nodeType").as_deref() {
+        Some("clickEffect") => TriggerType::OnClick,
+        Some("withEffect") => TriggerType::WithPrev,
+        Some("afterEffect") => TriggerType::AfterPrev,
+        _ => TriggerType::WithPrev,
+    };
+
+    let mut delay_ms = 0;
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Empty(ref e) if local_name(e.name().into_inner()) == "cond" => {
+                if let Some(d) = parse_i64_attr(e, "delay") {
+                    delay_ms = d;
+                }
+            }
+            Event::End(ref e) if local_name(e.name().into_inner()) == "cTn" => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(CommonTimeNode {
+        id,
+        duration_ms,
+        delay_ms,
+        repeat_count: Some(1.0),
+        auto_reverse,
+        accel_ratio,
+        decel_ratio,
+        trigger_type,
+        fill: TimeNodeFill::Hold,
+        restart: TimeNodeRestart::Always,
+    })
+}
+
+fn parse_anim_motion(reader: &mut Reader<&[u8]>) -> Result<MotionAnimation, EngineError> {
+    let mut target = TargetElement::default();
+    let mut path = String::new();
+    let mut rotate_to_path = false;
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Empty(ref e) => match local_name(e.name().into_inner()) {
+                "spTgt" => {
+                    target.shape_id = parse_u32_attr(e, "spid").unwrap_or(0);
+                }
+                "animMotion" => {
+                    if let Some(p) = get_attr_val(e, "path") {
+                        path = p;
+                    }
+                    if let Some(r) = get_attr_val(e, "rAng") {
+                        rotate_to_path = r == "1" || r == "true";
+                    }
+                }
+                _ => {}
+            },
+            Event::End(ref e) if local_name(e.name().into_inner()) == "animMotion" => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(MotionAnimation {
+        target,
+        path,
+        rotate_to_path,
+    })
+}
+
+fn parse_anim_rot(
+    e_rot: &BytesStart,
+    reader: &mut Reader<&[u8]>,
+) -> Result<RotationAnimation, EngineError> {
+    let by_deg = parse_i64_attr(e_rot, "by").map(|by| by as f64 / 60_000.0);
+    let mut target = TargetElement::default();
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Empty(ref e) if local_name(e.name().into_inner()) == "spTgt" => {
+                target.shape_id = parse_u32_attr(e, "spid").unwrap_or(0);
+            }
+            Event::End(ref e) if local_name(e.name().into_inner()) == "animRot" => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(RotationAnimation {
+        target,
+        from_deg: None,
+        to_deg: None,
+        by_deg,
+    })
+}
+
+fn parse_anim_scale(reader: &mut Reader<&[u8]>) -> Result<ScaleAnimation, EngineError> {
+    let mut target = TargetElement::default();
+    let mut by_scale = None;
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Empty(ref e) => match local_name(e.name().into_inner()) {
+                "spTgt" => {
+                    target.shape_id = parse_u32_attr(e, "spid").unwrap_or(0);
+                }
+                "by" => {
+                    let bx = parse_i64_attr(e, "x")
+                        .map(|v| v as f64 / 100_000.0)
+                        .unwrap_or(1.0);
+                    let by = parse_i64_attr(e, "y")
+                        .map(|v| v as f64 / 100_000.0)
+                        .unwrap_or(1.0);
+                    by_scale = Some((bx, by));
+                }
+                _ => {}
+            },
+            Event::End(ref e) if local_name(e.name().into_inner()) == "animScale" => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(ScaleAnimation {
+        target,
+        from_scale: Some((1.0, 1.0)),
+        to_scale: None,
+        by_scale,
+    })
+}
+
+fn parse_anim_color(
+    e_clr: &BytesStart,
+    reader: &mut Reader<&[u8]>,
+) -> Result<ColorAnimation, EngineError> {
+    let color_space = match get_attr_val(e_clr, "clrSpc").as_deref() {
+        Some("hsl") => ColorSpace::Hsl,
+        _ => ColorSpace::Rgb,
+    };
+    let direction = match get_attr_val(e_clr, "dir").as_deref() {
+        Some("ccw") => ColorDirection::CounterClockwise,
+        _ => ColorDirection::Clockwise,
+    };
+
+    let mut target = TargetElement::default();
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Empty(ref e) if local_name(e.name().into_inner()) == "spTgt" => {
+                target.shape_id = parse_u32_attr(e, "spid").unwrap_or(0);
+            }
+            Event::End(ref e) if local_name(e.name().into_inner()) == "animClr" => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(ColorAnimation {
+        target,
+        color_space,
+        direction,
+        from_rgb: None,
+        to_rgb: None,
+    })
+}
+
+fn parse_anim_effect(
+    e_eff: &BytesStart,
+    reader: &mut Reader<&[u8]>,
+) -> Result<EffectAnimation, EngineError> {
+    let effect_type = get_attr_val(e_eff, "type").unwrap_or_else(|| "fade".to_string());
+    let transition = match get_attr_val(e_eff, "transition").as_deref() {
+        Some("out") => EffectTransition::Out,
+        _ => EffectTransition::In,
+    };
+
+    let mut target = TargetElement::default();
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Empty(ref e) if local_name(e.name().into_inner()) == "spTgt" => {
+                target.shape_id = parse_u32_attr(e, "spid").unwrap_or(0);
+            }
+            Event::End(ref e) if local_name(e.name().into_inner()) == "animEffect" => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(EffectAnimation {
+        target,
+        effect_type,
+        transition,
+    })
+}
+
+fn parse_generic_anim(reader: &mut Reader<&[u8]>) -> Result<GenericAnimation, EngineError> {
+    let mut target = TargetElement::default();
+    let mut attribute_name = String::new();
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Empty(ref e) if local_name(e.name().into_inner()) == "spTgt" => {
+                target.shape_id = parse_u32_attr(e, "spid").unwrap_or(0);
+            }
+            Event::Start(ref e) if local_name(e.name().into_inner()) == "attrName" => {
+                let mut b = Vec::new();
+                if let Ok(Event::Text(t)) = reader.read_event_into(&mut b) {
+                    attribute_name = t.unescape().unwrap_or_default().into_owned();
+                }
+            }
+            Event::End(ref e) if local_name(e.name().into_inner()) == "anim" => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(GenericAnimation {
+        target,
+        attribute_name,
+        from_val: None,
+        to_val: None,
+        by_val: None,
+    })
+}
+
+fn parse_set_anim(reader: &mut Reader<&[u8]>) -> Result<SetAnimation, EngineError> {
+    let mut target = TargetElement::default();
+    let mut attribute_name = String::new();
+    let mut value = String::new();
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Empty(ref e) => match local_name(e.name().into_inner()) {
+                "spTgt" => {
+                    target.shape_id = parse_u32_attr(e, "spid").unwrap_or(0);
+                }
+                "strVal" => {
+                    value = get_attr_val(e, "val").unwrap_or_default();
+                }
+                _ => {}
+            },
+            Event::Start(ref e) if local_name(e.name().into_inner()) == "attrName" => {
+                let mut b = Vec::new();
+                if let Ok(Event::Text(t)) = reader.read_event_into(&mut b) {
+                    attribute_name = t.unescape().unwrap_or_default().into_owned();
+                }
+            }
+            Event::End(ref e) if local_name(e.name().into_inner()) == "set" => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(SetAnimation {
+        target,
+        attribute_name,
+        value,
+    })
 }
