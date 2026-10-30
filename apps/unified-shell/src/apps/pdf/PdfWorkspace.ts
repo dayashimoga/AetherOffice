@@ -58,6 +58,7 @@ export class PdfWorkspace {
     // 1. Left Sidebar (Thumbnails, Bookmarks, Annotations)
     this.sidebarEl = document.createElement("aside");
     this.sidebarEl.className = "pdf-sidebar";
+    this.sidebarEl.setAttribute("data-testid", "pdf-sidebar");
     this.sidebarEl.style.width = "260px";
     this.sidebarEl.style.height = "100%";
     this.sidebarEl.style.backgroundColor = "#f8fafc";
@@ -199,6 +200,7 @@ export class PdfWorkspace {
   private renderThumbnailsTab() {
     const list = document.createElement("div");
     list.className = "pdf-thumbnail-list";
+    list.setAttribute("data-testid", "pdf-thumbnail-list");
     list.style.display = "flex";
     list.style.flexDirection = "column";
     list.style.gap = "12px";
@@ -206,6 +208,7 @@ export class PdfWorkspace {
     this.state.pages.forEach((page) => {
       const item = document.createElement("div");
       item.className = `pdf-thumbnail-card pdf-thumbnail-item ${page.pageNumber === this.state.currentPage ? "is-selected" : ""}`;
+      item.setAttribute("data-testid", "pdf-thumb-card");
       item.dataset.pageNumber = page.pageNumber.toString();
       item.style.display = "flex";
       item.style.flexDirection = "column";
@@ -267,6 +270,7 @@ export class PdfWorkspace {
         if (this.callbacks.onDirty) this.callbacks.onDirty();
       });
       rotBtn.className = "btn-thumb-rotate";
+      rotBtn.setAttribute("data-testid", "btn-thumb-rotate");
 
       const delBtn = this.createMiniActionBtn("✕", "Delete Page", () => {
         if (confirm(`Delete page ${page.pageNumber}?`)) {
@@ -276,6 +280,7 @@ export class PdfWorkspace {
         }
       });
       delBtn.className = "btn-thumb-delete";
+      delBtn.setAttribute("data-testid", "btn-thumb-delete");
 
       actions.appendChild(rotBtn);
       actions.appendChild(delBtn);
@@ -531,6 +536,7 @@ export class PdfWorkspace {
   private createPageOverlay(page: PdfPageModel, effW: number, effH: number, zoom: number): HTMLElement {
     const overlay = document.createElement("div");
     overlay.className = "pdf-page-overlay";
+    overlay.setAttribute("data-testid", "pdf-page-overlay");
     overlay.dataset.pageNumber = page.pageNumber.toString();
     overlay.style.position = "absolute";
     overlay.style.top = "0";
@@ -545,6 +551,7 @@ export class PdfWorkspace {
       page.textBlocks.forEach((tb) => {
         const tbBox = document.createElement("div");
         tbBox.className = "pdf-text-block-editable";
+        tbBox.setAttribute("data-testid", "pdf-text-block-editable");
         tbBox.dataset.blockId = tb.id;
         tbBox.style.position = "absolute";
         tbBox.style.left = `${tb.x * zoom}px`;
@@ -566,6 +573,24 @@ export class PdfWorkspace {
         };
 
         overlay.appendChild(tbBox);
+      });
+    }
+
+    // 1b. Image Blocks
+    if (page.imageBlocks) {
+      page.imageBlocks.forEach((img) => {
+        const imgBox = document.createElement("div");
+        imgBox.className = "pdf-image-block";
+        imgBox.setAttribute("data-testid", "pdf-image-block");
+        imgBox.dataset.blockId = img.id;
+        imgBox.style.position = "absolute";
+        imgBox.style.left = `${img.x * zoom}px`;
+        imgBox.style.top = `${img.y * zoom}px`;
+        imgBox.style.width = `${img.width * zoom}px`;
+        imgBox.style.height = `${img.height * zoom}px`;
+        imgBox.style.border = "1px dashed #94a3b8";
+        imgBox.style.boxSizing = "border-box";
+        overlay.appendChild(imgBox);
       });
     }
 
@@ -671,6 +696,17 @@ export class PdfWorkspace {
       } else if (this.state.activeTool === "add_text") {
         this.state.addTextBlock(page.pageNumber, Math.round(x), Math.round(y));
         this.state.setTool("edit_text");
+        this.render();
+        if (this.callbacks.onDirty) this.callbacks.onDirty();
+      } else if (this.state.activeTool === "add_image") {
+        this.state.addImageBlock(page.pageNumber, {
+          x: Math.round(x),
+          y: Math.round(y),
+          width: 220,
+          height: 140,
+          title: "Inserted Graphic",
+        });
+        this.state.setTool("select");
         this.render();
         if (this.callbacks.onDirty) this.callbacks.onDirty();
       } else if (this.state.activeTool === "note") {

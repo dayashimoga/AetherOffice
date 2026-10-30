@@ -468,6 +468,9 @@ export class UnifiedShellApp {
         const title = initialFile
           ? initialFile.split(/[/\\]/).pop() || "Document.pdf"
           : "Document.pdf";
+        if (!initialFile) {
+          pdfState.resetToBlank(title);
+        }
         this.tabBar.addTab({
           id: "tab-pdf-1",
           docType: "PDF",
@@ -1177,6 +1180,9 @@ export class UnifiedShellApp {
       this.slideStageCanvas?.render();
       this.slideMediaOverlay?.refresh();
       this.updateSlideSorter();
+    } else if (type === "PDF") {
+      pdfState.resetToBlank(defaultTitle);
+      this.pdfWorkspace?.render();
     }
 
     this.tabBar.addTab({

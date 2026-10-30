@@ -194,6 +194,8 @@ export class PdfState {
   public activeFontFamily = "Segoe UI";
   public activeFontSize = 14;
   public activeFontColor = "#1e293b";
+  public activeBold = false;
+  public activeItalic = false;
 
   private undoStack: string[] = [];
   private redoStack: string[] = [];
@@ -425,6 +427,40 @@ export class PdfState {
     this.currentPage = 1;
   }
 
+  public resetToBlank(title = "Document 1.pdf"): void {
+    this.createBlankPdf(1);
+    if (this.pages[0]) {
+      this.pages[0].title = title;
+    }
+    this.bookmarks = [];
+    this.currentPage = 1;
+    this.zoom = 1.0;
+    this.viewMode = "continuous";
+    this.sidebarTab = "thumbnails";
+    this.activeTool = "select";
+    this.undoStack = [];
+    this.redoStack = [];
+  }
+
+  public loadPdfDocument(pages: PdfPageModel[], bookmarks: PdfBookmark[] = []): void {
+    this.commitSnapshot();
+    this.pages = pages.map((p, i) => ({
+      ...p,
+      pageNumber: i + 1,
+      width: p.width || 816,
+      height: p.height || 1056,
+      rotation: p.rotation || 0,
+      textBlocks: p.textBlocks || [],
+      imageBlocks: p.imageBlocks || [],
+      formFields: p.formFields || [],
+      annotations: p.annotations || [],
+    }));
+    this.bookmarks = bookmarks;
+    this.currentPage = 1;
+    this.undoStack = [];
+    this.redoStack = [];
+  }
+
   public setZoom(zoom: number): void {
     this.zoom = Math.min(4.0, Math.max(0.25, Math.round(zoom * 100) / 100));
   }
@@ -473,7 +509,10 @@ export class PdfState {
     y = 200,
     text = "Click to edit text",
     fontSize = this.activeFontSize,
-    fontColor = this.activeFontColor
+    fontColor = this.activeFontColor,
+    fontFamily = this.activeFontFamily,
+    bold = this.activeBold,
+    italic = this.activeItalic
   ): PdfTextBlock {
     this.commitSnapshot();
     const page = this.getPage(pageNumber);
@@ -488,8 +527,9 @@ export class PdfState {
       text,
       fontSize,
       fontColor,
-      fontFamily: this.activeFontFamily,
-      bold: false,
+      fontFamily,
+      bold,
+      italic,
     };
     page.textBlocks.push(block);
     return block;
@@ -997,7 +1037,65 @@ export class PdfState {
         this.setTool("edit_text");
         return true;
       case "AddPdfImage":
-        this.addImageBlock(this.currentPage);
+        if (payload && typeof payload === "object") {
+          this.addImageBlock(this.currentPage, payload as Partial<PdfImageBlock>);
+        } else {
+          this.addImageBlock(this.currentPage);
+        }
+        return true;
+      case "SetPdfFontFamily":
+        if (typeof payload === "string") {
+          this.activeFontFamily = payload;
+          return true;
+        }
+        return false;
+      case "SetPdfFontSize":
+        if (typeof payload === "number") {
+          this.activeFontSize = payload;
+          return true;
+        }
+        return false;
+      case "SetPdfTextColor":
+        if (typeof payload === "string") {
+          this.activeFontColor = payload;
+          return true;
+        }
+        return false;
+      case "TogglePdfBold":
+        this.activeBold = !this.activeBold;
+        return true;
+      case "TogglePdfItalic":
+        this.activeItalic = !this.activeItalic;
+        return true;
+      case "OpenPdf":
+        if (Array.isArray(payload)) {
+          this.loadPdfDocument(payload as PdfPageModel[]);
+          return true;
+        } else {
+          this.resetToBlank("Opened Document.pdf");
+          return true;
+        }
+      case "SetPageLayout":
+        if (payload === "continuous" || payload === "single" || payload === "twoPage" || payload === "two-page") {
+          this.setViewMode(payload === "two-page" ? "twoPage" : (payload as any));
+          return true;
+        }
+        return false;
+      case "RotateView":
+        if (payload === -90) {
+          this.rotatePageCounterClockwise();
+        } else {
+          this.rotatePageClockwise();
+        }
+        return true;
+      case "ToggleBookmarks":
+        this.setSidebarTab(this.sidebarTab === "bookmarks" ? "thumbnails" : "bookmarks");
+        return true;
+      case "ToggleThumbnails":
+        this.setSidebarTab("thumbnails");
+        return true;
+      case "ToggleAttachments":
+        this.setSidebarTab(this.sidebarTab === "annotations" ? "thumbnails" : "annotations");
         return true;
       case "AddWatermark":
         this.setWatermark({ text: typeof payload === "string" ? payload : "CONFIDENTIAL" });
