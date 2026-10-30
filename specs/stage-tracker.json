@@ -1078,9 +1078,9 @@
                           "title":  "PowerPoint Home, Insert, Design \u0026 Transitions Ribbons (100% Working)",
                           "crate":  "ppt-engine",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-31/subphase-31.1.1.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-30T15:47:31Z"
                       },
                       {
                           "id":  "31.1.2",

@@ -24,7 +24,7 @@ import { slidesState } from "./state/slidesState";
 import { pdfState } from "./state/pdfState";
 import { HubLauncher } from "./apps/hub/HubLauncher";
 import { BackstageMenu } from "./components/BackstageMenu";
-import { FindReplaceDialog } from "./components/FindReplaceDialog";
+import { FindReplaceDialog, FindReplaceMatch } from "./components/FindReplaceDialog";
 import { WordCountDialog } from "./components/WordCountDialog";
 import { SheetTabBar } from "./components/SheetTabBar";
 import { WorkbookSheetsPane } from "./components/WorkbookSheetsPane";
@@ -727,6 +727,84 @@ export class UnifiedShellApp {
   }
 
   public showFindReplace(mode: "find" | "replace" = "find") {
+    if (this.currentDocType === "PowerPoint") {
+      this.findReplaceDialog.setCallbacks({
+        onFind: (query, matchCase) => {
+          const results: FindReplaceMatch[] = [];
+          slidesState.slides.forEach((sl, sIdx) => {
+            sl.shapes.forEach((sh, shIdx) => {
+              if (sh.text) {
+                let text = sh.text;
+                let q = query;
+                if (!matchCase) {
+                  text = text.toLowerCase();
+                  q = q.toLowerCase();
+                }
+                let idx = text.indexOf(q);
+                while (idx !== -1) {
+                  results.push({
+                    pageIndex: sIdx,
+                    paragraphIndex: shIdx,
+                    runIndex: 0,
+                    offset: idx,
+                    length: query.length,
+                    text: sh.text.substring(idx, idx + query.length),
+                  });
+                  idx = text.indexOf(q, idx + 1);
+                }
+              }
+            });
+          });
+          return results;
+        },
+        onSelectMatch: (m) => {
+          slidesState.currentSlideIndex = m.pageIndex;
+          const slide = slidesState.slides[m.pageIndex];
+          if (slide && slide.shapes[m.paragraphIndex]) {
+            slidesState.selectedShapeId = slide.shapes[m.paragraphIndex].id;
+          }
+          this.slideStageCanvas?.render();
+        },
+        onReplace: (m, rep) => {
+          const slide = slidesState.slides[m.pageIndex];
+          if (slide && slide.shapes[m.paragraphIndex]) {
+            const sh = slide.shapes[m.paragraphIndex];
+            if (sh.text) {
+              sh.text = sh.text.substring(0, m.offset) + rep + sh.text.substring(m.offset + m.length);
+              this.slideStageCanvas?.render();
+              const active = this.tabBar.getActiveTab();
+              if (active) this.tabBar.setDirty(active.id, true);
+            }
+          }
+        },
+        onReplaceAll: (query, rep, matchCase) => {
+          let count = 0;
+          slidesState.slides.forEach((sl) => {
+            sl.shapes.forEach((sh) => {
+              if (sh.text) {
+                let text = sh.text;
+                const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), matchCase ? "g" : "gi");
+                const matches = text.match(regex);
+                if (matches) {
+                  count += matches.length;
+                  sh.text = text.replace(regex, rep);
+                }
+              }
+            });
+          });
+          this.slideStageCanvas?.render();
+          const active = this.tabBar.getActiveTab();
+          if (active) this.tabBar.setDirty(active.id, true);
+          return count;
+        },
+        onClose: () => {
+          this.slideStageCanvas?.render();
+        },
+      });
+      this.findReplaceDialog.show(mode);
+      return;
+    }
+
     this.findReplaceDialog.setCallbacks({
       onFind: (query, matchCase) => writerState.findMatches(query, matchCase),
       onSelectMatch: (m) => {

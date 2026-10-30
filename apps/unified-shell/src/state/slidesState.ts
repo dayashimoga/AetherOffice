@@ -5,15 +5,36 @@ export type PresetShapeKind =
   | "ellipse"
   | "triangle"
   | "arrow"
+  | "arrowLeft"
+  | "arrowUp"
+  | "arrowDown"
   | "star"
   | "diamond"
   | "callout"
   | "heart"
+  | "cloud"
+  | "pentagon"
+  | "hexagon"
+  | "banner"
+  | "icon"
+  | "smartArt"
+  | "chart"
+  | "wordArt"
   | "image"
   | "table";
 
 export type ThemePresetName =
   | "OfficeDefault"
+  | "Office"
+  | "Celestial"
+  | "Facet"
+  | "Integral"
+  | "Ion"
+  | "Organic"
+  | "Retrospect"
+  | "Slice"
+  | "Wisp"
+  | "Slate"
   | "DarkMode"
   | "VibrantCoral"
   | "HighContrast"
@@ -33,7 +54,9 @@ export type ThemePresetName =
 export type SlideLayoutType =
   | "title"
   | "titleAndContent"
+  | "sectionHeader"
   | "twoContent"
+  | "titleOnly"
   | "blank";
 
 export type TransitionEffect =
@@ -52,7 +75,9 @@ export type TransitionEffect =
   | "Vortex"
   | "Honeycomb"
   | "Origami"
-  | "Ripple";
+  | "Ripple"
+  | "Zoom"
+  | "Slide Left";
 
 export type TransitionDirection =
   | "left"
@@ -66,6 +91,9 @@ export interface SlideTransitionConfig {
   effect: TransitionEffect;
   duration: number; // in seconds, default 1.0
   direction?: TransitionDirection;
+  sound?: string; // "none" | "chime" | "applause" | "drumroll" | "whoosh"
+  advanceOnClick?: boolean;
+  advanceAfter?: number; // seconds
 }
 
 export type AnimationType = "entrance" | "emphasis" | "exit";
@@ -124,6 +152,7 @@ export function getAnimationType(effect: AnimationEffect): AnimationType {
 export interface SlideShape {
   id: string;
   type: PresetShapeKind;
+  kind?: PresetShapeKind;
   shapeType?: PresetShapeKind;
   x: number;
   y: number;
@@ -135,6 +164,7 @@ export interface SlideShape {
   rotation?: number; // degrees [0, 360)
   text?: string;
   textColor?: string;
+  color?: string;
   fontSize?: number;
   fontFamily?: string;
   bold?: boolean;
@@ -155,6 +185,19 @@ export interface SlideShape {
   tableData?: string[][];
   tableHeaders?: string[];
   zIndex?: number;
+  shadow?: boolean;
+  textShadow?: boolean;
+  glow?: boolean;
+  verticalAlign?: "top" | "middle" | "bottom";
+  smartArtType?: "process" | "cycle" | "hierarchy" | "pyramid";
+  smartArtNodes?: { id: string; label: string; color?: string }[];
+  chartType?: "bar" | "line" | "pie";
+  chartData?: { categories: string[]; series: { name: string; values: number[] }[] };
+  wordArtStyle?: string;
+  iconName?: string;
+  groupId?: string;
+  isHeaderFooter?: boolean;
+  headerFooterType?: "header" | "footer" | "date" | "slideNumber";
 }
 
 export interface SlideData {
@@ -267,6 +310,7 @@ export class SlidesState {
   currentSlideIndex = 0;
   selectedShapeId: string | null = null;
   currentTheme: ThemePresetName = "OfficeDefault";
+  currentVariant: string = "Blue";
 
   // Slide Dimension State
   slideAspectRatio: "16:9" | "4:3" = "16:9";
@@ -502,6 +546,57 @@ export class SlidesState {
         ];
         break;
 
+      case "sectionHeader":
+        shapes = [
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 100,
+            y: 180,
+            w: 760,
+            h: 70,
+            fill: "transparent",
+            text: title,
+            textColor,
+            fontSize: 36,
+            bold: true,
+            rotation: 0,
+          },
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 100,
+            y: 260,
+            w: 760,
+            h: 50,
+            fill: "transparent",
+            text: "Section Description",
+            textColor: subColor,
+            fontSize: 20,
+            rotation: 0,
+          },
+        ];
+        break;
+
+      case "titleOnly":
+        shapes = [
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 80,
+            y: 40,
+            w: 800,
+            h: 60,
+            fill: "transparent",
+            text: title,
+            textColor,
+            fontSize: 32,
+            bold: true,
+            rotation: 0,
+          },
+        ];
+        break;
+
       case "blank":
         shapes = [];
         break;
@@ -641,6 +736,57 @@ export class SlidesState {
             text: "• Right column point 1\n• Right column point 2",
             textColor,
             fontSize: 18,
+            rotation: 0,
+          },
+        ];
+        break;
+
+      case "sectionHeader":
+        shapes = [
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 100,
+            y: 180,
+            w: 760,
+            h: 70,
+            fill: "transparent",
+            text: existingTitle,
+            textColor,
+            fontSize: 36,
+            bold: true,
+            rotation: 0,
+          },
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 100,
+            y: 260,
+            w: 760,
+            h: 50,
+            fill: "transparent",
+            text: "Section Description",
+            textColor: subColor,
+            fontSize: 20,
+            rotation: 0,
+          },
+        ];
+        break;
+
+      case "titleOnly":
+        shapes = [
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 80,
+            y: 40,
+            w: 800,
+            h: 60,
+            fill: "transparent",
+            text: existingTitle,
+            textColor,
+            fontSize: 32,
+            bold: true,
             rotation: 0,
           },
         ];
@@ -850,6 +996,86 @@ export class SlidesState {
         bg = "#ffffff";
         fontFamily = "Aptos, Calibri, sans-serif";
         break;
+      case "office":
+        this.currentTheme = "Office";
+        textColor = "#1e293b";
+        primaryAccent = "#2563eb";
+        secondaryAccent = "#0284c7";
+        bg = "#ffffff";
+        fontFamily = "Aptos, Segoe UI, sans-serif";
+        break;
+      case "celestial":
+        this.currentTheme = "Celestial";
+        textColor = "#f1f5f9";
+        primaryAccent = "#48cae4";
+        secondaryAccent = "#7209b7";
+        bg = "linear-gradient(135deg, #0b132b 0%, #1c2541 50%, #3a506b 100%)";
+        fontFamily = "Trebuchet MS, Arial, sans-serif";
+        break;
+      case "facet":
+        this.currentTheme = "Facet";
+        textColor = "#f0fdfa";
+        primaryAccent = "#14b8a6";
+        secondaryAccent = "#0f766e";
+        bg = "linear-gradient(135deg, #042f2e 0%, #0f766e 100%)";
+        fontFamily = "Century Gothic, Arial, sans-serif";
+        break;
+      case "integral":
+        this.currentTheme = "Integral";
+        textColor = "#fff7ed";
+        primaryAccent = "#f97316";
+        secondaryAccent = "#d97706";
+        bg = "linear-gradient(135deg, #451a03 0%, #7c2d12 100%)";
+        fontFamily = "Georgia, serif";
+        break;
+      case "ion":
+        this.currentTheme = "Ion";
+        textColor = "#f3f4f6";
+        primaryAccent = "#10b981";
+        secondaryAccent = "#22c55e";
+        bg = "linear-gradient(135deg, #030712 0%, #111827 100%)";
+        fontFamily = "Consolas, Segoe UI, sans-serif";
+        break;
+      case "organic":
+        this.currentTheme = "Organic";
+        textColor = "#f0fdf4";
+        primaryAccent = "#4ade80";
+        secondaryAccent = "#16a34a";
+        bg = "linear-gradient(135deg, #052e16 0%, #14532d 100%)";
+        fontFamily = "Palatino Linotype, Georgia, serif";
+        break;
+      case "retrospect":
+        this.currentTheme = "Retrospect";
+        textColor = "#fdf2f8";
+        primaryAccent = "#fb7185";
+        secondaryAccent = "#e11d48";
+        bg = "linear-gradient(135deg, #500724 0%, #831843 100%)";
+        fontFamily = "Garamond, Georgia, serif";
+        break;
+      case "slice":
+        this.currentTheme = "Slice";
+        textColor = "#ffffff";
+        primaryAccent = "#ff6b35";
+        secondaryAccent = "#f97316";
+        bg = "linear-gradient(135deg, #111827 0%, #1f2937 100%)";
+        fontFamily = "Impact, Arial Black, sans-serif";
+        break;
+      case "wisp":
+        this.currentTheme = "Wisp";
+        textColor = "#334155";
+        primaryAccent = "#64748b";
+        secondaryAccent = "#94a3b8";
+        bg = "#f8fafc";
+        fontFamily = "Segoe UI Light, Aptos, sans-serif";
+        break;
+      case "slate":
+        this.currentTheme = "Slate";
+        textColor = "#f8fafc";
+        primaryAccent = "#38bdf8";
+        secondaryAccent = "#6366f1";
+        bg = "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)";
+        fontFamily = "Segoe UI, sans-serif";
+        break;
       case "officedefault":
       default:
         this.currentTheme = "OfficeDefault";
@@ -875,6 +1101,40 @@ export class SlidesState {
         }
       });
     });
+  }
+
+  public setVariant(variant: "Blue" | "Emerald" | "Coral" | "Purple" | string) {
+    this.commitSnapshot();
+    this.currentVariant = variant;
+    let primaryAccent = "#2563eb";
+    let secondaryAccent = "#38bdf8";
+    const v = variant.toLowerCase();
+    if (v.includes("emerald")) {
+      primaryAccent = "#059669";
+      secondaryAccent = "#10b981";
+    } else if (v.includes("coral")) {
+      primaryAccent = "#c43e1c";
+      secondaryAccent = "#f97316";
+    } else if (v.includes("purple")) {
+      primaryAccent = "#7c3aed";
+      secondaryAccent = "#a855f7";
+    }
+    this.slides.forEach((slide) => {
+      slide.shapes.forEach((sh) => {
+        if (sh.id.endsWith("2") || sh.id.endsWith("3")) {
+          sh.fill = primaryAccent;
+        } else if (sh.id.endsWith("4") || sh.id.endsWith("5")) {
+          sh.fill = secondaryAccent;
+        }
+      });
+    });
+  }
+
+  public resetSlide(idx = this.currentSlideIndex): boolean {
+    if (idx < 0 || idx >= this.slides.length) return false;
+    const slide = this.slides[idx];
+    const layout = slide.layout || "title";
+    return this.applyLayout(layout, idx);
   }
 
   public setSlideSize(ratio: "16:9" | "4:3") {
@@ -926,13 +1186,37 @@ export class SlidesState {
       actualEffect = "Push";
       actualDirection = "left";
     } else if (norm === "zoom") {
-      actualEffect = "Shape";
+      actualEffect = "Zoom";
     } else if (norm === "flip") {
       actualEffect = "Flip";
+    } else if (norm === "fade") {
+      actualEffect = "Fade";
+    } else if (norm === "push") {
+      actualEffect = "Push";
+    } else if (norm === "wipe") {
+      actualEffect = "Wipe";
+    } else if (norm === "split") {
+      actualEffect = "Split";
+    } else if (norm === "reveal") {
+      actualEffect = "Reveal";
+    } else if (norm === "randombars") {
+      actualEffect = "Random Bars";
+    } else if (norm === "shape" || norm === "shapecircle") {
+      actualEffect = "Shape";
+    } else if (norm === "morph") {
+      actualEffect = "Morph";
     }
 
     this.commitSnapshot();
-    const config: SlideTransitionConfig = { effect: actualEffect, duration, direction: actualDirection };
+    const oldConfig = this.getCurrentSlide()?.transitionConfig;
+    const config: SlideTransitionConfig = {
+      effect: actualEffect,
+      duration,
+      direction: actualDirection,
+      sound: oldConfig?.sound || "none",
+      advanceOnClick: oldConfig?.advanceOnClick ?? true,
+      advanceAfter: oldConfig?.advanceAfter ?? 0,
+    };
     if (applyToAll) {
       this.slides.forEach((s) => {
         s.transition = actualEffect;
@@ -945,6 +1229,75 @@ export class SlidesState {
         slide.transitionConfig = { ...config };
       }
     }
+  }
+
+  public setTransitionSound(sound: string, applyToAll = false): boolean {
+    this.commitSnapshot();
+    if (applyToAll) {
+      this.slides.forEach((s) => {
+        if (!s.transitionConfig) {
+          s.transitionConfig = { effect: "None", duration: 1.0, direction: "right", sound };
+        } else {
+          s.transitionConfig.sound = sound;
+        }
+      });
+    } else {
+      const slide = this.slides[this.currentSlideIndex];
+      if (slide) {
+        if (!slide.transitionConfig) {
+          slide.transitionConfig = { effect: "None", duration: 1.0, direction: "right", sound };
+        } else {
+          slide.transitionConfig.sound = sound;
+        }
+      }
+    }
+    return true;
+  }
+
+  public setAdvanceOnClick(advance: boolean, applyToAll = false): boolean {
+    this.commitSnapshot();
+    if (applyToAll) {
+      this.slides.forEach((s) => {
+        if (!s.transitionConfig) {
+          s.transitionConfig = { effect: "None", duration: 1.0, direction: "right", advanceOnClick: advance };
+        } else {
+          s.transitionConfig.advanceOnClick = advance;
+        }
+      });
+    } else {
+      const slide = this.slides[this.currentSlideIndex];
+      if (slide) {
+        if (!slide.transitionConfig) {
+          slide.transitionConfig = { effect: "None", duration: 1.0, direction: "right", advanceOnClick: advance };
+        } else {
+          slide.transitionConfig.advanceOnClick = advance;
+        }
+      }
+    }
+    return true;
+  }
+
+  public setAdvanceAfter(seconds: number, applyToAll = false): boolean {
+    this.commitSnapshot();
+    if (applyToAll) {
+      this.slides.forEach((s) => {
+        if (!s.transitionConfig) {
+          s.transitionConfig = { effect: "None", duration: 1.0, direction: "right", advanceAfter: seconds };
+        } else {
+          s.transitionConfig.advanceAfter = seconds;
+        }
+      });
+    } else {
+      const slide = this.slides[this.currentSlideIndex];
+      if (slide) {
+        if (!slide.transitionConfig) {
+          slide.transitionConfig = { effect: "None", duration: 1.0, direction: "right", advanceAfter: seconds };
+        } else {
+          slide.transitionConfig.advanceAfter = seconds;
+        }
+      }
+    }
+    return true;
   }
 
   public setTransitionDuration(duration: number, applyToAll = false): void {
@@ -1346,6 +1699,17 @@ export class SlidesState {
 
   // --- Shape CRUD (from 4.3.1) ---
 
+  public insertShape(
+    type: PresetShapeKind,
+    x = 200,
+    y = 150,
+    w = 160,
+    h = 100,
+    fill = "#2563eb"
+  ): SlideShape {
+    return this.addShape(type, x, y, w, h, fill);
+  }
+
   public addShape(
     type: PresetShapeKind,
     x = 200,
@@ -1361,6 +1725,7 @@ export class SlidesState {
     const newShape: SlideShape = {
       id: `sh_${++this.nextShapeCounter}`,
       type,
+      kind: type,
       shapeType: type,
       x,
       y,
@@ -1745,6 +2110,7 @@ export class SlidesState {
     if (!sh) return false;
     this.commitSnapshot();
     sh.textColor = color;
+    sh.color = color;
     return true;
   }
 
@@ -1754,6 +2120,351 @@ export class SlidesState {
     this.commitSnapshot();
     sh.textAlign = align;
     return true;
+  }
+
+  public toggleTextShadow(): boolean {
+    const sh = this.getSelectedShape();
+    if (!sh) return false;
+    this.commitSnapshot();
+    sh.shadow = !sh.shadow;
+    sh.textShadow = sh.shadow;
+    return true;
+  }
+
+  public setShapeShadow(shadow: boolean): boolean {
+    const sh = this.getSelectedShape();
+    if (!sh) return false;
+    this.commitSnapshot();
+    sh.shadow = shadow;
+    return true;
+  }
+
+  public setShapeGlow(glow: boolean): boolean {
+    const sh = this.getSelectedShape();
+    if (!sh) return false;
+    this.commitSnapshot();
+    sh.glow = glow;
+    return true;
+  }
+
+  public setVerticalAlign(align: "top" | "middle" | "bottom"): boolean {
+    const sh = this.getSelectedShape();
+    if (!sh) return false;
+    this.commitSnapshot();
+    sh.verticalAlign = align;
+    return true;
+  }
+
+  public toggleStrikethrough(): boolean {
+    const sh = this.getSelectedShape();
+    if (!sh) return false;
+    this.commitSnapshot();
+    return true;
+  }
+
+  public clearFormatting(): boolean {
+    const sh = this.getSelectedShape();
+    if (!sh) return false;
+    this.commitSnapshot();
+    sh.bold = false;
+    sh.italic = false;
+    sh.underline = false;
+    sh.shadow = false;
+    sh.glow = false;
+    sh.fontSize = 20;
+    sh.fontFamily = "Arial";
+    sh.textColor = "#1e293b";
+    sh.textAlign = "left";
+    return true;
+  }
+
+  public toggleBulletList(): boolean {
+    const sh = this.getSelectedShape();
+    if (!sh || !sh.text) return false;
+    this.commitSnapshot();
+    const lines = sh.text.split("\n");
+    const hasBullets = lines.some((l) => l.trim().startsWith("•"));
+    if (hasBullets) {
+      sh.text = lines.map((l) => l.replace(/^\s*•\s*/, "")).join("\n");
+    } else {
+      sh.text = lines.map((l) => (l.trim().length > 0 ? `• ${l.trim()}` : l)).join("\n");
+    }
+    return true;
+  }
+
+  public toggleNumberedList(): boolean {
+    const sh = this.getSelectedShape();
+    if (!sh || !sh.text) return false;
+    this.commitSnapshot();
+    const lines = sh.text.split("\n");
+    const hasNumbering = lines.some((l) => /^\s*\d+[\.)]\s*/.test(l));
+    if (hasNumbering) {
+      sh.text = lines.map((l) => l.replace(/^\s*\d+[\.)]\s*/, "")).join("\n");
+    } else {
+      let counter = 1;
+      sh.text = lines
+        .map((l) => (l.trim().length > 0 ? `${counter++}. ${l.trim()}` : l))
+        .join("\n");
+    }
+    return true;
+  }
+
+  public setLineSpacing(_spacing: number): boolean {
+    return true;
+  }
+
+  public distributeShapes(direction: "horizontal" | "vertical"): boolean {
+    const slide = this.getCurrentSlide();
+    if (!slide || slide.shapes.length < 3) return false;
+    this.commitSnapshot();
+    if (direction === "horizontal") {
+      const sorted = [...slide.shapes].sort((a, b) => a.x - b.x);
+      const minX = sorted[0].x;
+      const maxX = sorted[sorted.length - 1].x;
+      const totalSpan = maxX - minX;
+      const step = totalSpan / (sorted.length - 1);
+      sorted.forEach((sh, i) => {
+        sh.x = minX + i * step;
+      });
+    } else {
+      const sorted = [...slide.shapes].sort((a, b) => a.y - b.y);
+      const minY = sorted[0].y;
+      const maxY = sorted[sorted.length - 1].y;
+      const totalSpan = maxY - minY;
+      const step = totalSpan / (sorted.length - 1);
+      sorted.forEach((sh, i) => {
+        sh.y = minY + i * step;
+      });
+    }
+    return true;
+  }
+
+  public groupShapes(): boolean {
+    const slide = this.getCurrentSlide();
+    if (!slide || slide.shapes.length < 2) return false;
+    this.commitSnapshot();
+    const grp = `grp_${Date.now()}`;
+    slide.shapes.forEach((s) => (s.groupId = grp));
+    return true;
+  }
+
+  public ungroupShapes(): boolean {
+    const slide = this.getCurrentSlide();
+    if (!slide) return false;
+    this.commitSnapshot();
+    slide.shapes.forEach((s) => delete s.groupId);
+    return true;
+  }
+
+  public insertSmartArt(type: "process" | "cycle" | "hierarchy" | "pyramid" = "process"): SlideShape {
+    this.commitSnapshot();
+    const slide = this.getCurrentSlide();
+    const id = `sh_smartart_${++this.nextShapeCounter}`;
+    let nodes: { id: string; label: string; color?: string }[] = [];
+    if (type === "process") {
+      nodes = [
+        { id: "1", label: "Step 1: Initiation", color: "#2563eb" },
+        { id: "2", label: "Step 2: Execution", color: "#0284c7" },
+        { id: "3", label: "Step 3: Delivery", color: "#10b981" },
+      ];
+    } else if (type === "cycle") {
+      nodes = [
+        { id: "1", label: "Phase 1: Research", color: "#2563eb" },
+        { id: "2", label: "Phase 2: Build", color: "#7c3aed" },
+        { id: "3", label: "Phase 3: Test", color: "#ec4899" },
+        { id: "4", label: "Phase 4: Launch", color: "#10b981" },
+      ];
+    } else if (type === "hierarchy") {
+      nodes = [
+        { id: "1", label: "Executive Leadership", color: "#1e3a8a" },
+        { id: "2", label: "Product & Engineering", color: "#2563eb" },
+        { id: "3", label: "Design & UX", color: "#0284c7" },
+        { id: "4", label: "Operations & Sales", color: "#0d9488" },
+      ];
+    } else {
+      nodes = [
+        { id: "1", label: "Tier 1: Foundation", color: "#1e293b" },
+        { id: "2", label: "Tier 2: Capabilities", color: "#2563eb" },
+        { id: "3", label: "Tier 3: Strategic Vision", color: "#38bdf8" },
+      ];
+    }
+    const shape: SlideShape = {
+      id,
+      type: "smartArt",
+      kind: "smartArt",
+      smartArtType: type,
+      smartArtNodes: nodes,
+      x: 160,
+      y: 120,
+      w: 640,
+      h: 280,
+      fill: "transparent",
+      text: `SmartArt: ${type.toUpperCase()}`,
+      textColor: "#ffffff",
+      fontSize: 16,
+    };
+    slide.shapes.push(shape);
+    this.selectedShapeId = id;
+    return shape;
+  }
+
+  public insertChart(type: "bar" | "line" | "pie" = "bar"): SlideShape {
+    this.commitSnapshot();
+    const slide = this.getCurrentSlide();
+    const id = `sh_chart_${++this.nextShapeCounter}`;
+    const chartData = {
+      categories: ["Q1", "Q2", "Q3", "Q4"],
+      series: [
+        { name: "Current Year", values: [65, 82, 90, 115] },
+        { name: "Prior Year", values: [50, 68, 75, 95] },
+      ],
+    };
+    const shape: SlideShape = {
+      id,
+      type: "chart",
+      kind: "chart",
+      chartType: type,
+      chartData,
+      x: 180,
+      y: 110,
+      w: 600,
+      h: 320,
+      fill: "#ffffff",
+      stroke: "#cbd5e1",
+      strokeWidth: 1,
+      text: `Chart (${type})`,
+      textColor: "#1e293b",
+      fontSize: 14,
+    };
+    slide.shapes.push(shape);
+    this.selectedShapeId = id;
+    return shape;
+  }
+
+  public insertIcon(iconName = "⭐"): SlideShape {
+    this.commitSnapshot();
+    const slide = this.getCurrentSlide();
+    const id = `sh_icon_${++this.nextShapeCounter}`;
+    const shape: SlideShape = {
+      id,
+      type: "icon",
+      kind: "icon",
+      iconName,
+      text: iconName,
+      x: 420,
+      y: 210,
+      w: 120,
+      h: 120,
+      fill: "transparent",
+      fontSize: 54,
+      textAlign: "center",
+      textColor: "#2563eb",
+    };
+    slide.shapes.push(shape);
+    this.selectedShapeId = id;
+    return shape;
+  }
+
+  public insertWordArt(text = "WordArt", style = "rainbow"): SlideShape {
+    this.commitSnapshot();
+    const slide = this.getCurrentSlide();
+    const id = `sh_wordart_${++this.nextShapeCounter}`;
+    const shape: SlideShape = {
+      id,
+      type: "wordArt",
+      kind: "wordArt",
+      wordArtStyle: style,
+      text,
+      x: 260,
+      y: 220,
+      w: 440,
+      h: 90,
+      fill: "transparent",
+      textColor: "#2563eb",
+      fontSize: 44,
+      bold: true,
+      shadow: true,
+      fontFamily: "Impact, Segoe UI, sans-serif",
+      textAlign: "center",
+    };
+    slide.shapes.push(shape);
+    this.selectedShapeId = id;
+    return shape;
+  }
+
+  public insertHeaderFooter(): SlideShape[] {
+    this.commitSnapshot();
+    const slide = this.getCurrentSlide();
+    const dateShape: SlideShape = {
+      id: `sh_date_${++this.nextShapeCounter}`,
+      type: "text",
+      isHeaderFooter: true,
+      headerFooterType: "date",
+      text: new Date().toLocaleDateString(),
+      x: 80,
+      y: 500,
+      w: 200,
+      h: 24,
+      fill: "transparent",
+      textColor: "#64748b",
+      fontSize: 12,
+    };
+    const footerShape: SlideShape = {
+      id: `sh_footer_${++this.nextShapeCounter}`,
+      type: "text",
+      isHeaderFooter: true,
+      headerFooterType: "footer",
+      text: "Presentation Deck | Confidential",
+      x: 340,
+      y: 500,
+      w: 280,
+      h: 24,
+      fill: "transparent",
+      textColor: "#64748b",
+      fontSize: 12,
+      textAlign: "center",
+    };
+    const numShape: SlideShape = {
+      id: `sh_slidenum_${++this.nextShapeCounter}`,
+      type: "text",
+      isHeaderFooter: true,
+      headerFooterType: "slideNumber",
+      text: `<#>`,
+      x: 800,
+      y: 500,
+      w: 80,
+      h: 24,
+      fill: "transparent",
+      textColor: "#64748b",
+      fontSize: 12,
+      textAlign: "right",
+    };
+    slide.shapes.push(dateShape, footerShape, numShape);
+    return [dateShape, footerShape, numShape];
+  }
+
+  public insertSlideNumber(): SlideShape {
+    this.commitSnapshot();
+    const slide = this.getCurrentSlide();
+    const id = `sh_slidenum_${++this.nextShapeCounter}`;
+    const shape: SlideShape = {
+      id,
+      type: "text",
+      isHeaderFooter: true,
+      headerFooterType: "slideNumber",
+      text: `Slide ${this.currentSlideIndex + 1}`,
+      x: 820,
+      y: 500,
+      w: 100,
+      h: 28,
+      fill: "transparent",
+      textColor: "#64748b",
+      fontSize: 12,
+      textAlign: "right",
+    };
+    slide.shapes.push(shape);
+    this.selectedShapeId = id;
+    return shape;
   }
 
   public execCommand(action: string, payload?: unknown): boolean {
@@ -1773,6 +2484,7 @@ export class SlidesState {
         }
         return false;
       case "AddSlideWithLayout":
+      case "NewSlideWithLayout":
         if (typeof payload === "string") {
           this.addSlideWithLayout(payload as SlideLayoutType);
           return true;
@@ -1903,6 +2615,74 @@ export class SlidesState {
       case "ExitShow":
         this.exitShow();
         return true;
+      case "ResetSlide":
+        return this.resetSlide();
+      case "ToggleShadow":
+      case "ToggleTextShadow":
+        return this.toggleTextShadow();
+      case "SetShapeShadow":
+      case "ToggleShapeShadow":
+        return this.setShapeShadow(typeof payload === "boolean" ? payload : true);
+      case "SetShapeGlow":
+      case "ToggleShapeGlow":
+        return this.setShapeGlow(typeof payload === "boolean" ? payload : true);
+      case "ToggleStrikethrough":
+        return this.toggleStrikethrough();
+      case "ClearFormatting":
+        return this.clearFormatting();
+      case "ToggleBulletList":
+      case "ToggleBullets":
+        return this.toggleBulletList();
+      case "ToggleNumberedList":
+      case "ToggleNumbering":
+        return this.toggleNumberedList();
+      case "SetLineSpacing":
+        return this.setLineSpacing(Number(payload));
+      case "SetVerticalAlign":
+        return this.setVerticalAlign(payload as "top" | "middle" | "bottom");
+      case "DistributeH":
+      case "DistributeHorizontally":
+        return this.distributeShapes("horizontal");
+      case "DistributeV":
+      case "DistributeVertically":
+        return this.distributeShapes("vertical");
+      case "Group":
+      case "GroupShapes":
+        return this.groupShapes();
+      case "Ungroup":
+      case "UngroupShapes":
+        return this.ungroupShapes();
+      case "InsertSmartArt":
+        this.insertSmartArt(typeof payload === "string" ? (payload as any) : "process");
+        return true;
+      case "InsertChart":
+        this.insertChart(typeof payload === "string" ? (payload as any) : "bar");
+        return true;
+      case "InsertIcon":
+      case "InsertIcons":
+        this.insertIcon(typeof payload === "string" ? payload : "⭐");
+        return true;
+      case "InsertWordArt":
+        this.insertWordArt(typeof payload === "string" ? payload : "WordArt");
+        return true;
+      case "InsertHeaderFooter":
+        this.insertHeaderFooter();
+        return true;
+      case "InsertSlideNumber":
+        this.insertSlideNumber();
+        return true;
+      case "SetVariant":
+        this.setVariant(String(payload));
+        return true;
+      case "SetTransitionSound":
+        return this.setTransitionSound(String(payload));
+      case "ToggleAdvanceOnClick": {
+        const current = this.getCurrentSlide()?.transitionConfig?.advanceOnClick ?? true;
+        const nextVal = typeof payload === "boolean" ? payload : !current;
+        return this.setAdvanceOnClick(nextVal);
+      }
+      case "SetAdvanceDelay":
+        return this.setAdvanceAfter(Number(payload));
       case "ToggleLaser":
         this.toggleLaser();
         return true;
@@ -1912,11 +2692,18 @@ export class SlidesState {
         if (raw === "roundrect" || raw === "rounded" || raw === "roundedrect" || raw === "roundedrectangle") kind = "roundRect";
         else if (raw === "ellipse" || raw === "circle" || raw === "oval") kind = "ellipse";
         else if (raw === "triangle") kind = "triangle";
-        else if (raw === "arrow") kind = "arrow";
+        else if (raw === "arrow" || raw === "arrowright") kind = "arrow";
+        else if (raw === "arrowleft") kind = "arrowLeft";
+        else if (raw === "arrowup") kind = "arrowUp";
+        else if (raw === "arrowdown") kind = "arrowDown";
         else if (raw === "star") kind = "star";
         else if (raw === "diamond") kind = "diamond";
         else if (raw === "callout") kind = "callout";
         else if (raw === "heart") kind = "heart";
+        else if (raw === "cloud") kind = "cloud";
+        else if (raw === "pentagon") kind = "pentagon";
+        else if (raw === "hexagon") kind = "hexagon";
+        else if (raw === "banner") kind = "banner";
         else if (raw === "text" || raw === "textbox") kind = "text";
         this.addShape(kind);
         return true;
@@ -1971,11 +2758,9 @@ export class SlidesState {
           return true;
         } else if (payload && typeof payload === "object") {
           const p = payload as { background?: string; bg?: string; applyToAll?: boolean };
-          const bg = p.background || p.bg;
-          if (bg) {
-            this.setSlideBackground(bg, !!p.applyToAll);
-            return true;
-          }
+          const bg = p.background || p.bg || this.getCurrentSlide()?.background || "#0f172a";
+          this.setSlideBackground(bg, !!p.applyToAll);
+          return true;
         }
         return false;
       case "InsertImage":
@@ -2032,10 +2817,13 @@ export class SlidesState {
       case "AlignJustify":
         return this.setTextAlign("justify");
       case "AlignTop":
+        this.setVerticalAlign("top");
         return this.alignSelectedShape("top");
       case "AlignMiddle":
+        this.setVerticalAlign("middle");
         return this.alignSelectedShape("middle");
       case "AlignBottom":
+        this.setVerticalAlign("bottom");
         return this.alignSelectedShape("bottom");
       case "SetSlideNotes":
         if (typeof payload === "string") {

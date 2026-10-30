@@ -44,6 +44,18 @@ export class SlideLayoutDialog {
       `,
     },
     {
+      type: "sectionHeader",
+      title: "Section Header",
+      description: "Category divider with header and text",
+      iconSvg: `
+        <svg width="64" height="40" viewBox="0 0 64 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="64" height="40" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+          <rect x="10" y="14" width="44" height="6" rx="1" fill="#c43e1c"/>
+          <rect x="16" y="23" width="32" height="3" rx="0.5" fill="#94a3b8"/>
+        </svg>
+      `,
+    },
+    {
       type: "twoContent",
       title: "Two Content",
       description: "Side-by-side comparison columns",
@@ -57,6 +69,17 @@ export class SlideLayoutDialog {
           <rect x="11" y="23" width="13" height="2" rx="0.5" fill="#64748b"/>
           <rect x="37" y="18" width="16" height="2" rx="0.5" fill="#64748b"/>
           <rect x="37" y="23" width="13" height="2" rx="0.5" fill="#64748b"/>
+        </svg>
+      `,
+    },
+    {
+      type: "titleOnly",
+      title: "Title Only",
+      description: "Header placeholder with open canvas area",
+      iconSvg: `
+        <svg width="64" height="40" viewBox="0 0 64 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="64" height="40" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+          <rect x="8" y="6" width="48" height="5" rx="1" fill="#c43e1c"/>
         </svg>
       `,
     },

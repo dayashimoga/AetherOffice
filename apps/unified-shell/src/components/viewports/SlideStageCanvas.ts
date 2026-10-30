@@ -758,6 +758,18 @@ export class SlideStageCanvas {
         ctx.translate(-cx, -cy);
       }
 
+      if (sh.shadow) {
+        ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
+        ctx.shadowBlur = 12;
+        ctx.shadowOffsetX = 4;
+        ctx.shadowOffsetY = 6;
+      } else if (sh.glow) {
+        ctx.shadowColor = "rgba(59, 130, 246, 0.8)";
+        ctx.shadowBlur = 16;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+      }
+
       ctx.fillStyle = sh.fill;
       if (sh.stroke) {
         ctx.strokeStyle = sh.stroke;
@@ -827,6 +839,69 @@ export class SlideStageCanvas {
           ctx.lineTo(hX, sh.y + sh.h);
           ctx.lineTo(hX, sBot);
           ctx.lineTo(sh.x, sBot);
+          ctx.closePath();
+          ctx.fill();
+          if (sh.stroke) ctx.stroke();
+          break;
+        }
+
+        case "arrowLeft": {
+          const headL = sh.w * 0.35;
+          const shaftH = sh.h * 0.4;
+          const sTop = sh.y + (sh.h - shaftH) / 2;
+          const sBot = sTop + shaftH;
+          const hX = sh.x + headL;
+
+          ctx.beginPath();
+          ctx.moveTo(sh.x + sh.w, sTop);
+          ctx.lineTo(hX, sTop);
+          ctx.lineTo(hX, sh.y);
+          ctx.lineTo(sh.x, sh.y + sh.h / 2);
+          ctx.lineTo(hX, sh.y + sh.h);
+          ctx.lineTo(hX, sBot);
+          ctx.lineTo(sh.x + sh.w, sBot);
+          ctx.closePath();
+          ctx.fill();
+          if (sh.stroke) ctx.stroke();
+          break;
+        }
+
+        case "arrowUp": {
+          const headH = sh.h * 0.35;
+          const shaftW = sh.w * 0.4;
+          const sLeft = sh.x + (sh.w - shaftW) / 2;
+          const sRight = sLeft + shaftW;
+          const hY = sh.y + headH;
+
+          ctx.beginPath();
+          ctx.moveTo(sLeft, sh.y + sh.h);
+          ctx.lineTo(sLeft, hY);
+          ctx.lineTo(sh.x, hY);
+          ctx.lineTo(sh.x + sh.w / 2, sh.y);
+          ctx.lineTo(sh.x + sh.w, hY);
+          ctx.lineTo(sRight, hY);
+          ctx.lineTo(sRight, sh.y + sh.h);
+          ctx.closePath();
+          ctx.fill();
+          if (sh.stroke) ctx.stroke();
+          break;
+        }
+
+        case "arrowDown": {
+          const headH = sh.h * 0.35;
+          const shaftW = sh.w * 0.4;
+          const sLeft = sh.x + (sh.w - shaftW) / 2;
+          const sRight = sLeft + shaftW;
+          const hY = sh.y + sh.h - headH;
+
+          ctx.beginPath();
+          ctx.moveTo(sLeft, sh.y);
+          ctx.lineTo(sRight, sh.y);
+          ctx.lineTo(sRight, hY);
+          ctx.lineTo(sh.x + sh.w, hY);
+          ctx.lineTo(sh.x + sh.w / 2, sh.y + sh.h);
+          ctx.lineTo(sh.x, hY);
+          ctx.lineTo(sLeft, hY);
           ctx.closePath();
           ctx.fill();
           if (sh.stroke) ctx.stroke();
@@ -936,6 +1011,245 @@ export class SlideStageCanvas {
           break;
         }
 
+        case "cloud": {
+          const cx = sh.x + sh.w / 2;
+          const cy = sh.y + sh.h / 2;
+          ctx.beginPath();
+          ctx.arc(sh.x + sh.w * 0.3, cy, sh.h * 0.35, 0, Math.PI * 2);
+          ctx.arc(cx, sh.y + sh.h * 0.35, sh.h * 0.35, 0, Math.PI * 2);
+          ctx.arc(sh.x + sh.w * 0.7, cy, sh.h * 0.35, 0, Math.PI * 2);
+          ctx.arc(cx, sh.y + sh.h * 0.65, sh.h * 0.25, 0, Math.PI * 2);
+          ctx.closePath();
+          ctx.fill();
+          if (sh.stroke) ctx.stroke();
+          break;
+        }
+
+        case "pentagon": {
+          const cx = sh.x + sh.w / 2;
+          const cy = sh.y + sh.h / 2;
+          const r = Math.min(sh.w, sh.h) / 2;
+          ctx.beginPath();
+          for (let i = 0; i < 5; i++) {
+            const angle = (i * 2 * Math.PI) / 5 - Math.PI / 2;
+            const px = cx + r * Math.cos(angle);
+            const py = cy + r * Math.sin(angle);
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.fill();
+          if (sh.stroke) ctx.stroke();
+          break;
+        }
+
+        case "hexagon": {
+          const cx = sh.x + sh.w / 2;
+          const cy = sh.y + sh.h / 2;
+          const r = Math.min(sh.w, sh.h) / 2;
+          ctx.beginPath();
+          for (let i = 0; i < 6; i++) {
+            const angle = (i * 2 * Math.PI) / 6;
+            const px = cx + r * Math.cos(angle);
+            const py = cy + r * Math.sin(angle);
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.fill();
+          if (sh.stroke) ctx.stroke();
+          break;
+        }
+
+        case "banner": {
+          const indent = sh.w * 0.12;
+          ctx.beginPath();
+          ctx.moveTo(sh.x, sh.y);
+          ctx.lineTo(sh.x + sh.w, sh.y);
+          ctx.lineTo(sh.x + sh.w - indent, sh.y + sh.h / 2);
+          ctx.lineTo(sh.x + sh.w, sh.y + sh.h);
+          ctx.lineTo(sh.x, sh.y + sh.h);
+          ctx.lineTo(sh.x + indent, sh.y + sh.h / 2);
+          ctx.closePath();
+          ctx.fill();
+          if (sh.stroke) ctx.stroke();
+          break;
+        }
+
+        case "icon": {
+          ctx.save();
+          ctx.font = `${sh.fontSize || 48}px "Segoe UI Emoji", Arial, sans-serif`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(sh.iconName || sh.text || "⭐", sh.x + sh.w / 2, sh.y + sh.h / 2);
+          ctx.restore();
+          break;
+        }
+
+        case "wordArt": {
+          ctx.save();
+          ctx.font = `bold ${sh.fontSize || 44}px ${sh.fontFamily || "Impact, sans-serif"}`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillStyle = sh.textColor || "#2563eb";
+          ctx.fillText(sh.text || "WordArt", sh.x + sh.w / 2, sh.y + sh.h / 2);
+          if (sh.stroke) {
+            ctx.strokeStyle = sh.stroke;
+            ctx.lineWidth = sh.strokeWidth || 1.5;
+            ctx.strokeText(sh.text || "WordArt", sh.x + sh.w / 2, sh.y + sh.h / 2);
+          }
+          ctx.restore();
+          break;
+        }
+
+        case "smartArt": {
+          const type = sh.smartArtType || "process";
+          const nodes = sh.smartArtNodes || [];
+          if (nodes.length > 0) {
+            const count = nodes.length;
+            if (type === "process") {
+              const nodeW = (sh.w - (count - 1) * 20) / count;
+              nodes.forEach((n, idx) => {
+                const nx = sh.x + idx * (nodeW + 20);
+                ctx.fillStyle = n.color || "#2563eb";
+                ctx.fillRect(nx, sh.y + 20, nodeW, sh.h - 40);
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 14px Aptos, sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(n.label, nx + nodeW / 2, sh.y + sh.h / 2);
+                if (idx < count - 1) {
+                  ctx.fillStyle = "#94a3b8";
+                  ctx.fillText("➔", nx + nodeW + 10, sh.y + sh.h / 2);
+                }
+              });
+            } else if (type === "pyramid") {
+              const tierH = (sh.h - 20) / count;
+              nodes.forEach((n, idx) => {
+                const pct = (idx + 1) / count;
+                const tierW = sh.w * pct;
+                const tx = sh.x + (sh.w - tierW) / 2;
+                const ty = sh.y + 10 + idx * tierH;
+                ctx.fillStyle = n.color || "#2563eb";
+                ctx.fillRect(tx, ty, tierW, tierH - 6);
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 13px Aptos, sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(n.label, sh.x + sh.w / 2, ty + tierH / 2 - 3);
+              });
+            } else {
+              // cycle or hierarchy
+              const nodeW = (sh.w - 40) / Math.max(1, count);
+              nodes.forEach((n, idx) => {
+                const nx = sh.x + 20 + idx * nodeW;
+                ctx.fillStyle = n.color || "#2563eb";
+                ctx.beginPath();
+                ctx.arc(nx + nodeW / 2, sh.y + sh.h / 2, Math.min(nodeW / 2 - 6, (sh.h - 40) / 2), 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 12px Aptos, sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(n.label, nx + nodeW / 2, sh.y + sh.h / 2);
+              });
+            }
+          }
+          break;
+        }
+
+        case "chart": {
+          ctx.fillStyle = sh.fill || "#ffffff";
+          ctx.fillRect(sh.x, sh.y, sh.w, sh.h);
+          if (sh.stroke) ctx.strokeRect(sh.x, sh.y, sh.w, sh.h);
+
+          const cData = sh.chartData || {
+            categories: ["Q1", "Q2", "Q3", "Q4"],
+            series: [{ name: "Sales", values: [40, 60, 80, 100] }],
+          };
+          const colors = ["#2563eb", "#10b981", "#f59e0b", "#ec4899"];
+          const padL = 50;
+          const padB = 40;
+          const padT = 30;
+          const padR = 20;
+          const plotW = sh.w - padL - padR;
+          const plotH = sh.h - padT - padB;
+
+          // Axes
+          ctx.strokeStyle = "#94a3b8";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(sh.x + padL, sh.y + padT);
+          ctx.lineTo(sh.x + padL, sh.y + padT + plotH);
+          ctx.lineTo(sh.x + padL + plotW, sh.y + padT + plotH);
+          ctx.stroke();
+
+          // Title
+          ctx.fillStyle = "#1e293b";
+          ctx.font = "bold 13px Aptos, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "top";
+          ctx.fillText(`Chart: ${(sh.chartType || "bar").toUpperCase()}`, sh.x + sh.w / 2, sh.y + 8);
+
+          const cats = cData.categories;
+          const numCats = cats.length;
+          const catW = plotW / numCats;
+
+          if (sh.chartType === "line") {
+            cData.series.forEach((s, sIdx) => {
+              ctx.strokeStyle = colors[sIdx % colors.length];
+              ctx.lineWidth = 2.5;
+              ctx.beginPath();
+              s.values.forEach((v, cIdx) => {
+                const px = sh.x + padL + cIdx * catW + catW / 2;
+                const py = sh.y + padT + plotH - (v / 120) * plotH;
+                if (cIdx === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+              });
+              ctx.stroke();
+            });
+          } else if (sh.chartType === "pie") {
+            const cx = sh.x + sh.w / 2;
+            const cy = sh.y + padT + plotH / 2;
+            const r = Math.min(plotW, plotH) / 2 - 10;
+            const values = cData.series[0]?.values || [25, 25, 25, 25];
+            const sum = values.reduce((a, b) => a + b, 0) || 1;
+            let startAng = -Math.PI / 2;
+            values.forEach((v, idx) => {
+              const slice = (v / sum) * 2 * Math.PI;
+              ctx.fillStyle = colors[idx % colors.length];
+              ctx.beginPath();
+              ctx.moveTo(cx, cy);
+              ctx.arc(cx, cy, r, startAng, startAng + slice);
+              ctx.closePath();
+              ctx.fill();
+              startAng += slice;
+            });
+          } else {
+            // bar
+            const barW = Math.min(24, (catW - 12) / Math.max(1, cData.series.length));
+            cData.series.forEach((s, sIdx) => {
+              ctx.fillStyle = colors[sIdx % colors.length];
+              s.values.forEach((v, cIdx) => {
+                const bH = (v / 120) * plotH;
+                const bx = sh.x + padL + cIdx * catW + 6 + sIdx * barW;
+                const by = sh.y + padT + plotH - bH;
+                ctx.fillRect(bx, by, barW, bH);
+              });
+            });
+          }
+
+          // Category labels
+          ctx.fillStyle = "#64748b";
+          ctx.font = "11px Aptos, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "top";
+          cats.forEach((cat, idx) => {
+            ctx.fillText(cat, sh.x + padL + idx * catW + catW / 2, sh.y + padT + plotH + 8);
+          });
+          break;
+        }
+
         case "image": {
           ctx.fillRect(sh.x, sh.y, sh.w, sh.h);
           if (sh.stroke) ctx.strokeRect(sh.x, sh.y, sh.w, sh.h);
@@ -1019,12 +1333,19 @@ export class SlideStageCanvas {
             ctx.textBaseline = "top";
             const lines = sh.text.split("\n");
             const lineHeight = (sh.fontSize || 28) * 1.35;
+            const totalTextH = lines.length * lineHeight;
+            let startY = sh.y + 8;
+            if (sh.verticalAlign === "middle") {
+              startY = sh.y + Math.max(0, (sh.h - totalTextH) / 2);
+            } else if (sh.verticalAlign === "bottom") {
+              startY = sh.y + Math.max(0, sh.h - totalTextH - 8);
+            }
             lines.forEach((line, i) => {
               const posX = align === "center" ? sh.x + sh.w / 2 : align === "right" ? sh.x + sh.w - 8 : sh.x + 8;
-              ctx.fillText(line, posX, sh.y + 8 + i * lineHeight);
+              ctx.fillText(line, posX, startY + i * lineHeight);
               if (sh.underline) {
                 const metrics = ctx.measureText ? ctx.measureText(line) : { width: 50 };
-                const underY = sh.y + 8 + i * lineHeight + (sh.fontSize || 28);
+                const underY = startY + i * lineHeight + (sh.fontSize || 28);
                 const lineStart = align === "center" ? sh.x + sh.w / 2 - metrics.width / 2 : align === "right" ? sh.x + sh.w - 8 - metrics.width : sh.x + 8;
                 ctx.beginPath();
                 ctx.moveTo(lineStart, underY);

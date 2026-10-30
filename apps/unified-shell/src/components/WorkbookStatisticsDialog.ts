@@ -74,3 +74,4 @@ export class WorkbookStatisticsDialog {
     okBtn?.addEventListener("click", () => this.hide());
   }
 }
+

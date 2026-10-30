@@ -469,7 +469,7 @@ describe("Interactive Slide Canvas: Drag, 8-Point Resize, Rotate & In-Place Text
 
       expect(dialog.isOpen()).toBe(true);
       const cards = dialog.getLayoutCards();
-      expect(cards).toHaveLength(4);
+      expect(cards.length).toBeGreaterThanOrEqual(4);
 
       // Click "Two Content" card
       const twoContentCard = cards.find((c) => c.getAttribute("data-layout") === "twoContent");

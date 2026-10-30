@@ -200,6 +200,36 @@ export class SlideTransitionEngine {
     return segments[segments.length - 1].eval(1.0);
   }
 
+  public static playSound(sound: string): void {
+    if (typeof window === "undefined" || !sound || sound === "none") return;
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      if (sound === "chime") {
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.3);
+      } else if (sound === "drumroll") {
+        osc.frequency.setValueAtTime(150, ctx.currentTime);
+      } else if (sound === "whoosh") {
+        osc.frequency.setValueAtTime(400, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.2);
+      } else {
+        osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+      }
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } catch {
+      // AudioContext unavailable or blocked
+    }
+  }
+
   /**
    * Executes a slide transition on a target wrapper element.
    * Supports 3D hardware-accelerated transforms (Cube, Flip, Vortex, Honeycomb, Origami, Ripple)
@@ -210,10 +240,14 @@ export class SlideTransitionEngine {
     config: SlideTransitionConfig,
     onRenderMidpoint?: () => void
   ): Promise<void> {
-    const { effect, duration = 1.0, direction = "right" } = config;
+    const { effect, duration = 1.0, direction = "right", sound } = config;
     if (effect === "None") {
       if (onRenderMidpoint) onRenderMidpoint();
       return;
+    }
+
+    if (sound && sound !== "none") {
+      this.playSound(sound);
     }
 
     // Fallback to 2D cross-fade if software rendering is requested
@@ -314,6 +348,72 @@ export class SlideTransitionEngine {
         break;
       }
 
+      case "Wipe": {
+        const origin = direction === "right" ? "left" : direction === "left" ? "right" : direction === "bottom" ? "top" : "bottom";
+        element.style.transformOrigin = origin;
+        element.style.clipPath = direction === "left" || direction === "right" ? "inset(0 100% 0 0)" : "inset(100% 0 0 0)";
+        await new Promise((r) => setTimeout(r, 50));
+        if (onRenderMidpoint) onRenderMidpoint();
+        element.style.clipPath = "inset(0 0 0 0)";
+        break;
+      }
+
+      case "Split": {
+        element.style.clipPath = direction === "vertical" ? "inset(50% 0 50% 0)" : "inset(0 50% 0 50%)";
+        await new Promise((r) => setTimeout(r, 50));
+        if (onRenderMidpoint) onRenderMidpoint();
+        element.style.clipPath = "inset(0 0 0 0)";
+        break;
+      }
+
+      case "Reveal": {
+        element.style.transform = "scale(0.85)";
+        element.style.opacity = "0.2";
+        await new Promise((r) => setTimeout(r, 50));
+        if (onRenderMidpoint) onRenderMidpoint();
+        element.style.transform = "scale(1)";
+        element.style.opacity = "1";
+        break;
+      }
+
+      case "Random Bars": {
+        element.style.opacity = "0.1";
+        element.style.filter = "contrast(200%)";
+        await new Promise((r) => setTimeout(r, 50));
+        if (onRenderMidpoint) onRenderMidpoint();
+        element.style.opacity = "1";
+        element.style.filter = "none";
+        break;
+      }
+
+      case "Shape": {
+        element.style.clipPath = "circle(0% at 50% 50%)";
+        await new Promise((r) => setTimeout(r, 50));
+        if (onRenderMidpoint) onRenderMidpoint();
+        element.style.clipPath = "circle(100% at 50% 50%)";
+        break;
+      }
+
+      case "Zoom": {
+        element.style.transform = "scale(0.1)";
+        element.style.opacity = "0.2";
+        await new Promise((r) => setTimeout(r, 50));
+        if (onRenderMidpoint) onRenderMidpoint();
+        element.style.transform = "scale(1)";
+        element.style.opacity = "1";
+        break;
+      }
+
+      case "Morph": {
+        element.style.transform = "scale(0.98)";
+        element.style.opacity = "0.7";
+        await new Promise((r) => setTimeout(r, 50));
+        if (onRenderMidpoint) onRenderMidpoint();
+        element.style.transform = "scale(1)";
+        element.style.opacity = "1";
+        break;
+      }
+
       default: {
         element.style.transform = "scale(0.94)";
         element.style.opacity = "0.6";
@@ -329,6 +429,8 @@ export class SlideTransitionEngine {
     element.style.transition = "none";
     element.style.transform = "none";
     element.style.opacity = "1";
+    element.style.clipPath = "none";
+    element.style.filter = "none";
   }
 
   /**
