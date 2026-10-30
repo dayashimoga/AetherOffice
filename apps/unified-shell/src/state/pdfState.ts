@@ -210,6 +210,20 @@ export class PdfState {
     return this.pages.length;
   }
 
+  public isEncrypted = false;
+
+  public getCurrentPageDimensions(): string {
+    const page = this.pages[this.currentPage - 1];
+    if (!page) return "8.5 × 11 in";
+    const wIn = (page.width / 96).toFixed(1);
+    const hIn = (page.height / 96).toFixed(1);
+    return `${wIn} × ${hIn} in`;
+  }
+
+  public getSecurityStatus(): string {
+    return this.isEncrypted ? "🔒 Password Protected" : "🔓 Standard";
+  }
+
   // Compatibility accessor for existing AcroForm tests
   public get formFields(): PdfFormField[] {
     const p1 = this.pages[0];

@@ -70,8 +70,8 @@ export class UnifiedShellApp {
   private ribbon!: Ribbon;
   private formulaBar!: FormulaBar;
   private wordRuler!: WordRuler;
-  private navPane!: NavigationPane;
-  private slideSorter!: SlideSorter;
+  private navPane?: NavigationPane;
+  private slideSorter?: SlideSorter;
   private shortcuts!: KeyboardShortcuts;
   private bottomSheet!: BottomSheet;
   private inkLayer!: StylusInkLayer;
@@ -110,6 +110,7 @@ export class UnifiedShellApp {
   private diffPreviewModal!: DiffPreviewModal;
   private openDocumentsDrawer!: OpenDocumentsDrawer;
   private appFilter: DocumentType | null = null;
+  private showNavPane = true;
 
   constructor(autoBoot = true) {
     this.init(autoBoot);
@@ -121,6 +122,15 @@ export class UnifiedShellApp {
 
   public getAppFilter(): DocumentType | null {
     return this.appFilter;
+  }
+
+  public setShowNavPane(show: boolean) {
+    this.showNavPane = show;
+    this.updateSidebarForActiveApp();
+  }
+
+  public getShowNavPane(): boolean {
+    return this.showNavPane;
   }
 
   public init(autoBoot = true) {
@@ -305,8 +315,11 @@ export class UnifiedShellApp {
     });
 
     // 4. Initialize Sidebars
-    this.navPane = new NavigationPane("sidebar-container");
-    this.slideSorter = new SlideSorter("sidebar-container");
+    const sidebarEl = document.getElementById("sidebar-container");
+    if (sidebarEl) {
+      sidebarEl.style.display = "none";
+      sidebarEl.innerHTML = "";
+    }
     this.pluginSidebar = new PluginSidebar("sidebar-container");
     pluginHost.onLifecycle((event, _id, payload) => {
       if (event === "sidebar-toggled") {
@@ -322,13 +335,6 @@ export class UnifiedShellApp {
           this.pluginSidebar.hide();
         }
       }
-    });
-    this.slideSorter.setCallbacks({
-      onSelectSlide: (id) => {
-        this.slideStageCanvas?.selectSlide(id - 1);
-        const docInfo = document.getElementById("status-doc-info");
-        if (docInfo) docInfo.textContent = `Slide ${id} of 3`;
-      },
     });
 
     // 5. Initialize Adaptive Mobile & Tablet Components
@@ -825,7 +831,7 @@ export class UnifiedShellApp {
     return this.slideStageCanvas;
   }
 
-  public getSlideSorter(): SlideSorter {
+  public getSlideSorter(): SlideSorter | undefined {
     return this.slideSorter;
   }
 
@@ -865,17 +871,186 @@ export class UnifiedShellApp {
     return this.formulaBar;
   }
 
-  public updateCalcStatusBar() {
+  public updateStatusBar() {
     const docInfo = document.getElementById("status-doc-info");
-    if (docInfo && this.currentDocType === "Excel") {
-      const current = calcState.getActiveSheetIndex() + 1;
-      const total = calcState.sheets.length;
+    const wordInfo = document.getElementById("status-word-count");
+    const langInfo = document.getElementById("status-lang");
+    if (!docInfo) return;
+
+    if (this.currentDocType === "Word") {
+      const stats = writerState.getDetailedWordCount();
+      const curPage = writerState.cursor.pageIndex + 1;
+      const totalPages = Math.max(1, writerState.doc.pages.length);
+      docInfo.textContent = `Page ${curPage} of ${totalPages}`;
+      if (wordInfo) wordInfo.textContent = `${stats.words} words | ${stats.charactersNoSpaces} chars`;
+      if (langInfo) langInfo.textContent = "English (US)";
+    } else if (this.currentDocType === "Excel") {
+      const curSheet = calcState.getActiveSheetIndex() + 1;
+      const totalSheets = Math.max(1, calcState.sheets.length);
       const stats = calcState.getSelectedRangeStats();
       if (stats.count > 1) {
-        docInfo.textContent = `Sheet ${current} of ${total} | Average: ${stats.average}  Count: ${stats.count}  Min: ${stats.min}  Max: ${stats.max}  Sum: ${stats.sum}`;
+        docInfo.textContent = `Sheet ${curSheet} of ${totalSheets} | Average: ${stats.average}  Count: ${stats.count}  Min: ${stats.min}  Max: ${stats.max}  Sum: ${stats.sum}`;
       } else {
-        docInfo.textContent = `Sheet ${current} of ${total}`;
+        docInfo.textContent = `Sheet ${curSheet} of ${totalSheets}`;
       }
+      if (wordInfo) wordInfo.textContent = `Selected: ${calcState.selectedCell}`;
+      if (langInfo) {
+        langInfo.textContent = stats.count > 1 ? `Sum: ${stats.sum} | Avg: ${stats.average} | Count: ${stats.count}` : "Ready";
+      }
+    } else if (this.currentDocType === "PowerPoint") {
+      const curSlide = slidesState.currentSlideIndex + 1;
+      const totalSlides = Math.max(1, slidesState.slides.length);
+      docInfo.textContent = `Slide ${curSlide} of ${totalSlides}`;
+      const shapesCount = slidesState.getCurrentSlide()?.shapes?.length ?? 0;
+      if (wordInfo) wordInfo.textContent = `${shapesCount} shapes`;
+      if (langInfo) langInfo.textContent = `Theme: ${slidesState.currentTheme || "Office Standard"}`;
+    } else if (this.currentDocType === "PDF") {
+      const curPage = pdfState.currentPage;
+      const totalPages = Math.max(1, pdfState.pageCount);
+      docInfo.textContent = `Page ${curPage} of ${totalPages}`;
+      if (wordInfo) wordInfo.textContent = pdfState.getCurrentPageDimensions();
+      if (langInfo) langInfo.textContent = pdfState.getSecurityStatus();
+    } else if (this.currentDocType === "Notes") {
+      const content = notesState.getContent() || "";
+      const lines = content.length > 0 ? content.split("\n").length : 1;
+      const words = content.trim().length === 0 ? 0 : content.trim().split(/\s+/).filter(Boolean).length;
+      docInfo.textContent = `Ln ${notesState.cursorLine}, Col ${notesState.cursorCol}`;
+      if (wordInfo) wordInfo.textContent = `${lines} lines | ${words} words`;
+      if (langInfo) langInfo.textContent = notesState.encoding || "UTF-8";
+    }
+  }
+
+  public updateCalcStatusBar() {
+    this.updateStatusBar();
+  }
+
+  public updateSidebarForActiveApp() {
+    const sidebar = document.getElementById("sidebar-container");
+    if (!sidebar) return;
+
+    if (this.currentDocType === "Word") {
+      if (this.showNavPane) {
+        sidebar.style.display = "flex";
+        this.navPane = new NavigationPane("sidebar-container");
+        this.updateNavigationOutline();
+      } else {
+        sidebar.style.display = "none";
+        sidebar.innerHTML = "";
+      }
+    } else if (this.currentDocType === "PowerPoint") {
+      sidebar.style.display = "flex";
+      this.slideSorter = new SlideSorter("sidebar-container");
+      this.slideSorter.setCallbacks({
+        onSelectSlide: (id) => {
+          slidesState.selectSlide(id - 1);
+          this.slideStageCanvas?.render();
+          this.slideMediaOverlay?.refresh();
+          this.updateSlideSorter();
+          this.updateStatusBar();
+        },
+        onReorder: (fromIdx, toIdx) => {
+          slidesState.reorderSlide(fromIdx, toIdx);
+          this.slideStageCanvas?.render();
+          this.slideMediaOverlay?.refresh();
+          this.updateSlideSorter();
+          const active = this.tabBar.getActiveTab();
+          if (active) this.tabBar.setDirty(active.id, true);
+          this.updateStatusBar();
+        },
+        onAddSlide: () => {
+          slidesState.addSlide();
+          this.slideStageCanvas?.render();
+          this.slideMediaOverlay?.refresh();
+          this.updateSlideSorter();
+          const active = this.tabBar.getActiveTab();
+          if (active) this.tabBar.setDirty(active.id, true);
+          this.updateStatusBar();
+        },
+        onAddSlideWithLayout: (layout) => {
+          slidesState.addSlideWithLayout(layout);
+          this.slideStageCanvas?.render();
+          this.slideMediaOverlay?.refresh();
+          this.updateSlideSorter();
+          const active = this.tabBar.getActiveTab();
+          if (active) this.tabBar.setDirty(active.id, true);
+          this.updateStatusBar();
+        },
+        onDuplicateSlide: (idx) => {
+          slidesState.duplicateSlide(idx);
+          this.slideStageCanvas?.render();
+          this.slideMediaOverlay?.refresh();
+          this.updateSlideSorter();
+          const active = this.tabBar.getActiveTab();
+          if (active) this.tabBar.setDirty(active.id, true);
+          this.updateStatusBar();
+        },
+        onDeleteSlide: (idx) => {
+          slidesState.deleteSlide(idx);
+          this.slideStageCanvas?.render();
+          this.slideMediaOverlay?.refresh();
+          this.updateSlideSorter();
+          const active = this.tabBar.getActiveTab();
+          if (active) this.tabBar.setDirty(active.id, true);
+          this.updateStatusBar();
+        },
+        onToggleHide: (idx) => {
+          slidesState.toggleHideSlide(idx);
+          this.updateSlideSorter();
+          const active = this.tabBar.getActiveTab();
+          if (active) this.tabBar.setDirty(active.id, true);
+        },
+        onMoveUp: (idx) => {
+          slidesState.moveSlideUp(idx);
+          this.slideStageCanvas?.render();
+          this.slideMediaOverlay?.refresh();
+          this.updateSlideSorter();
+          const active = this.tabBar.getActiveTab();
+          if (active) this.tabBar.setDirty(active.id, true);
+        },
+        onMoveDown: (idx) => {
+          slidesState.moveSlideDown(idx);
+          this.slideStageCanvas?.render();
+          this.slideMediaOverlay?.refresh();
+          this.updateSlideSorter();
+          const active = this.tabBar.getActiveTab();
+          if (active) this.tabBar.setDirty(active.id, true);
+        },
+      });
+      this.updateSlideSorter();
+    } else if (this.currentDocType === "Excel") {
+      sidebar.style.display = "flex";
+      this.workbookSheetsPane = new WorkbookSheetsPane("sidebar-container", calcState);
+      this.workbookSheetsPane.setCallbacks({
+        onSheetSwitched: () => {
+          this.calcGridCanvas?.render();
+          this.sheetTabBar?.refresh();
+          this.updateStatusBar();
+          this.formulaBar.setActiveCell(calcState.selectedCell, calcState.formulaBarText);
+        },
+        onSheetAdded: () => {
+          this.calcGridCanvas?.render();
+          this.sheetTabBar?.refresh();
+          this.updateStatusBar();
+          const active = this.tabBar.getActiveTab();
+          if (active) this.tabBar.setDirty(active.id, true);
+        },
+        onSheetRenamed: () => {
+          this.sheetTabBar?.refresh();
+          const active = this.tabBar.getActiveTab();
+          if (active) this.tabBar.setDirty(active.id, true);
+        },
+        onSheetDeleted: () => {
+          this.calcGridCanvas?.render();
+          this.sheetTabBar?.refresh();
+          this.updateStatusBar();
+          const active = this.tabBar.getActiveTab();
+          if (active) this.tabBar.setDirty(active.id, true);
+        },
+      });
+    } else {
+      // PDF, Notes, etc. - NEVER show Word navigation or ghost sidebars
+      sidebar.style.display = "none";
+      sidebar.innerHTML = "";
     }
   }
 
@@ -960,104 +1135,7 @@ export class UnifiedShellApp {
     }
 
     // Update Sidebar
-    if (tab.docType === "Word") {
-      this.navPane = new NavigationPane("sidebar-container");
-      this.updateNavigationOutline();
-    } else if (tab.docType === "PowerPoint") {
-      this.slideSorter = new SlideSorter("sidebar-container");
-      this.slideSorter.setCallbacks({
-        onSelectSlide: (id) => {
-          slidesState.selectSlide(id - 1);
-          this.slideStageCanvas?.render();
-          this.slideMediaOverlay?.refresh();
-          this.updateSlideSorter();
-        },
-        onReorder: (fromIdx, toIdx) => {
-          slidesState.reorderSlide(fromIdx, toIdx);
-          this.slideStageCanvas?.render();
-          this.slideMediaOverlay?.refresh();
-          this.updateSlideSorter();
-          this.tabBar.setDirty(tab.id, true);
-        },
-        onAddSlide: () => {
-          slidesState.addSlide();
-          this.slideStageCanvas?.render();
-          this.slideMediaOverlay?.refresh();
-          this.updateSlideSorter();
-          this.tabBar.setDirty(tab.id, true);
-        },
-        onAddSlideWithLayout: (layout) => {
-          slidesState.addSlideWithLayout(layout);
-          this.slideStageCanvas?.render();
-          this.slideMediaOverlay?.refresh();
-          this.updateSlideSorter();
-          this.tabBar.setDirty(tab.id, true);
-        },
-        onDuplicateSlide: (idx) => {
-          slidesState.duplicateSlide(idx);
-          this.slideStageCanvas?.render();
-          this.slideMediaOverlay?.refresh();
-          this.updateSlideSorter();
-          this.tabBar.setDirty(tab.id, true);
-        },
-        onDeleteSlide: (idx) => {
-          slidesState.deleteSlide(idx);
-          this.slideStageCanvas?.render();
-          this.slideMediaOverlay?.refresh();
-          this.updateSlideSorter();
-          this.tabBar.setDirty(tab.id, true);
-        },
-        onToggleHide: (idx) => {
-          slidesState.toggleHideSlide(idx);
-          this.updateSlideSorter();
-          this.tabBar.setDirty(tab.id, true);
-        },
-        onMoveUp: (idx) => {
-          slidesState.moveSlideUp(idx);
-          this.slideStageCanvas?.render();
-          this.slideMediaOverlay?.refresh();
-          this.updateSlideSorter();
-          this.tabBar.setDirty(tab.id, true);
-        },
-        onMoveDown: (idx) => {
-          slidesState.moveSlideDown(idx);
-          this.slideStageCanvas?.render();
-          this.slideMediaOverlay?.refresh();
-          this.updateSlideSorter();
-          this.tabBar.setDirty(tab.id, true);
-        },
-      });
-      this.updateSlideSorter();
-    } else if (tab.docType === "Excel") {
-      this.workbookSheetsPane = new WorkbookSheetsPane("sidebar-container", calcState);
-      this.workbookSheetsPane.setCallbacks({
-        onSheetSwitched: () => {
-          this.calcGridCanvas?.render();
-          this.sheetTabBar?.refresh();
-          this.updateCalcStatusBar();
-          this.formulaBar.setActiveCell(calcState.selectedCell, calcState.formulaBarText);
-        },
-        onSheetAdded: () => {
-          this.calcGridCanvas?.render();
-          this.sheetTabBar?.refresh();
-          this.updateCalcStatusBar();
-          this.tabBar.setDirty(tab.id, true);
-        },
-        onSheetRenamed: () => {
-          this.sheetTabBar?.refresh();
-          this.tabBar.setDirty(tab.id, true);
-        },
-        onSheetDeleted: () => {
-          this.calcGridCanvas?.render();
-          this.sheetTabBar?.refresh();
-          this.updateCalcStatusBar();
-          this.tabBar.setDirty(tab.id, true);
-        },
-      });
-    } else {
-      const sidebar = document.getElementById("sidebar-container");
-      if (sidebar) sidebar.innerHTML = '<div class="sidebar-heading">Navigation</div>';
-    }
+    this.updateSidebarForActiveApp();
 
     // Update Active Viewport Controller
     const viewportContainer = document.getElementById("viewport-container");
@@ -1077,14 +1155,12 @@ export class UnifiedShellApp {
 
       if (tab.docType === "Word") {
         this.writerCanvas = new WriterCanvas(viewportContainer, writerState);
-        this.writerCanvas.setOnStatusChange((pInfo, words) => {
-          const docInfo = document.getElementById("status-doc-info");
-          const wordInfo = document.getElementById("status-word-count");
-          if (docInfo) docInfo.textContent = pInfo;
-          if (wordInfo) wordInfo.textContent = `${words} words`;
+        this.writerCanvas.setOnStatusChange(() => {
+          this.updateStatusBar();
         });
         this.writerCanvas.setOnDocModified((action, payload) => {
           this.tabBar.setDirty(tab.id, true);
+          this.updateStatusBar();
           if (action === "InsertText") {
             const text = (payload as { text?: string })?.text || "";
             IPC.dispatchUiAction(tab.id, { type: "InsertText", payload: { text } }).catch(() => {});
@@ -1116,7 +1192,7 @@ export class UnifiedShellApp {
 
         this.calcGridCanvas.setOnCellSelected((coord, val) => {
           this.formulaBar.setActiveCell(coord, val);
-          this.updateCalcStatusBar();
+          this.updateStatusBar();
         });
         this.calcGridCanvas.setOnCellEditing((coord, val) => {
           this.formulaBar.setActiveCell(coord, val);
@@ -1125,15 +1201,11 @@ export class UnifiedShellApp {
           this.tabBar.setDirty(tab.id, true);
           this.calcChartOverlay?.refresh();
           this.workbookSheetsPane?.refresh();
+          this.updateStatusBar();
         });
-        this.calcGridCanvas.setOnRangeStatsChanged((stats, rangeText) => {
+        this.calcGridCanvas.setOnRangeStatsChanged((_stats, rangeText) => {
           this.formulaBar.getNameBox().value = rangeText;
-          const docInfo = document.getElementById("status-doc-info");
-          if (docInfo) {
-            const current = calcState.getActiveSheetIndex() + 1;
-            const total = calcState.sheets.length;
-            docInfo.textContent = `Sheet ${current} of ${total} | Average: ${stats.average}  Count: ${stats.count}  Min: ${stats.min}  Max: ${stats.max}  Sum: ${stats.sum}`;
-          }
+          this.updateStatusBar();
         });
 
         this.sheetTabBar = new SheetTabBar(sheetTabContainer, calcState);
@@ -1141,13 +1213,13 @@ export class UnifiedShellApp {
           onSheetSwitched: () => {
             this.calcGridCanvas?.render();
             this.workbookSheetsPane?.refresh();
-            this.updateCalcStatusBar();
+            this.updateStatusBar();
             this.formulaBar.setActiveCell(calcState.selectedCell, calcState.formulaBarText);
           },
           onSheetAdded: () => {
             this.calcGridCanvas?.render();
             this.workbookSheetsPane?.refresh();
-            this.updateCalcStatusBar();
+            this.updateStatusBar();
             this.tabBar.setDirty(tab.id, true);
           },
           onSheetRenamed: () => {
@@ -1157,13 +1229,16 @@ export class UnifiedShellApp {
           onSheetDeleted: () => {
             this.calcGridCanvas?.render();
             this.workbookSheetsPane?.refresh();
-            this.updateCalcStatusBar();
+            this.updateStatusBar();
             this.tabBar.setDirty(tab.id, true);
           },
         });
       } else if (tab.docType === "PowerPoint") {
         this.slideStageCanvas = new SlideStageCanvas(viewportContainer, slidesState);
-        this.slideStageCanvas.setOnDirty(() => this.tabBar.setDirty(tab.id, true));
+        this.slideStageCanvas.setOnDirty(() => {
+          this.tabBar.setDirty(tab.id, true);
+          this.updateStatusBar();
+        });
         this.slideMediaOverlay = new SlideMediaOverlay(viewportContainer, slidesState);
         this.speakerNotesPane = new SpeakerNotesPane(viewportContainer, slidesState);
         this.speakerNotesPane.setOnDirty(() => this.tabBar.setDirty(tab.id, true));
@@ -1187,17 +1262,15 @@ export class UnifiedShellApp {
               this.updateSlideSorter();
               this.speakerNotesPane?.refresh();
               this.animationPane?.refresh();
+              this.updateStatusBar();
             },
-            onSlideChange: (idx) => {
+            onSlideChange: () => {
               this.slideStageCanvas?.render();
               this.slideMediaOverlay?.refresh();
               this.updateSlideSorter();
               this.speakerNotesPane?.refresh();
               this.animationPane?.refresh();
-              const docInfo = document.getElementById("status-doc-info");
-              if (docInfo) {
-                docInfo.textContent = `Slide ${idx + 1} of ${slidesState.slides.length}`;
-              }
+              this.updateStatusBar();
             },
           });
         }
@@ -1206,41 +1279,23 @@ export class UnifiedShellApp {
         this.pdfWorkspace = new PdfWorkspace(viewportContainer, pdfState);
         this.pdfWorkspace.setCallbacks({
           onDirty: () => this.tabBar.setDirty(tab.id, true),
-          onPageChange: (p) => {
-            const docInfo = document.getElementById("status-doc-info");
-            if (docInfo) {
-              docInfo.textContent = `Page ${p} of ${pdfState.pageCount}`;
-            }
+          onPageChange: () => {
+            this.updateStatusBar();
           },
         });
       } else if (tab.docType === "Notes") {
         this.notesWorkspace = new NotesWorkspace(viewportContainer, notesState);
         this.notesWorkspace.setCallbacks({
           onDirty: () => this.tabBar.setDirty(tab.id, true),
-          onStatusChange: (info) => {
-            const docInfo = document.getElementById("status-doc-info");
-            if (docInfo) docInfo.textContent = info;
+          onStatusChange: () => {
+            this.updateStatusBar();
           },
         });
       }
     }
 
     // Update Status Bar
-    const docInfo = document.getElementById("status-doc-info");
-    if (docInfo) {
-      if (tab.docType === "Excel") {
-        this.updateCalcStatusBar();
-      } else if (tab.docType === "PDF") {
-        docInfo.textContent = `Page ${pdfState.currentPage} of ${pdfState.pageCount}`;
-      } else if (tab.docType === "Notes") {
-        docInfo.textContent = "Notepad / Notes";
-      } else {
-        docInfo.textContent =
-          tab.docType === "PowerPoint"
-            ? `Slide ${slidesState.currentSlideIndex + 1} of ${slidesState.slides.length}`
-            : "Page 1 of 1";
-      }
-    }
+    this.updateStatusBar();
   }
 
   private handleTabClose(id: string) {
@@ -1407,9 +1462,9 @@ export class UnifiedShellApp {
       return;
     }
     if (action === "ToggleNavPane" || action === "ToggleNavigationSidebar") {
-      const sidebar = document.getElementById("sidebar-container");
-      if (sidebar) {
-        sidebar.style.display = sidebar.style.display === "none" ? "flex" : "none";
+      if (this.currentDocType === "Word") {
+        this.showNavPane = !this.showNavPane;
+        this.updateSidebarForActiveApp();
       }
       return;
     }
@@ -1454,13 +1509,7 @@ export class UnifiedShellApp {
       this.togglePluginSidebar(paneId);
       return;
     }
-    if (action === "ToggleNavPane") {
-      const sidebar = document.getElementById("sidebar-container");
-      if (sidebar) {
-        sidebar.style.display = sidebar.style.display === "none" ? "block" : "none";
-      }
-      return;
-    }
+
     if (action === "ViewWebLayout") {
       writerState.doc.viewMode = "web";
       this.writerCanvas?.render();

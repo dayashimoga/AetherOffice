@@ -129,6 +129,13 @@ export class Ribbon {
 
   public toggleKeytips(active?: boolean): boolean {
     this.keytipsActive = active !== undefined ? active : !this.keytipsActive;
+    if (typeof document !== "undefined") {
+      if (this.keytipsActive) {
+        document.body.classList.add("alt-keytips-active");
+      } else {
+        document.body.classList.remove("alt-keytips-active");
+      }
+    }
     this.render();
     return this.keytipsActive;
   }
@@ -152,7 +159,7 @@ export class Ribbon {
 
     // 1. Ribbon Tabs Header
     const header = document.createElement("div");
-    header.className = "ribbon-tabs-header";
+    header.className = `ribbon-tabs-header ${this.keytipsActive ? "keytips-active" : ""}`;
 
     // 1.1 Dedicated File Tab / Backstage Trigger
     // STRICT CONTRACT: File is NEVER an active tab, never underlined. It is a Backstage overlay trigger.

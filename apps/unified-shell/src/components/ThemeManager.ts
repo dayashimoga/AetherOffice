@@ -44,6 +44,30 @@ export class ThemeManager {
     this.currentTheme = theme;
     if (typeof document !== "undefined") {
       document.documentElement.dataset.theme = theme;
+      if (theme === "dark") {
+        document.documentElement.classList.add("theme-dark");
+        document.documentElement.classList.remove("theme-light");
+        document.body.classList.add("theme-dark");
+        document.body.classList.remove("theme-light");
+      } else {
+        document.documentElement.classList.add("theme-light");
+        document.documentElement.classList.remove("theme-dark");
+        document.body.classList.add("theme-light");
+        document.body.classList.remove("theme-dark");
+      }
+      const appEl = document.getElementById("app");
+      if (appEl) {
+        if (theme === "dark") {
+          appEl.classList.add("theme-dark");
+          appEl.classList.remove("theme-light");
+        } else {
+          appEl.classList.add("theme-light");
+          appEl.classList.remove("theme-dark");
+        }
+      }
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("themechange", { detail: { theme } }));
+      }
     }
     try {
       if (typeof window !== "undefined" && window.localStorage) {

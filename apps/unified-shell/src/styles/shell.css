@@ -1,11 +1,17 @@
 /* OpenOfficeRS Desktop / Laptop Shell Styling (>= 1024px) */
 :root,
-html[data-theme="light"] {
+html[data-theme="light"],
+body.theme-light {
   --bg-primary: #f3f3f3;
+  --bg-app: #f3f3f3;
   --bg-surface: #ffffff;
   --bg-shell: #f3f3f3;
+  --bg-toolbar: #f9f9f9;
+  --bg-sidebar: #f8fafc;
+  --bg-workspace: #e2e8f0;
   --bg-panel: #ffffff;
   --border-color: #e0e0e0;
+  --border-subtle: #e2e8f0;
   --text-primary: #242424;
   --text-secondary: #616161;
   --text-muted: #8a8a8a;
@@ -25,12 +31,18 @@ html[data-theme="light"] {
   --status-bar-height: 26px;
 }
 
-html[data-theme="dark"] {
+html[data-theme="dark"],
+body.theme-dark {
   --bg-primary: #18181b;
+  --bg-app: #18181b;
   --bg-surface: #27272a;
   --bg-shell: #18181b;
+  --bg-toolbar: #202023;
+  --bg-sidebar: #1f1f23;
+  --bg-workspace: #09090b;
   --bg-panel: #27272a;
   --border-color: #3f3f46;
+  --border-subtle: #3f3f46;
   --text-primary: #f4f4f5;
   --text-secondary: #a1a1aa;
   --text-muted: #71717a;
@@ -183,8 +195,8 @@ body, html {
   display: flex;
   align-items: flex-end;
   height: var(--tab-bar-height);
-  background-color: #e8eaed;
-  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-toolbar);
+  border-bottom: 1px solid var(--border-subtle);
   padding: 0 8px;
   gap: 4px;
 }
@@ -194,7 +206,8 @@ body, html {
   align-items: center;
   gap: 8px;
   padding: 6px 14px;
-  background-color: #dadce0;
+  background-color: var(--hover-bg);
+  color: var(--text-secondary);
   border: 1px solid transparent;
   border-bottom: none;
   border-radius: 6px 6px 0 0;
@@ -204,8 +217,9 @@ body, html {
 }
 
 .tab-item.active {
-  background-color: var(--ribbon-bg);
-  border-color: var(--border-color);
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
   font-weight: 600;
 }
 
@@ -414,6 +428,7 @@ body, html {
 }
 
 .ribbon-keytip-badge {
+  display: none;
   position: absolute;
   top: 2px;
   right: 2px;
@@ -424,6 +439,14 @@ body, html {
   padding: 1px 3px;
   border-radius: 2px;
   pointer-events: none;
+  z-index: 100;
+}
+
+body.alt-keytips-active .ribbon-keytip-badge,
+.ribbon-tabs-header.keytips-active .ribbon-keytip-badge,
+.ribbon-header.keytips-active .ribbon-keytip-badge,
+.keytips-active .ribbon-keytip-badge {
+  display: block;
 }
 
 .ribbon-tools-body {
@@ -497,8 +520,8 @@ body, html {
   display: flex;
   align-items: center;
   min-height: var(--formula-bar-height);
-  background-color: #ffffff;
-  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
   padding: 2px 10px;
 }
 
@@ -596,8 +619,9 @@ body, html {
 
 .sidebar-pane {
   width: 240px;
-  background-color: #fbfbfb;
-  border-right: 1px solid var(--border-color);
+  background-color: var(--bg-sidebar);
+  color: var(--text-primary);
+  border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -715,8 +739,9 @@ body, html {
   align-items: center;
   justify-content: space-between;
   height: var(--status-bar-height);
-  background-color: #0078d4;
-  color: white;
+  background-color: var(--bg-toolbar);
+  color: var(--text-primary);
+  border-top: 1px solid var(--border-subtle);
   padding: 0 12px;
   font-size: 11px;
 }
