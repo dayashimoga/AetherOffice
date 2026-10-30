@@ -125,7 +125,19 @@ where
                 eval_args.push(val);
             }
 
-            dispatch_eager_function(&clean_name, &eval_args, ctx.date1904)
+            let eager_res = dispatch_eager_function(&clean_name, &eval_args, ctx.date1904)?;
+            if let CellValue::Error(CellError::Name) = eager_res {
+                if let Some(ref handler) = ctx.udf_handler {
+                    match handler(&clean_name, &eval_args) {
+                        Ok(val) => Ok(val),
+                        Err(_) => Ok(CellValue::Error(CellError::Value)),
+                    }
+                } else {
+                    Ok(CellValue::Error(CellError::Name))
+                }
+            } else {
+                Ok(eager_res)
+            }
         }
     }
 }

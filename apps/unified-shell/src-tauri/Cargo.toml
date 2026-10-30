@@ -15,6 +15,7 @@ excel-engine = { path = "../../../crates/excel-engine" }
 ppt-engine = { path = "../../../crates/ppt-engine" }
 render-core = { path = "../../../crates/render-core" }
 crdt-collab = { path = "../../../crates/crdt-collab" }
+macro-engine = { path = "../../../crates/macro-engine" }
 
 [build-dependencies]
 tauri-build = { version = "2.1", features = [] }

@@ -17,6 +17,9 @@ use std::sync::Mutex;
 pub mod collab_commands;
 pub use collab_commands::*;
 
+pub mod macro_commands;
+pub use macro_commands::*;
+
 pub struct ShellState {
     pub session_manager: Mutex<DesktopSessionManager>,
     pub formatting: Mutex<FormattingState>,
@@ -850,5 +853,24 @@ mod tests {
         let left_again =
             collab_leave_session(&state, "annual-budget-2026", None).expect("Leave again");
         assert!(!left_again);
+    }
+
+    #[test]
+    fn test_macro_commands_execution() {
+        let code = "
+        Sub ComputeTax()
+            Dim x As Double
+            x = 100 * 0.15
+            Range(\"A1\").Value = x
+        End Sub
+        ";
+
+        let report = scan_macro_security(code).expect("Scan macro");
+        assert_eq!(report.risk_level, macro_engine::RiskLevel::Safe);
+
+        let result = execute_macro(code, "ComputeTax", &[], Some(10_000)).expect("Execute macro");
+        assert!(result.success);
+        assert!(result.gas_consumed > 0);
+        assert!(result.error_message.is_none());
     }
 }

@@ -7,12 +7,16 @@ use crate::grid::{CellError, CellValue};
 use ooxml_opc::error::Result;
 use std::collections::HashMap;
 
+/// UDF handler callback signature for dynamic User-Defined Functions (e.g. VBA macros).
+pub type UdfHandler = std::sync::Arc<dyn Fn(&str, &[CellValue]) -> Result<CellValue> + Send + Sync>;
+
 /// Evaluation context carrying workbook state and local lexical scope bindings.
 #[derive(Clone, Default)]
 pub struct EvalContext<'a> {
     pub grid: Option<&'a crate::grid::CompressedSparsePageGrid>,
     pub date1904: bool,
     pub env: HashMap<String, CellValue>,
+    pub udf_handler: Option<UdfHandler>,
 }
 
 impl<'a> EvalContext<'a> {
@@ -21,6 +25,7 @@ impl<'a> EvalContext<'a> {
             grid,
             date1904,
             env: HashMap::new(),
+            udf_handler: None,
         }
     }
 
@@ -33,7 +38,13 @@ impl<'a> EvalContext<'a> {
             grid: self.grid,
             date1904: self.date1904,
             env: merged,
+            udf_handler: self.udf_handler.clone(),
         }
+    }
+
+    pub fn with_udf_handler(mut self, handler: UdfHandler) -> Self {
+        self.udf_handler = Some(handler);
+        self
     }
 }
 

@@ -5,10 +5,22 @@ import {
   createRibbonGroup,
   createRibbonSelect,
 } from "./types";
+import { DeveloperRibbon } from "./DeveloperRibbon";
 
 export class CalcRibbon implements AppRibbonComponent {
+  private developerRibbon = new DeveloperRibbon();
+  private showDeveloper = false;
+
+  public setDeveloperTabVisible(visible: boolean): void {
+    this.showDeveloper = visible;
+  }
+
   public getTabs(): string[] {
-    return ["Home", "Insert", "Page Layout", "Formulas", "Data", "Review", "View"];
+    const tabs = ["Home", "Insert", "Page Layout", "Formulas", "Data", "Review", "View"];
+    if (this.showDeveloper) {
+      tabs.push("Developer");
+    }
+    return tabs;
   }
 
   public getKeytip(tab: string): string {
@@ -27,6 +39,8 @@ export class CalcRibbon implements AppRibbonComponent {
         return "R";
       case "View":
         return "W";
+      case "Developer":
+        return "L";
       default:
         return "H";
     }
@@ -55,6 +69,9 @@ export class CalcRibbon implements AppRibbonComponent {
         break;
       case "View":
         this.renderViewTab(body, emit);
+        break;
+      case "Developer":
+        this.developerRibbon.renderDeveloperTab(body, emit);
         break;
       default:
         this.renderHomeTab(body, emit);

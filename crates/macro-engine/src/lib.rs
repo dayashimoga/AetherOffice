@@ -9,6 +9,7 @@ pub mod ovba_decompress;
 pub mod parser;
 pub mod sandbox;
 pub mod security;
+pub mod udf_bridge;
 pub mod vba_project;
 pub mod virtual_dom;
 
@@ -29,6 +30,7 @@ pub use security::{
     AuditLogEntry, Capability, PermissionStatus, RiskLevel, SecurityAuditLog, SecurityAuditReport,
     SecurityFinding, SecurityScanner, Severity,
 };
+pub use udf_bridge::{cell_value_to_vba_value, create_vba_udf_handler, vba_value_to_cell_value};
 pub use vba_project::{VbaModule, VbaModuleType, VbaProject};
 pub use virtual_dom::{
     RangeAddress, VbaValue, VirtualApplication, VirtualCell, VirtualOfficeDom, VirtualWorkbook,
