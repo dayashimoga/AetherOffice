@@ -1,0 +1,12 @@
+[package]
+name = "plugin-runtime"
+version = "0.1.0"
+edition = "2021"
+description = "WebAssembly Component Model runtime and WIT host environment for AetherOffice plugins"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]

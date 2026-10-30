@@ -1,0 +1,65 @@
+package aetheroffice:plugin@0.1.0;
+
+/// Core document types supported across the office suite.
+enum document-type {
+    word,
+    excel,
+    powerpoint,
+    pdf,
+}
+
+/// Selection metadata returned by host queries.
+record selection-info {
+    doc-id: string,
+    doc-type: document-type,
+    start-offset: u32,
+    end-offset: u32,
+    selected-text: string,
+}
+
+/// Cell coordinate for spreadsheet operations.
+record cell-coordinate {
+    sheet: string,
+    row: u32,
+    col: u32,
+}
+
+/// Error returned by plugin hooks or host APIs.
+variant plugin-error {
+    permission-denied(string),
+    not-found(string),
+    invalid-argument(string),
+    execution-timeout(string),
+    runtime-fault(string),
+}
+
+/// Host-provided interface allowing plugins to query active document state.
+interface document-query {
+    get-active-selection: func(doc-id: string) -> result<selection-info, plugin-error>;
+    get-cell-value: func(coord: cell-coordinate) -> result<string, plugin-error>;
+    get-paragraph-text: func(doc-id: string, para-index: u32) -> result<string, plugin-error>;
+    get-slide-shapes: func(doc-id: string, slide-index: u32) -> result<list<string>, plugin-error>;
+}
+
+/// Host-provided interface allowing plugins to mutate active documents.
+interface document-mutation {
+    insert-text: func(doc-id: string, text: string) -> result<_, plugin-error>;
+    set-cell-value: func(coord: cell-coordinate, value: string) -> result<_, plugin-error>;
+    set-cell-formula: func(coord: cell-coordinate, formula: string) -> result<_, plugin-error>;
+    execute-ribbon-command: func(action: string, payload: string) -> result<bool, plugin-error>;
+}
+
+/// Plugin-provided lifecycle hooks invoked by the AetherOffice host application.
+interface lifecycle-hooks {
+    on-init: func(plugin-id: string) -> result<_, plugin-error>;
+    on-document-opened: func(doc-id: string, doc-type: document-type) -> result<_, plugin-error>;
+    on-before-save: func(doc-id: string) -> result<_, plugin-error>;
+    on-selection-changed: func(selection: selection-info) -> result<_, plugin-error>;
+}
+
+/// Unified World definition for AetherOffice WebAssembly Component Model plugins.
+world aetheroffice-plugin {
+    import document-query;
+    import document-mutation;
+    export lifecycle-hooks;
+}

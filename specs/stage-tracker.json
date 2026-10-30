@@ -671,9 +671,9 @@
                           "title":  "WebAssembly Component Model Runtime \u0026 WIT Contract",
                           "crate":  "plugin-runtime",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-16/subphase-16.1.1.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-30T02:58:04Z"
                       },
                       {
                           "id":  "16.1.2",

@@ -207,4 +207,3 @@ fn test_10_excel_engine_dispatch_function_built_in_takes_precedence() {
     // Built-in SUM produces 30.0, NOT the overridden 9999
     assert_eq!(result, CellValue::Number(30.0));
 }
-
