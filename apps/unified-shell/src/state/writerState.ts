@@ -830,6 +830,33 @@ export class WriterState {
     });
   }
 
+  public insertHorizontalLine(): void {
+    this.saveSnapshot();
+    const page = this.doc.pages[this.cursor.pageIndex] || this.doc.pages[0];
+    const para: WordParagraph = {
+      id: `line-${Date.now()}`,
+      style: "Normal",
+      alignment: "center",
+      shape: {
+        shapeType: "rect",
+        width: 624,
+        height: 2,
+        color: "#94a3b8",
+      },
+      runs: [{ text: "" }],
+    };
+    page.paragraphs.splice(this.cursor.paragraphIndex + 1, 0, para);
+    this.cursor.paragraphIndex++;
+    this.cursor.runIndex = 0;
+    this.cursor.offset = 0;
+  }
+
+  public insertDateTime(): void {
+    const now = new Date();
+    const str = now.toLocaleDateString() + " " + now.toLocaleTimeString();
+    this.insertText(str);
+  }
+
   public insertComment(text: string, author = "Reviewer"): WordComment {
     this.saveSnapshot();
     if (!this.doc.comments) this.doc.comments = [];
@@ -1254,6 +1281,14 @@ export class WriterState {
               r.size = 12;
               r.color = "#595959";
             });
+          } else if (styleName === "Quote") {
+            p.indent = 24;
+            p.runs.forEach((r) => {
+              r.italic = true;
+              r.font = "Georgia";
+              r.size = 12;
+              r.color = "#475569";
+            });
           } else {
             p.runs.forEach((r) => {
               r.bold = false;
@@ -1307,6 +1342,22 @@ export class WriterState {
       case "insertShape":
       case "InsertShape":
         this.insertShape((val as any) || "rect");
+        break;
+
+      case "insertHorizontalLine":
+      case "InsertHorizontalLine":
+        this.insertHorizontalLine();
+        break;
+
+      case "insertDateTime":
+      case "InsertDateTime":
+        this.insertDateTime();
+        break;
+
+      case "setPageBackgroundColor":
+      case "SetPageBackgroundColor":
+        this.saveSnapshot();
+        (this.doc as any).backgroundColor = val || "#ffffff";
         break;
 
       case "insertHyperlink":
@@ -1441,6 +1492,11 @@ export class WriterState {
 
       case "redo":
         this.redo();
+        break;
+
+      case "setZoom":
+      case "SetZoom":
+        this.setZoom(Number(val) || 1.0);
         break;
 
       case "zoomIn":

@@ -713,7 +713,7 @@ export class WriterCanvas {
       pageEl.setAttribute("data-page-number", String(pIdx + 1));
       pageEl.style.width = `${this.pageWidth * this.state.zoom}px`;
       pageEl.style.height = `${this.pageHeight * this.state.zoom}px`;
-      pageEl.style.backgroundColor = "#ffffff";
+      pageEl.style.backgroundColor = (this.state.doc as any).backgroundColor || "#ffffff";
       pageEl.style.boxShadow = "0 4px 16px rgba(0, 0, 0, 0.12)";
       pageEl.style.border = "1px solid #d1d5db";
       pageEl.style.position = "relative";

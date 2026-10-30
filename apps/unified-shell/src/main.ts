@@ -1241,6 +1241,13 @@ export class UnifiedShellApp {
       }
       return;
     }
+    if (action === "ToggleNavPane" || action === "ToggleNavigationSidebar") {
+      const sidebar = document.getElementById("sidebar-container");
+      if (sidebar) {
+        sidebar.style.display = sidebar.style.display === "none" ? "flex" : "none";
+      }
+      return;
+    }
     if (action === "OpenPluginManager" || action === "TogglePluginManager") {
       this.pluginManagerModal.open();
       return;

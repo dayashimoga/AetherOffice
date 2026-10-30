@@ -83,7 +83,7 @@ export class WriterRibbon implements AppRibbonComponent {
     fontRow1.className = "ribbon-group-row";
     fontRow1.appendChild(
       createRibbonSelect(
-        ["Calibri", "Arial", "Times New Roman", "Inter", "Consolas", "Georgia", "Aptos"],
+        ["Calibri", "Arial", "Times New Roman", "Inter", "Georgia", "Courier New", "Consolas", "Aptos"],
         "Calibri",
         (val) => emit("SetFontFamily", val),
         "font-family-select"
@@ -152,6 +152,7 @@ export class WriterRibbon implements AppRibbonComponent {
     stylesRow.appendChild(createRibbonButton("Heading 3", "Heading 3", () => emit("SetStyle", "Heading 3"), false, "btn-style-h3"));
     stylesRow.appendChild(createRibbonButton("Title", "Title", () => emit("SetStyle", "Title"), false, "btn-style-title"));
     stylesRow.appendChild(createRibbonButton("Subtitle", "Subtitle", () => emit("SetStyle", "Subtitle"), false, "btn-style-subtitle"));
+    stylesRow.appendChild(createRibbonButton("Quote", "❝ Quote", () => emit("SetStyle", "Quote"), false, "btn-style-quote"));
     stylesGroup.appendChild(stylesRow);
     body.appendChild(stylesGroup);
 
@@ -231,6 +232,8 @@ export class WriterRibbon implements AppRibbonComponent {
     textRow.appendChild(createRibbonButton("Text Box", "🔤 Text Box", () => emit("InsertTextBox"), false, "btn-insert-textbox"));
     textRow.appendChild(createRibbonButton("WordArt", "🎨 WordArt", () => emit("InsertWordArt"), false, "btn-insert-wordart"));
     textRow.appendChild(createRibbonButton("Drop Cap", "🔠 Drop Cap", () => emit("InsertDropCap"), false, "btn-insert-dropcap"));
+    textRow.appendChild(createRibbonButton("Line", "━ Line", () => emit("InsertHorizontalLine"), false, "btn-insert-line"));
+    textRow.appendChild(createRibbonButton("Date/Time", "🕒 Date", () => emit("InsertDateTime"), false, "btn-insert-datetime"));
     textGroup.appendChild(textRow);
     body.appendChild(textGroup);
 
@@ -262,6 +265,7 @@ export class WriterRibbon implements AppRibbonComponent {
     pageRow2.appendChild(createRibbonButton("Letter", "Letter", () => emit("SetPageSize", "letter"), false, "btn-pagesize-letter"));
     pageRow2.appendChild(createRibbonButton("A4", "A4", () => emit("SetPageSize", "a4"), false, "btn-pagesize-a4"));
     pageRow2.appendChild(createRibbonButton("Legal", "Legal", () => emit("SetPageSize", "legal"), false, "btn-pagesize-legal"));
+    pageRow2.appendChild(createRibbonButton("Page Color", "🎨 Color", () => emit("SetPageBackgroundColor", "#f8fafc"), false, "btn-page-color"));
     pageGroup.appendChild(pageRow2);
     body.appendChild(pageGroup);
 
@@ -396,7 +400,9 @@ export class WriterRibbon implements AppRibbonComponent {
     const zoomGroup = createRibbonGroup("Zoom");
     const zoomRow = document.createElement("div");
     zoomRow.className = "ribbon-group-row";
+    zoomRow.appendChild(createRibbonButton("50%", "🔍 50%", () => emit("SetZoom", 0.5), false, "btn-zoom-50"));
     zoomRow.appendChild(createRibbonButton("100%", "🔍 100%", () => emit("Zoom100"), false, "btn-zoom-100"));
+    zoomRow.appendChild(createRibbonButton("200%", "🔍 200%", () => emit("SetZoom", 2.0), false, "btn-zoom-200"));
     zoomRow.appendChild(createRibbonButton("One Page", "📄 One Page", () => emit("ZoomOnePage"), false, "btn-zoom-one"));
     zoomRow.appendChild(createRibbonButton("Multiple Pages", "📄📄 Multi Pages", () => emit("ZoomMultiplePages"), false, "btn-zoom-multiple"));
     zoomRow.appendChild(createRibbonButton("Page Width", "↔️ Page Width", () => emit("ZoomPageWidth"), false, "btn-zoom-width"));
