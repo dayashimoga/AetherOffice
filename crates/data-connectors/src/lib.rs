@@ -16,6 +16,7 @@ pub mod csv;
 pub mod error;
 pub mod ingestion;
 pub mod json;
+pub mod olap;
 pub mod parquet;
 pub mod schema;
 pub mod sqlite;
@@ -26,6 +27,10 @@ pub use csv::{CsvReadOptions, CsvReader};
 pub use error::{ConnectorError, ConnectorResult};
 pub use ingestion::{IngestionOptions, IngestionPipeline, IngestionReport};
 pub use json::{JsonFormat, JsonReader};
+pub use olap::{
+    civil_from_days, AggregationType, DateGroupingLevel, FilterField, GrandTotalMode, MeasureField,
+    OlapCube, PivotConfig, PivotField, PivotTableGridBridge, PivotTableLayoutReport,
+};
 pub use parquet::{
     ParquetColumnDescriptor, ParquetEncoding, ParquetPhysicalType, ParquetReader, ParquetWriter,
 };
