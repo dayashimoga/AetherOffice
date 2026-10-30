@@ -600,6 +600,7 @@ export class PdfWorkspace {
         const [fx, fy, fw, fh] = field.rect;
         const fieldEl = document.createElement("div");
         fieldEl.className = `pdf-form-field-interactive pdf-field-${field.type}`;
+        fieldEl.setAttribute("data-testid", `pdf-field-${field.type}`);
         fieldEl.dataset.fieldId = field.id;
         fieldEl.dataset.fieldName = field.name;
         fieldEl.style.position = "absolute";
@@ -660,6 +661,7 @@ export class PdfWorkspace {
         const [ax, ay, aw, ah] = ann.rect;
         const annEl = document.createElement("div");
         annEl.className = `pdf-annot-hitbox pdf-annot-${ann.type}`;
+        annEl.setAttribute("data-testid", `pdf-annot-${ann.type}`);
         annEl.dataset.annotId = ann.id;
         annEl.style.position = "absolute";
         annEl.style.left = `${ax * zoom}px`;
@@ -889,6 +891,7 @@ export class PdfWorkspace {
 
     const popover = document.createElement("div");
     popover.className = "pdf-comment-popover";
+    popover.setAttribute("data-testid", "pdf-comment-popover");
     popover.style.position = "fixed";
     popover.style.zIndex = "1000";
     popover.style.width = "260px";
@@ -912,6 +915,7 @@ export class PdfWorkspace {
 
     const closeBtn = document.createElement("button");
     closeBtn.className = "btn-comment-close";
+    closeBtn.setAttribute("data-testid", "btn-comment-close");
     closeBtn.innerHTML = "&times;";
     closeBtn.style.border = "none";
     closeBtn.style.background = "none";
@@ -924,6 +928,7 @@ export class PdfWorkspace {
     // Textarea
     const textarea = document.createElement("textarea");
     textarea.className = "pdf-comment-textarea";
+    textarea.setAttribute("data-testid", "pdf-comment-textarea");
     textarea.value = ann.contents || "";
     textarea.style.width = "100%";
     textarea.style.height = "70px";
@@ -943,6 +948,7 @@ export class PdfWorkspace {
 
     const delBtn = document.createElement("button");
     delBtn.className = "btn-comment-delete";
+    delBtn.setAttribute("data-testid", "btn-comment-delete");
     delBtn.textContent = "Delete Note";
     delBtn.style.border = "none";
     delBtn.style.background = "none";
@@ -959,6 +965,7 @@ export class PdfWorkspace {
 
     const saveBtn = document.createElement("button");
     saveBtn.className = "btn-comment-save";
+    saveBtn.setAttribute("data-testid", "btn-comment-save");
     saveBtn.textContent = "Save";
     saveBtn.style.padding = "4px 12px";
     saveBtn.style.backgroundColor = "#b30b00";

@@ -946,9 +946,9 @@
                           "title":  "PDF Studio Annotations, Freehand Ink, Form Builder/Filler, Signature \u0026 Export",
                           "crate":  "pdf-engine",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-25/subphase-25.1.2.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-30T10:28:37Z"
                       },
                       {
                           "id":  "26.1.1",

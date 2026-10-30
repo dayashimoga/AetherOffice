@@ -1706,6 +1706,13 @@ export class UnifiedShellApp {
       if (action === "AddSignature" || action === "SignPdf") {
         this.pdfWorkspace?.openSignModal();
       }
+      if (action === "ExportPdf" || action === "SaveDocument") {
+        this.tabBar.setDirty(active.id, false);
+        const docInfo = document.getElementById("status-doc-info");
+        if (docInfo) {
+          docInfo.textContent = `Exported: ${active.title}`;
+        }
+      }
       const changed = pdfState.execCommand(action, payload);
       if (changed) {
         this.pdfWorkspace?.render();

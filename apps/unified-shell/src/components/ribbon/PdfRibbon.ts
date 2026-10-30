@@ -254,6 +254,7 @@ export class PdfRibbon implements AppRibbonComponent {
     signRow.appendChild(createRibbonButton("Add Signature", "✍️ Add Signature", () => emit("AddSignature"), false, "pdf-btn-add-signature"));
     signRow.appendChild(createRibbonButton("Add Initials", "Initials", () => emit("AddInitials")));
     signRow.appendChild(createRibbonButton("Sign Document", "✒️ Sign", () => emit("SignPdf"), false, "pdf-btn-sign"));
+    signRow.appendChild(createRibbonButton("Export PDF", "💾 Export PDF", () => emit("ExportPdf"), false, "pdf-btn-export-pdf"));
     signGroup.appendChild(signRow);
     body.appendChild(signGroup);
 

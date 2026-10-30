@@ -816,6 +816,16 @@ export class PdfState {
     return false;
   }
 
+  public getFormFieldValue(nameOrId: string): string | boolean | undefined {
+    for (const page of this.pages) {
+      if (page.formFields) {
+        const fld = page.formFields.find((f) => f.id === nameOrId || f.name === nameOrId);
+        if (fld) return fld.value;
+      }
+    }
+    return undefined;
+  }
+
   public removeFormField(fieldId: string): boolean {
     let found = false;
     this.pages.forEach((p) => {
@@ -1097,6 +1107,24 @@ export class PdfState {
       case "ToggleAttachments":
         this.setSidebarTab(this.sidebarTab === "annotations" ? "thumbnails" : "annotations");
         return true;
+      case "SetInkColor":
+        if (typeof payload === "string") {
+          this.inkColor = payload;
+          return true;
+        }
+        return false;
+      case "SetInkThickness":
+        if (typeof payload === "number") {
+          this.inkThickness = payload;
+          return true;
+        }
+        return false;
+      case "SetHighlightColor":
+        if (typeof payload === "string") {
+          this.highlightColor = payload;
+          return true;
+        }
+        return false;
       case "AddWatermark":
         this.setWatermark({ text: typeof payload === "string" ? payload : "CONFIDENTIAL" });
         return true;

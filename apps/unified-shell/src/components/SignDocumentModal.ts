@@ -104,6 +104,7 @@ export class SignDocumentModal {
 
     const closeBtn = document.createElement("button");
     closeBtn.className = "pdf-sign-modal-close";
+    closeBtn.setAttribute("data-testid", "btn-sign-modal-close");
     closeBtn.innerHTML = "&times;";
     closeBtn.style.border = "none";
     closeBtn.style.background = "none";
@@ -132,6 +133,7 @@ export class SignDocumentModal {
     tabs.forEach((tab) => {
       const tabBtn = document.createElement("button");
       tabBtn.className = `pdf-sign-tab-btn ${this.activeTab === tab.key ? "is-active" : ""}`;
+      tabBtn.setAttribute("data-testid", `tab-sign-${tab.key}`);
       tabBtn.dataset.tab = tab.key;
       tabBtn.style.flex = "1";
       tabBtn.style.padding = "10px 14px";
@@ -211,6 +213,7 @@ export class SignDocumentModal {
 
     const cancelBtn = document.createElement("button");
     cancelBtn.className = "btn-sign-cancel";
+    cancelBtn.setAttribute("data-testid", "btn-sign-cancel");
     cancelBtn.textContent = "Cancel";
     cancelBtn.style.padding = "6px 14px";
     cancelBtn.style.borderRadius = "4px";
@@ -223,6 +226,7 @@ export class SignDocumentModal {
 
     const applyBtn = document.createElement("button");
     applyBtn.className = "btn-sign-apply";
+    applyBtn.setAttribute("data-testid", "btn-sign-apply");
     applyBtn.textContent = "Apply Signature";
     applyBtn.style.padding = "6px 16px";
     applyBtn.style.borderRadius = "4px";
@@ -237,6 +241,7 @@ export class SignDocumentModal {
 
     const saveBtn = document.createElement("button");
     saveBtn.className = "btn-sign-save";
+    saveBtn.setAttribute("data-testid", "btn-sign-save");
     saveBtn.textContent = "Sign & Incremental Save";
     saveBtn.style.padding = "6px 16px";
     saveBtn.style.borderRadius = "4px";
@@ -353,6 +358,7 @@ export class SignDocumentModal {
     const input = document.createElement("input");
     input.type = "text";
     input.className = "signature-name-input";
+    input.setAttribute("data-testid", "input-sign-name");
     input.value = this.signerName;
     input.style.width = "100%";
     input.style.padding = "8px 12px";
