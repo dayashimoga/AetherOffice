@@ -325,7 +325,8 @@ export class PivotFieldListSidebar {
   /**
    * Scans active Calc sheet to detect column headers from occupied ranges.
    */
-  public detectSheetFields(): void {
+  public detectSheetFields(force = false): void {
+    if (!force && this.availableFields.length > 0) return;
     const sheet = this.state.getActiveSheet();
     const headers: string[] = [];
 
@@ -425,7 +426,7 @@ export class PivotFieldListSidebar {
 
   private toggleFieldSelection(field: string, active: boolean): void {
     if (active) {
-      // If it looks like a metric (Sales, Quantity, Amount, Budget, Revenue, Price), add to Values
+      // If it looks like a metric (Sales, Quantity, Amount, Budget, Total, Price), add to Values
       const isNumeric = /sales|quantity|amount|budget|revenue|price|score|cost/i.test(field);
       if (isNumeric) {
         this.addFieldToQuadrant(field, "values");

@@ -78,11 +78,22 @@ describe("Native Window Controls & Zero Fake Text (GEC-v3.0 Subphase 21.1.1)", (
     const closeBtn = document.querySelector<HTMLButtonElement>(".win-close");
 
     minBtn?.click();
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    for (let i = 0; i < 20; i++) {
+      if (mockMinimize.mock.calls.length > 0) break;
+      await new Promise((r) => setTimeout(r, 20));
+    }
+
     maxBtn?.click();
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    for (let i = 0; i < 20; i++) {
+      if (mockToggleMaximize.mock.calls.length > 0) break;
+      await new Promise((r) => setTimeout(r, 20));
+    }
+
     closeBtn?.click();
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    for (let i = 0; i < 20; i++) {
+      if (mockClose.mock.calls.length > 0) break;
+      await new Promise((r) => setTimeout(r, 20));
+    }
 
     expect(mockMinimize).toHaveBeenCalled();
     expect(mockToggleMaximize).toHaveBeenCalled();

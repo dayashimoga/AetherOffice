@@ -200,16 +200,7 @@ export class CalcState {
     {
       id: "sheet-1",
       name: "Sheet1",
-      cells: new Map<string, CellData>([
-        ["A1", { raw: "Revenue", computed: "Revenue", bold: true }],
-        ["A2", { raw: "15000", computed: 15000 }],
-        ["A3", { raw: "25000", computed: 25000 }],
-        ["A4", { raw: "=SUM(A2:A3)", computed: 40000, bold: true }],
-        ["B1", { raw: "Q1", computed: "Q1", bold: true }],
-        ["B2", { raw: "12000", computed: 12000 }],
-        ["B3", { raw: "18000", computed: 18000 }],
-        ["B4", { raw: "=SUM(B2:B3)", computed: 30000, bold: true }],
-      ]),
+      cells: new Map<string, CellData>(),
       colWidths: new Map<number, number>(),
       rowHeights: new Map<number, number>(),
       selectedCell: "A1",
@@ -224,11 +215,39 @@ export class CalcState {
   ];
 
   activeSheetId: string = "sheet-1";
-  formulaBarText: string = "Revenue";
+  formulaBarText: string = "";
   autoFillPreview: GridRange | null = null;
   formulaReferences: { range: GridRange; color: string }[] = [];
   clipboardData: ClipboardPayload | null = null;
   internalClipboardText: string = "";
+
+  public resetToBlank(sheetName = "Sheet1"): void {
+    this.sheets = [
+      {
+        id: "sheet-1",
+        name: sheetName,
+        cells: new Map<string, CellData>(),
+        colWidths: new Map<number, number>(),
+        rowHeights: new Map<number, number>(),
+        selectedCell: "A1",
+        selectedRanges: [{ minRow: 0, maxRow: 0, minCol: 0, maxCol: 0 }],
+        charts: [],
+        conditionalFormats: [],
+        freezePanes: { row: 0, col: 0 },
+        showGridlines: true,
+        showHeadings: true,
+        showFormulaBar: true,
+      },
+    ];
+    this.activeSheetId = "sheet-1";
+    this.formulaBarText = "";
+    this.autoFillPreview = null;
+    this.formulaReferences = [];
+    this.clipboardData = null;
+    this.internalClipboardText = "";
+    this.undoStack = [];
+    this.redoStack = [];
+  }
 
   // Backward compatibility getters & setters delegating to active sheet
   get cells(): Map<string, CellData> {
@@ -400,7 +419,7 @@ export class CalcState {
     const newSheet: SheetData = {
       id: `sheet-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       name: sheetName,
-      cells: new Map<string, CellData>([["A1", { raw: "", computed: "" }]]),
+      cells: new Map<string, CellData>(),
       colWidths: new Map(),
       rowHeights: new Map(),
       selectedCell: "A1",
@@ -755,7 +774,76 @@ export class CalcState {
       }
     }
 
-    // 2. Arithmetic expressions with cell coordinates
+    // 2. Logical IF function: =IF(condition, true_value, false_value)
+    if (upper.startsWith("IF(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      if (args.length >= 2) {
+        const condStr = args[0];
+        const trueExpr = args[1];
+        const falseExpr = args.length > 2 ? args[2] : '""';
+        const isTrue = this.evaluateCondition(condStr);
+        const chosen = isTrue ? trueExpr : falseExpr;
+        return this.resolveFormulaValue(chosen);
+      }
+    }
+
+    // 3. Lookup function: =VLOOKUP(lookup_value, table_range, col_index, [range_lookup])
+    if (upper.startsWith("VLOOKUP(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      if (args.length >= 3) {
+        const lookupVal = this.resolveFormulaValue(args[0]);
+        const rangeStr = args[1].trim().replace(/\$/g, "");
+        const colIdx = parseInt(args[2].trim(), 10);
+        if (isNaN(colIdx) || colIdx < 1) return "#VALUE!";
+        if (!rangeStr.includes(":")) return "#REF!";
+
+        const [startCoord, endCoord] = rangeStr.split(":");
+        const start = this.coordToColRow(startCoord);
+        const end = this.coordToColRow(endCoord);
+
+        const minCol = Math.min(start.col, end.col);
+        const maxCol = Math.max(start.col, end.col);
+        const minRow = Math.min(start.row, end.row);
+        const maxRow = Math.max(start.row, end.row);
+
+        const targetCol = minCol + (colIdx - 1);
+        if (targetCol > maxCol) return "#REF!";
+
+        const searchStr = String(lookupVal).trim().toLowerCase();
+        const searchNum = typeof lookupVal === "number" ? lookupVal : Number(lookupVal);
+        const isSearchNumeric = !isNaN(searchNum) && String(lookupVal).trim() !== "";
+
+        let matchedRow = -1;
+        for (let r = minRow; r <= maxRow; r++) {
+          const firstCoord = `${this.colIndexToLetter(minCol)}${r + 1}`;
+          const cell = this.cells.get(firstCoord);
+          if (!cell) continue;
+          const val = cell.computed !== undefined ? cell.computed : cell.raw;
+          const cellStr = String(val).trim().toLowerCase();
+          const cellNum = typeof val === "number" ? val : Number(val);
+
+          if (isSearchNumeric && !isNaN(cellNum) && cellNum === searchNum) {
+            matchedRow = r;
+            break;
+          } else if (cellStr === searchStr) {
+            matchedRow = r;
+            break;
+          }
+        }
+
+        if (matchedRow !== -1) {
+          const resultCoord = `${this.colIndexToLetter(targetCol)}${matchedRow + 1}`;
+          const resultCell = this.cells.get(resultCoord);
+          return resultCell ? (resultCell.computed !== undefined ? resultCell.computed : resultCell.raw) : "";
+        }
+
+        return "#N/A";
+      }
+    }
+
+    // 4. Arithmetic expressions with cell coordinates
     try {
       let evalExpr = content;
       evalExpr = evalExpr.replace(/(\$?[A-Z]+\$?[0-9]+)/gi, (coordMatch) => {
@@ -769,7 +857,8 @@ export class CalcState {
       });
 
       if (/^[0-9+\-*/().\s^%]+$/.test(evalExpr)) {
-        const fn = new Function(`return (${evalExpr});`);
+        const jsExpr = evalExpr.replace(/\^/g, "**");
+        const fn = new Function(`return (${jsExpr});`);
         const result = fn();
         if (typeof result === "number" && !isNaN(result) && isFinite(result)) {
           return Math.round(result * 10000) / 10000;
@@ -779,13 +868,115 @@ export class CalcState {
       // Ignore evaluation errors
     }
 
-    // 3. Single Cell Reference, e.g. =A1
-    if (/^[A-Z]+[0-9]+$/i.test(content)) {
-      const cell = this.cells.get(content.toUpperCase());
+    // 5. Single Cell Reference, e.g. =A1
+    if (/^\$?[A-Z]+\$?[0-9]+$/i.test(content)) {
+      const cell = this.cells.get(content.replace(/\$/g, "").toUpperCase());
       return cell ? cell.computed : "";
     }
 
     return expr;
+  }
+
+  private splitFormulaArgs(argStr: string): string[] {
+    const args: string[] = [];
+    let cur = "";
+    let depth = 0;
+    let inQuote = false;
+    let quoteChar = "";
+
+    for (let i = 0; i < argStr.length; i++) {
+      const ch = argStr[i];
+      if ((ch === '"' || ch === "'") && !inQuote) {
+        inQuote = true;
+        quoteChar = ch;
+        cur += ch;
+      } else if (ch === quoteChar && inQuote) {
+        inQuote = false;
+        cur += ch;
+      } else if (!inQuote && (ch === "(" || ch === "[")) {
+        depth++;
+        cur += ch;
+      } else if (!inQuote && (ch === ")" || ch === "]")) {
+        depth--;
+        cur += ch;
+      } else if (!inQuote && depth === 0 && ch === ",") {
+        args.push(cur.trim());
+        cur = "";
+      } else {
+        cur += ch;
+      }
+    }
+    if (cur.trim().length > 0) {
+      args.push(cur.trim());
+    }
+    return args;
+  }
+
+  private evaluateCondition(condStr: string): boolean {
+    const s = condStr.trim();
+    const ops = [">=", "<=", "<>", "!=", "==", "=", ">", "<"];
+    for (const op of ops) {
+      const idx = s.indexOf(op);
+      if (idx !== -1) {
+        const leftRaw = s.slice(0, idx).trim();
+        const rightRaw = s.slice(idx + op.length).trim();
+        const leftVal = this.resolveFormulaValue(leftRaw);
+        const rightVal = this.resolveFormulaValue(rightRaw);
+
+        const leftNum = typeof leftVal === "number" ? leftVal : Number(leftVal);
+        const rightNum = typeof rightVal === "number" ? rightVal : Number(rightVal);
+        const bothNumbers = !isNaN(leftNum) && !isNaN(rightNum) && typeof leftVal !== "boolean" && typeof rightVal !== "boolean";
+
+        switch (op) {
+          case ">=":
+            return bothNumbers ? leftNum >= rightNum : String(leftVal) >= String(rightVal);
+          case "<=":
+            return bothNumbers ? leftNum <= rightNum : String(leftVal) <= String(rightVal);
+          case "<>":
+          case "!=":
+            return bothNumbers ? leftNum !== rightNum : String(leftVal) !== String(rightVal);
+          case "==":
+          case "=":
+            return bothNumbers ? leftNum === rightNum : String(leftVal).toLowerCase() === String(rightVal).toLowerCase();
+          case ">":
+            return bothNumbers ? leftNum > rightNum : String(leftVal) > String(rightVal);
+          case "<":
+            return bothNumbers ? leftNum < rightNum : String(leftVal) < String(rightVal);
+        }
+      }
+    }
+
+    const single = this.resolveFormulaValue(s);
+    if (typeof single === "boolean") return single;
+    if (typeof single === "number") return single !== 0;
+    if (typeof single === "string") {
+      const lower = single.trim().toLowerCase();
+      if (lower === "true") return true;
+      if (lower === "false" || lower === "0" || lower === "") return false;
+      return true;
+    }
+    return Boolean(single);
+  }
+
+  private resolveFormulaValue(valStr: string): string | number {
+    const s = valStr.trim();
+    if (!s) return "";
+    if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+      return s.slice(1, -1);
+    }
+    if (s.startsWith("=")) {
+      return this.evaluateFormula(s);
+    }
+    if (/^\$?[A-Z]+\$?[0-9]+$/i.test(s)) {
+      const clean = s.replace(/\$/g, "").toUpperCase();
+      const cell = this.cells.get(clean);
+      return cell ? cell.computed : "";
+    }
+    const n = Number(s);
+    if (!isNaN(n)) {
+      return n;
+    }
+    return s;
   }
 
   private getNumbersFromRangeArg(arg: string): number[] {

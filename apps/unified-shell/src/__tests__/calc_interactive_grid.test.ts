@@ -68,7 +68,7 @@ describe("Editable Spreadsheet Grid, In-Cell Input, Multi-Sheet Tabs & Column Re
 
       const editor = canvas.getEditorInput();
       expect(editor.style.display).toBe("block");
-      expect(editor.value).toBe("Revenue");
+      expect(editor.value).toBe("");
 
       canvas.cancelEditing();
       expect(canvas.isCellEditing()).toBe(false);
@@ -214,6 +214,10 @@ describe("Editable Spreadsheet Grid, In-Cell Input, Multi-Sheet Tabs & Column Re
       expect(state.sheets.length).toBe(1);
       expect(state.sheets[0].name).toBe("Sheet1");
 
+      // Set cell in Sheet1 first
+      state.selectCell("A1");
+      state.commitFormula("Sheet1 Data");
+
       const addBtn = tabBarContainer.querySelector<HTMLButtonElement>(".btn-add-sheet")!;
       expect(addBtn).not.toBeNull();
       addBtn.click();
@@ -229,7 +233,7 @@ describe("Editable Spreadsheet Grid, In-Cell Input, Multi-Sheet Tabs & Column Re
 
       // Switch back to Sheet1
       state.switchSheet("sheet-1");
-      expect(state.sheets[0].cells.get("A1")?.raw).toBe("Revenue");
+      expect(state.sheets[0].cells.get("A1")?.raw).toBe("Sheet1 Data");
     });
 
     it("renames sheet via double click or rename method", () => {

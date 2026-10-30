@@ -177,6 +177,7 @@ export class CalcGridCanvas {
     } else if (this.onCellSelected) {
       this.onCellSelected(coord, this.state.formulaBarText);
     }
+    this.canvas.focus();
   }
 
   public startEditing(initialChar?: string) {
@@ -699,6 +700,15 @@ export class CalcGridCanvas {
       if (e.key === "Enter") {
         e.preventDefault();
         this.startEditing();
+        return;
+      }
+
+      if (e.key === "Tab") {
+        e.preventDefault();
+        const cur = this.state.coordToColRow(this.state.selectedCell);
+        const nextCol = e.shiftKey ? Math.max(0, cur.col - 1) : cur.col + 1;
+        const coord = `${this.state.colIndexToLetter(nextCol)}${cur.row + 1}`;
+        this.selectCell(coord, false, false);
         return;
       }
 

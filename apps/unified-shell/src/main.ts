@@ -282,7 +282,7 @@ export class UnifiedShellApp {
     this.cardInspector = new RowCardInspector("row-card-inspector-container");
     this.cardInspector.setRowData(2, 50, [
       { label: "Account ID", value: "ACC-10492", colIndex: 0 },
-      { label: "Quarterly Revenue", value: "48290.00", colIndex: 1 },
+      { label: "Quarterly Total", value: "48290.00", colIndex: 1 },
       { label: "Growth Rate", value: "=B2/B1 - 1", colIndex: 2 },
       { label: "Audit Date", value: "2026-10-29", colIndex: 3 },
     ]);
@@ -1145,6 +1145,12 @@ export class UnifiedShellApp {
 
     if (type === "Word") {
       writerState.resetToBlank(defaultTitle);
+    } else if (type === "Excel") {
+      calcState.resetToBlank("Sheet1");
+      this.formulaBar?.setActiveCell("A1", "");
+      this.calcGridCanvas?.render();
+      this.sheetTabBar?.refresh();
+      this.workbookSheetsPane?.refresh();
     }
 
     this.tabBar.addTab({
