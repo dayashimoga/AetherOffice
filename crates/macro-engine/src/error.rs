@@ -23,6 +23,18 @@ pub enum MacroError {
     #[error("VBA project parsing error: {0}")]
     ProjectParseError(String),
 
+    #[error("VBA syntax lexer error: {0}")]
+    LexError(String),
+
+    #[error("VBA AST parser error: {0}")]
+    ParseError(String),
+
+    #[error("VBA evaluation error: {0}")]
+    EvalError(String),
+
+    #[error("Virtual Office DOM error: {0}")]
+    DomError(String),
+
     #[error("I/O error: {0}")]
     IoError(String),
 }
