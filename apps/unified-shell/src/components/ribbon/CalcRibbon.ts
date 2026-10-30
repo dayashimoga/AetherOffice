@@ -332,22 +332,22 @@ export class CalcRibbon implements AppRibbonComponent {
     const fnGroup = createRibbonGroup("Function Library");
     const fnRow1 = document.createElement("div");
     fnRow1.className = "ribbon-group-row";
-    fnRow1.appendChild(createRibbonButton("Insert Function", "ƒx Insert", () => emit("InsertFunction")));
-    fnRow1.appendChild(createRibbonButton("AutoSum", "Σ SUM", () => emit("AutoSum")));
-    fnRow1.appendChild(createRibbonButton("Average", "x̄ AVG", () => emit("AutoAverage")));
-    fnRow1.appendChild(createRibbonButton("Count", "123 Count", () => emit("AutoCount")));
-    fnRow1.appendChild(createRibbonButton("Max", "⬆ Max", () => emit("AutoMax")));
-    fnRow1.appendChild(createRibbonButton("Min", "⬇ Min", () => emit("AutoMin")));
-    fnRow1.appendChild(createRibbonButton("Financial", "💰 Financial", () => emit("FormulaCategory", "financial")));
-    fnRow1.appendChild(createRibbonButton("Logical", "⚖️ Logical", () => emit("FormulaCategory", "logical")));
+    fnRow1.appendChild(createRibbonButton("Insert Function", "ƒx Insert", () => emit("InsertFunction"), false, "calc-btn-insert-fn"));
+    fnRow1.appendChild(createRibbonButton("AutoSum", "Σ SUM", () => emit("AutoSum"), false, "calc-btn-autosum"));
+    fnRow1.appendChild(createRibbonButton("Average", "x̄ AVG", () => emit("AutoAverage"), false, "calc-btn-avg"));
+    fnRow1.appendChild(createRibbonButton("Count", "123 Count", () => emit("AutoCount"), false, "calc-btn-count"));
+    fnRow1.appendChild(createRibbonButton("Max", "⬆ Max", () => emit("AutoMax"), false, "calc-btn-max"));
+    fnRow1.appendChild(createRibbonButton("Min", "⬇ Min", () => emit("AutoMin"), false, "calc-btn-min"));
+    fnRow1.appendChild(createRibbonButton("Financial", "💰 Financial", () => emit("FormulaCategory", "financial"), false, "calc-btn-fn-financial"));
+    fnRow1.appendChild(createRibbonButton("Logical", "⚖️ Logical", () => emit("FormulaCategory", "logical"), false, "calc-btn-fn-logical"));
     fnGroup.appendChild(fnRow1);
 
     const fnRow2 = document.createElement("div");
     fnRow2.className = "ribbon-group-row";
-    fnRow2.appendChild(createRibbonButton("Text Functions", "🔤 Text", () => emit("FormulaCategory", "text")));
-    fnRow2.appendChild(createRibbonButton("Date & Time", "📅 Date", () => emit("FormulaCategory", "datetime")));
-    fnRow2.appendChild(createRibbonButton("Lookup & Ref", "🔍 Lookup", () => emit("FormulaCategory", "lookup")));
-    fnRow2.appendChild(createRibbonButton("Math & Trig", "∑ Math", () => emit("FormulaCategory", "math")));
+    fnRow2.appendChild(createRibbonButton("Text Functions", "🔤 Text", () => emit("FormulaCategory", "text"), false, "calc-btn-fn-text"));
+    fnRow2.appendChild(createRibbonButton("Date & Time", "📅 Date", () => emit("FormulaCategory", "datetime"), false, "calc-btn-fn-date"));
+    fnRow2.appendChild(createRibbonButton("Lookup & Ref", "🔍 Lookup", () => emit("FormulaCategory", "lookup"), false, "calc-btn-fn-lookup"));
+    fnRow2.appendChild(createRibbonButton("Math & Trig", "∑ Math", () => emit("FormulaCategory", "math"), false, "calc-btn-fn-math"));
     fnGroup.appendChild(fnRow2);
     body.appendChild(fnGroup);
 
@@ -355,8 +355,8 @@ export class CalcRibbon implements AppRibbonComponent {
     const nameGroup = createRibbonGroup("Defined Names");
     const nameRow = document.createElement("div");
     nameRow.className = "ribbon-group-row";
-    nameRow.appendChild(createRibbonButton("Name Manager", "🏷️ Name Manager", () => emit("NameManager")));
-    nameRow.appendChild(createRibbonButton("Define Name", "➕ Define Name", () => emit("DefineName")));
+    nameRow.appendChild(createRibbonButton("Name Manager", "🏷️ Name Manager", () => emit("NameManager"), false, "calc-btn-name-manager"));
+    nameRow.appendChild(createRibbonButton("Define Name", "➕ Define Name", () => emit("DefineName"), false, "calc-btn-define-name"));
     nameGroup.appendChild(nameRow);
     body.appendChild(nameGroup);
 
@@ -364,18 +364,18 @@ export class CalcRibbon implements AppRibbonComponent {
     const auditGroup = createRibbonGroup("Formula Auditing");
     const auditRow = document.createElement("div");
     auditRow.className = "ribbon-group-row";
-    auditRow.appendChild(createRibbonButton("Trace Precedents", "🔍 Trace Precedents", () => emit("TracePrecedents")));
-    auditRow.appendChild(createRibbonButton("Trace Dependents", "🔍 Trace Dependents", () => emit("TraceDependents")));
-    auditRow.appendChild(createRibbonButton("Remove Arrows", "❌ Remove Arrows", () => emit("RemoveArrows")));
-    auditRow.appendChild(createRibbonButton("Show Formulas", "🧮 Show Formulas", () => emit("ShowFormulas"), true));
-    auditRow.appendChild(createRibbonButton("Evaluate", "⚡ Evaluate", () => emit("EvaluateFormula")));
+    auditRow.appendChild(createRibbonButton("Trace Precedents", "🔍 Trace Precedents", () => emit("TracePrecedents"), false, "calc-btn-trace-precedents"));
+    auditRow.appendChild(createRibbonButton("Trace Dependents", "🔍 Trace Dependents", () => emit("TraceDependents"), false, "calc-btn-trace-dependents"));
+    auditRow.appendChild(createRibbonButton("Remove Arrows", "❌ Remove Arrows", () => emit("RemoveArrows"), false, "calc-btn-remove-arrows"));
+    auditRow.appendChild(createRibbonButton("Show Formulas", "🧮 Show Formulas", () => emit("ShowFormulas"), true, "calc-btn-show-formulas"));
+    auditRow.appendChild(createRibbonButton("Evaluate", "⚡ Evaluate", () => emit("EvaluateFormula"), false, "calc-btn-evaluate"));
     auditGroup.appendChild(auditRow);
     body.appendChild(auditGroup);
 
     // 4. Calculation
     const calcGroup = createRibbonGroup("Calculation");
-    calcGroup.appendChild(createRibbonButton("Calculate Now", "⚡ Calculate (F9)", () => emit("Recalculate")));
-    calcGroup.appendChild(createRibbonButton("Calc Sheet", "Calc Sheet", () => emit("CalculateSheet")));
+    calcGroup.appendChild(createRibbonButton("Calculate Now", "⚡ Calculate (F9)", () => emit("Recalculate"), false, "calc-btn-calculate-now"));
+    calcGroup.appendChild(createRibbonButton("Calc Sheet", "Calc Sheet", () => emit("CalculateSheet"), false, "calc-btn-calc-sheet"));
     body.appendChild(calcGroup);
   }
 
@@ -384,9 +384,9 @@ export class CalcRibbon implements AppRibbonComponent {
     const getGroup = createRibbonGroup("Get & Transform Data");
     const getRow = document.createElement("div");
     getRow.className = "ribbon-group-row";
-    getRow.appendChild(createRibbonButton("From Text/CSV", "📄 From CSV", () => emit("ImportCsv")));
-    getRow.appendChild(createRibbonButton("From Web", "🌐 From Web", () => emit("ImportWeb")));
-    getRow.appendChild(createRibbonButton("Refresh All", "🔄 Refresh All", () => emit("RefreshData")));
+    getRow.appendChild(createRibbonButton("From Text/CSV", "📄 From CSV", () => emit("ImportCsv"), false, "calc-btn-from-csv"));
+    getRow.appendChild(createRibbonButton("From Web", "🌐 From Web", () => emit("ImportWeb"), false, "calc-btn-from-web"));
+    getRow.appendChild(createRibbonButton("Refresh All", "🔄 Refresh All", () => emit("RefreshData"), false, "calc-btn-refresh-all"));
     getGroup.appendChild(getRow);
     body.appendChild(getGroup);
 
@@ -394,10 +394,11 @@ export class CalcRibbon implements AppRibbonComponent {
     const sortGroup = createRibbonGroup("Sort & Filter");
     const sortRow = document.createElement("div");
     sortRow.className = "ribbon-group-row";
-    sortRow.appendChild(createRibbonButton("Sort A to Z", "🔼 Sort A-Z", () => emit("SortAsc")));
-    sortRow.appendChild(createRibbonButton("Sort Z to A", "🔽 Sort Z-A", () => emit("SortDesc")));
-    sortRow.appendChild(createRibbonButton("Filter", "🌪️ Filter", () => emit("ToggleFilter"), true));
-    sortRow.appendChild(createRibbonButton("Clear Filter", "Clear", () => emit("ClearFilter")));
+    sortRow.appendChild(createRibbonButton("Sort A to Z", "🔼 Sort A-Z", () => emit("SortAsc"), false, "calc-btn-sort-asc"));
+    sortRow.appendChild(createRibbonButton("Sort Z to A", "🔽 Sort Z-A", () => emit("SortDesc"), false, "calc-btn-sort-desc"));
+    sortRow.appendChild(createRibbonButton("Custom Sort", "↕ Custom Sort", () => emit("CustomSort"), false, "calc-btn-custom-sort"));
+    sortRow.appendChild(createRibbonButton("Filter", "🌪️ Filter", () => emit("ToggleFilter"), true, "calc-btn-toggle-filter"));
+    sortRow.appendChild(createRibbonButton("Clear Filter", "Clear", () => emit("ClearFilter"), false, "calc-btn-clear-filter"));
     sortGroup.appendChild(sortRow);
     body.appendChild(sortGroup);
 
@@ -405,20 +406,21 @@ export class CalcRibbon implements AppRibbonComponent {
     const toolsGroup = createRibbonGroup("Data Tools");
     const toolsRow = document.createElement("div");
     toolsRow.className = "ribbon-group-row";
-    toolsRow.appendChild(createRibbonButton("Text to Columns", "🔀 Text to Columns", () => emit("TextToColumns")));
-    toolsRow.appendChild(createRibbonButton("Flash Fill", "⚡ Flash Fill", () => emit("FlashFill")));
-    toolsRow.appendChild(createRibbonButton("Remove Duplicates", "🗑️ Remove Dups", () => emit("RemoveDuplicates")));
-    toolsRow.appendChild(createRibbonButton("Data Validation", "✓ Data Validation", () => emit("DataValidation")));
+    toolsRow.appendChild(createRibbonButton("Text to Columns", "🔀 Text to Columns", () => emit("TextToColumns"), false, "calc-btn-text-to-columns"));
+    toolsRow.appendChild(createRibbonButton("Flash Fill", "⚡ Flash Fill", () => emit("FlashFill"), false, "calc-btn-flash-fill"));
+    toolsRow.appendChild(createRibbonButton("Remove Duplicates", "🗑️ Remove Dups", () => emit("RemoveDuplicates"), false, "calc-btn-remove-duplicates"));
+    toolsRow.appendChild(createRibbonButton("Data Validation", "✓ Data Validation", () => emit("DataValidation"), false, "calc-btn-data-validation"));
     toolsGroup.appendChild(toolsRow);
     body.appendChild(toolsGroup);
 
-    // 4. Outline
-    const outGroup = createRibbonGroup("Outline");
+    // 4. Outline & Solver
+    const outGroup = createRibbonGroup("Outline & What-If");
     const outRow = document.createElement("div");
     outRow.className = "ribbon-group-row";
-    outRow.appendChild(createRibbonButton("Group", "⊞ Group", () => emit("GroupRows")));
-    outRow.appendChild(createRibbonButton("Ungroup", "⊟ Ungroup", () => emit("UngroupRows")));
-    outRow.appendChild(createRibbonButton("Subtotal", "∑ Subtotal", () => emit("Subtotal")));
+    outRow.appendChild(createRibbonButton("Group", "⊞ Group", () => emit("GroupRows"), false, "calc-btn-group"));
+    outRow.appendChild(createRibbonButton("Ungroup", "⊟ Ungroup", () => emit("UngroupRows"), false, "calc-btn-ungroup"));
+    outRow.appendChild(createRibbonButton("Subtotal", "∑ Subtotal", () => emit("Subtotal"), false, "calc-btn-subtotal"));
+    outRow.appendChild(createRibbonButton("Goal Seek", "🎯 Goal Seek", () => emit("GoalSeek"), false, "calc-btn-goal-seek"));
     outGroup.appendChild(outRow);
     body.appendChild(outGroup);
   }
@@ -428,8 +430,8 @@ export class CalcRibbon implements AppRibbonComponent {
     const proofGroup = createRibbonGroup("Proofing");
     const proofRow = document.createElement("div");
     proofRow.className = "ribbon-group-row";
-    proofRow.appendChild(createRibbonButton("Spelling", "✓ Spelling", () => emit("CheckSpelling")));
-    proofRow.appendChild(createRibbonButton("Thesaurus", "📖 Thesaurus", () => emit("Thesaurus")));
+    proofRow.appendChild(createRibbonButton("Spelling", "✓ Spelling", () => emit("CheckSpelling"), false, "calc-btn-spelling"));
+    proofRow.appendChild(createRibbonButton("Thesaurus", "📖 Thesaurus", () => emit("Thesaurus"), false, "calc-btn-thesaurus"));
     proofGroup.appendChild(proofRow);
     body.appendChild(proofGroup);
 
@@ -437,16 +439,17 @@ export class CalcRibbon implements AppRibbonComponent {
     const protGroup = createRibbonGroup("Protect");
     const protRow = document.createElement("div");
     protRow.className = "ribbon-group-row";
-    protRow.appendChild(createRibbonButton("Protect Sheet", "🔒 Protect Sheet", () => emit("ProtectSheet")));
-    protRow.appendChild(createRibbonButton("Protect Workbook", "🔒 Protect Workbook", () => emit("ProtectWorkbook")));
-    protRow.appendChild(createRibbonButton("Allow Edit Ranges", "🔓 Edit Ranges", () => emit("AllowEditRanges")));
+    protRow.appendChild(createRibbonButton("Protect Sheet", "🔒 Protect Sheet", () => emit("ProtectSheet"), false, "calc-btn-protect-sheet"));
+    protRow.appendChild(createRibbonButton("Protect Workbook", "🔒 Protect Workbook", () => emit("ProtectWorkbook"), false, "calc-btn-protect-workbook"));
+    protRow.appendChild(createRibbonButton("Allow Edit Ranges", "🔓 Edit Ranges", () => emit("AllowEditRanges"), false, "calc-btn-allow-edit-ranges"));
     protGroup.appendChild(protRow);
     body.appendChild(protGroup);
 
     // 3. Comments & Notes
-    const noteGroup = createRibbonGroup("Notes");
-    noteGroup.appendChild(createRibbonButton("New Note", "💬 New Note", () => emit("NewNote")));
-    noteGroup.appendChild(createRibbonButton("Show All Notes", "Show All Notes", () => emit("ShowAllNotes"), true));
+    const noteGroup = createRibbonGroup("Notes & Stats");
+    noteGroup.appendChild(createRibbonButton("New Note", "💬 New Note", () => emit("NewNote"), false, "calc-btn-new-note"));
+    noteGroup.appendChild(createRibbonButton("Show All Notes", "Show All Notes", () => emit("ShowAllNotes"), true, "calc-btn-show-all-notes"));
+    noteGroup.appendChild(createRibbonButton("Workbook Statistics", "📊 Workbook Stats", () => emit("WorkbookStatistics"), false, "calc-btn-workbook-stats"));
     body.appendChild(noteGroup);
 
     // 4. Copilot (Subphase 20.1.3)
@@ -462,9 +465,9 @@ export class CalcRibbon implements AppRibbonComponent {
     const viewsGroup = createRibbonGroup("Workbook Views");
     const viewsRow = document.createElement("div");
     viewsRow.className = "ribbon-group-row";
-    viewsRow.appendChild(createRibbonButton("Normal View", "▦ Normal", () => emit("ViewNormal")));
-    viewsRow.appendChild(createRibbonButton("Page Break Preview", "📑 Page Break", () => emit("ViewPageBreak")));
-    viewsRow.appendChild(createRibbonButton("Page Layout", "📄 Page Layout", () => emit("ViewPageLayout")));
+    viewsRow.appendChild(createRibbonButton("Normal View", "▦ Normal", () => emit("ViewNormal"), false, "calc-btn-view-normal"));
+    viewsRow.appendChild(createRibbonButton("Page Break Preview", "📑 Page Break", () => emit("ViewPageBreak"), false, "calc-btn-view-pagebreak"));
+    viewsRow.appendChild(createRibbonButton("Page Layout", "📄 Page Layout", () => emit("ViewPageLayout"), false, "calc-btn-view-pagelayout"));
     viewsGroup.appendChild(viewsRow);
     body.appendChild(viewsGroup);
 
@@ -472,9 +475,9 @@ export class CalcRibbon implements AppRibbonComponent {
     const showGroup = createRibbonGroup("Show");
     const showRow = document.createElement("div");
     showRow.className = "ribbon-group-row";
-    showRow.appendChild(createRibbonButton("Formula Bar", "☑ Formula Bar", () => emit("ToggleFormulaBar"), true));
-    showRow.appendChild(createRibbonButton("Gridlines", "☑ Gridlines", () => emit("ToggleGridlines"), true));
-    showRow.appendChild(createRibbonButton("Headings", "☑ Headings", () => emit("ToggleHeadings"), true));
+    showRow.appendChild(createRibbonButton("Formula Bar", "☑ Formula Bar", () => emit("ToggleFormulaBar"), true, "calc-btn-toggle-formula-bar"));
+    showRow.appendChild(createRibbonButton("Gridlines", "☑ Gridlines", () => emit("ToggleGridlines"), true, "calc-btn-toggle-gridlines"));
+    showRow.appendChild(createRibbonButton("Headings", "☑ Headings", () => emit("ToggleHeadings"), true, "calc-btn-toggle-headings"));
     showGroup.appendChild(showRow);
     body.appendChild(showGroup);
 
@@ -482,10 +485,10 @@ export class CalcRibbon implements AppRibbonComponent {
     const zoomGroup = createRibbonGroup("Zoom");
     const zoomRow = document.createElement("div");
     zoomRow.className = "ribbon-group-row";
-    zoomRow.appendChild(createRibbonButton("100%", "🔍 100%", () => emit("Zoom100")));
-    zoomRow.appendChild(createRibbonButton("Zoom to Selection", "🎯 Selection", () => emit("ZoomToSelection")));
-    zoomRow.appendChild(createRibbonButton("Zoom In", "+ In", () => emit("ZoomIn")));
-    zoomRow.appendChild(createRibbonButton("Zoom Out", "- Out", () => emit("ZoomOut")));
+    zoomRow.appendChild(createRibbonButton("100%", "🔍 100%", () => emit("Zoom100"), false, "calc-btn-zoom-100"));
+    zoomRow.appendChild(createRibbonButton("Zoom to Selection", "🎯 Selection", () => emit("ZoomToSelection"), false, "calc-btn-zoom-selection"));
+    zoomRow.appendChild(createRibbonButton("Zoom In", "+ In", () => emit("ZoomIn"), false, "calc-btn-zoom-in"));
+    zoomRow.appendChild(createRibbonButton("Zoom Out", "- Out", () => emit("ZoomOut"), false, "calc-btn-zoom-out"));
     zoomGroup.appendChild(zoomRow);
     body.appendChild(zoomGroup);
 
@@ -493,10 +496,11 @@ export class CalcRibbon implements AppRibbonComponent {
     const winGroup = createRibbonGroup("Window");
     const winRow = document.createElement("div");
     winRow.className = "ribbon-group-row";
-    winRow.appendChild(createRibbonButton("Freeze Panes", "❄️ Freeze Panes", () => emit("FreezePanes")));
-    winRow.appendChild(createRibbonButton("Freeze Top Row", "Top Row", () => emit("FreezeTopRow")));
-    winRow.appendChild(createRibbonButton("Freeze First Col", "First Col", () => emit("FreezeFirstColumn")));
-    winRow.appendChild(createRibbonButton("Split", "✂️ Split", () => emit("SplitWindow"), true));
+    winRow.appendChild(createRibbonButton("Freeze Panes", "❄️ Freeze Panes", () => emit("FreezePanes"), false, "calc-btn-freeze-panes"));
+    winRow.appendChild(createRibbonButton("Freeze Top Row", "Top Row", () => emit("FreezeTopRow"), false, "calc-btn-freeze-top-row"));
+    winRow.appendChild(createRibbonButton("Freeze First Col", "First Col", () => emit("FreezeFirstColumn"), false, "calc-btn-freeze-first-col"));
+    winRow.appendChild(createRibbonButton("Unfreeze Panes", "Unfreeze", () => emit("UnfreezePanes"), false, "calc-btn-unfreeze-panes"));
+    winRow.appendChild(createRibbonButton("Split", "✂️ Split", () => emit("SplitWindow"), true, "calc-btn-split-window"));
     winGroup.appendChild(winRow);
     body.appendChild(winGroup);
   }

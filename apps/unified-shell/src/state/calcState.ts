@@ -4,9 +4,16 @@ export interface CellSparkline {
   color?: string;
 }
 
+export interface DataValidationRule {
+  type: "list" | "whole" | "date";
+  allow?: string[];
+  min?: number;
+  max?: number;
+}
+
 export interface CellData {
   raw: string;
-  computed: string | number;
+  computed: string | number | boolean;
   format?: string;
   decimals?: number;
   bold?: boolean;
@@ -22,6 +29,7 @@ export interface CellData {
   bgColor?: string;
   comment?: string;
   sparkline?: CellSparkline;
+  validation?: DataValidationRule;
 }
 
 export interface GridRange {
@@ -89,6 +97,10 @@ export interface SheetData {
   printGridlines?: boolean;
   printHeadings?: boolean;
   tableRange?: GridRange | null;
+  isProtected?: boolean;
+  password?: string;
+  viewMode?: "normal" | "pagebreak" | "pagelayout";
+  rowGroups?: { startRow: number; endRow: number }[];
 }
 
 export function formatCellValue(cell: CellData): string {
@@ -255,6 +267,12 @@ export class CalcState {
   internalClipboardText: string = "";
   showFormulas: boolean = false;
   zoom: number = 1.0;
+  workbookProtected: boolean = false;
+  workbookPassword?: string;
+  viewMode: "normal" | "pagebreak" | "pagelayout" = "normal";
+  isSplitWindow: boolean = false;
+  showAllNotes: boolean = false;
+  definedNames: Map<string, string | number> = new Map();
 
   public resetToBlank(sheetName = "Sheet1"): void {
     this.sheets = [
@@ -272,6 +290,8 @@ export class CalcState {
         showGridlines: true,
         showHeadings: true,
         showFormulaBar: true,
+        isProtected: false,
+        viewMode: "normal",
       },
     ];
     this.activeSheetId = "sheet-1";
@@ -284,6 +304,12 @@ export class CalcState {
     this.redoStack = [];
     this.showFormulas = false;
     this.zoom = 1.0;
+    this.workbookProtected = false;
+    this.workbookPassword = undefined;
+    this.viewMode = "normal";
+    this.isSplitWindow = false;
+    this.showAllNotes = false;
+    this.definedNames = new Map();
   }
 
   public exportCSV(): string {
@@ -377,12 +403,16 @@ export class CalcState {
     return this.getActiveSheet().charts || [];
   }
 
-  setCellValue(coord: string, val: string) {
+  setCellValue(coord: string, val: string, force = false): boolean {
+    if (this.isSheetProtected() && !force) {
+      return false;
+    }
     this.selectedCell = coord;
     this.commitFormula(val);
+    return true;
   }
 
-  getCellValue(coord: string): string | number | undefined {
+  getCellValue(coord: string): string | number | boolean | undefined {
     return this.cells.get(coord)?.computed;
   }
 
@@ -809,7 +839,7 @@ export class CalcState {
 
   commitFormula(val: string) {
     this.commitSnapshot();
-    let computed: string | number = val;
+    let computed: string | number | boolean = val;
     if (val.startsWith("=")) {
       computed = this.evaluateFormula(val);
     } else {
@@ -858,11 +888,20 @@ export class CalcState {
     }
   }
 
-  evaluateFormula(expr: string): string | number {
+  evaluateFormula(expr: string): string | number | boolean {
     const raw = expr.trim();
     if (!raw.startsWith("=")) return raw;
 
-    const content = raw.slice(1).trim();
+    let content = raw.slice(1).trim();
+
+    // 0. Defined Names substitution (e.g. TaxRate -> 0.18)
+    if (this.definedNames && this.definedNames.size > 0) {
+      this.definedNames.forEach((val, name) => {
+        const reg = new RegExp(`\\b${name}\\b`, "gi");
+        content = content.replace(reg, String(val));
+      });
+    }
+
     const upper = content.toUpperCase();
 
     // 1. Statistical & Math functions
@@ -889,6 +928,158 @@ export class CalcState {
       }
     }
 
+    // ROUND(number, [digits])
+    if (upper.startsWith("ROUND(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      const n = Number(this.resolveFormulaValue(args[0]));
+      const d = args.length > 1 ? Number(this.resolveFormulaValue(args[1])) : 0;
+      if (!isNaN(n) && !isNaN(d)) {
+        const factor = Math.pow(10, d);
+        return Math.round(n * factor) / factor;
+      }
+    }
+
+    // RAND()
+    if (upper === "RAND()") {
+      return Math.round(Math.random() * 10000) / 10000;
+    }
+
+    // RANDBETWEEN(min, max)
+    if (upper.startsWith("RANDBETWEEN(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      const min = Math.ceil(Number(this.resolveFormulaValue(args[0])));
+      const max = Math.floor(Number(this.resolveFormulaValue(args[1])));
+      if (!isNaN(min) && !isNaN(max)) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+      }
+    }
+
+    // MEDIAN(range)
+    if (upper.startsWith("MEDIAN(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const nums = this.getNumbersFromRangeArg(inner).sort((a, b) => a - b);
+      if (nums.length === 0) return 0;
+      const mid = Math.floor(nums.length / 2);
+      return nums.length % 2 !== 0 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2;
+    }
+
+    // STDEV(range)
+    if (upper.startsWith("STDEV(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const nums = this.getNumbersFromRangeArg(inner);
+      if (nums.length <= 1) return 0;
+      const avg = nums.reduce((a, b) => a + b, 0) / nums.length;
+      const sumSq = nums.reduce((a, b) => a + Math.pow(b - avg, 2), 0);
+      return Math.round(Math.sqrt(sumSq / (nums.length - 1)) * 10000) / 10000;
+    }
+
+    // COUNTIF(range, criteria)
+    if (upper.startsWith("COUNTIF(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      if (args.length >= 2) {
+        const rangeCoords = this.getCoordsFromRange(args[0]);
+        const criteria = this.resolveFormulaValue(args[1]);
+        let count = 0;
+        for (const coord of rangeCoords) {
+          const cell = this.cells.get(coord);
+          const val = cell ? (cell.computed !== undefined ? cell.computed : cell.raw) : "";
+          if (this.matchesCriteria(val, criteria)) count++;
+        }
+        return count;
+      }
+    }
+
+    // SUMIF(range, criteria, [sum_range])
+    if (upper.startsWith("SUMIF(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      if (args.length >= 2) {
+        const rangeCoords = this.getCoordsFromRange(args[0]);
+        const sumCoords = args.length > 2 ? this.getCoordsFromRange(args[2]) : rangeCoords;
+        const criteria = this.resolveFormulaValue(args[1]);
+        let sum = 0;
+        for (let i = 0; i < rangeCoords.length; i++) {
+          const coord = rangeCoords[i];
+          const cell = this.cells.get(coord);
+          const val = cell ? (cell.computed !== undefined ? cell.computed : cell.raw) : "";
+          if (this.matchesCriteria(val, criteria)) {
+            const sumCoord = sumCoords[i] || coord;
+            const sumCell = this.cells.get(sumCoord);
+            const n = Number(sumCell ? (sumCell.computed !== undefined ? sumCell.computed : sumCell.raw) : 0);
+            if (!isNaN(n)) sum += n;
+          }
+        }
+        return sum;
+      }
+    }
+
+    // SUMIFS(sum_range, crit_range1, crit1, ...)
+    if (upper.startsWith("SUMIFS(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      if (args.length >= 3 && args.length % 2 === 1) {
+        const sumCoords = this.getCoordsFromRange(args[0]);
+        const pairs: { coords: string[]; crit: string | number | boolean }[] = [];
+        for (let i = 1; i < args.length; i += 2) {
+          pairs.push({
+            coords: this.getCoordsFromRange(args[i]),
+            crit: this.resolveFormulaValue(args[i + 1]),
+          });
+        }
+        let total = 0;
+        for (let idx = 0; idx < sumCoords.length; idx++) {
+          let allMatch = true;
+          for (const p of pairs) {
+            const checkCoord = p.coords[idx];
+            const cell = checkCoord ? this.cells.get(checkCoord) : null;
+            const val = cell ? (cell.computed !== undefined ? cell.computed : cell.raw) : "";
+            if (!this.matchesCriteria(val, p.crit)) {
+              allMatch = false;
+              break;
+            }
+          }
+          if (allMatch) {
+            const sc = sumCoords[idx];
+            const sCell = this.cells.get(sc);
+            const num = Number(sCell ? (sCell.computed !== undefined ? sCell.computed : sCell.raw) : 0);
+            if (!isNaN(num)) total += num;
+          }
+        }
+        return total;
+      }
+    }
+
+    // AVERAGEIF(range, criteria, [avg_range])
+    if (upper.startsWith("AVERAGEIF(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      if (args.length >= 2) {
+        const rangeCoords = this.getCoordsFromRange(args[0]);
+        const avgCoords = args.length > 2 ? this.getCoordsFromRange(args[2]) : rangeCoords;
+        const criteria = this.resolveFormulaValue(args[1]);
+        let sum = 0;
+        let count = 0;
+        for (let i = 0; i < rangeCoords.length; i++) {
+          const coord = rangeCoords[i];
+          const cell = this.cells.get(coord);
+          const val = cell ? (cell.computed !== undefined ? cell.computed : cell.raw) : "";
+          if (this.matchesCriteria(val, criteria)) {
+            const avgCoord = avgCoords[i] || coord;
+            const avgCell = this.cells.get(avgCoord);
+            const n = Number(avgCell ? (avgCell.computed !== undefined ? avgCell.computed : avgCell.raw) : 0);
+            if (!isNaN(n)) {
+              sum += n;
+              count++;
+            }
+          }
+        }
+        return count > 0 ? Math.round((sum / count) * 10000) / 10000 : 0;
+      }
+    }
+
     // 2. Logical IF function: =IF(condition, true_value, false_value)
     if (upper.startsWith("IF(") && upper.endsWith(")")) {
       const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
@@ -903,7 +1094,314 @@ export class CalcState {
       }
     }
 
-    // 3. Lookup function: =VLOOKUP(lookup_value, table_range, col_index, [range_lookup])
+    if (upper.startsWith("AND(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      return args.every((a) => this.evaluateCondition(a));
+    }
+
+    if (upper.startsWith("OR(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      return args.some((a) => this.evaluateCondition(a));
+    }
+
+    if (upper.startsWith("NOT(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      return !this.evaluateCondition(inner);
+    }
+
+    if (upper.startsWith("IFERROR(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      if (args.length >= 2) {
+        try {
+          const res = this.resolveFormulaValue(args[0]);
+          const str = String(res);
+          if (str.startsWith("#") || str === "NaN" || res === undefined || res === null) {
+            return this.resolveFormulaValue(args[1]);
+          }
+          return res;
+        } catch {
+          return this.resolveFormulaValue(args[1]);
+        }
+      }
+    }
+
+    if (upper.startsWith("IFS(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      for (let i = 0; i < args.length; i += 2) {
+        if (this.evaluateCondition(args[i])) {
+          return this.resolveFormulaValue(args[i + 1]);
+        }
+      }
+      return "#N/A";
+    }
+
+    // 3. Text Functions
+    if ((upper.startsWith("CONCAT(") || upper.startsWith("CONCATENATE(")) && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      let out = "";
+      for (const a of args) {
+        if (a.includes(":")) {
+          const coords = this.getCoordsFromRange(a);
+          for (const c of coords) {
+            const cell = this.cells.get(c);
+            out += cell ? String(cell.computed !== undefined ? cell.computed : cell.raw) : "";
+          }
+        } else {
+          out += String(this.resolveFormulaValue(a));
+        }
+      }
+      return out;
+    }
+
+    if (upper.startsWith("LEFT(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      const str = String(this.resolveFormulaValue(args[0]));
+      const n = args.length > 1 ? Number(this.resolveFormulaValue(args[1])) : 1;
+      return str.slice(0, n);
+    }
+
+    if (upper.startsWith("RIGHT(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      const str = String(this.resolveFormulaValue(args[0]));
+      const n = args.length > 1 ? Number(this.resolveFormulaValue(args[1])) : 1;
+      return n >= str.length ? str : str.slice(str.length - n);
+    }
+
+    if (upper.startsWith("MID(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      const str = String(this.resolveFormulaValue(args[0]));
+      const start = Math.max(1, Number(this.resolveFormulaValue(args[1]))) - 1;
+      const len = Number(this.resolveFormulaValue(args[2]));
+      return str.substr(start, len);
+    }
+
+    if (upper.startsWith("LEN(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const str = String(this.resolveFormulaValue(inner));
+      return str.length;
+    }
+
+    if (upper.startsWith("UPPER(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      return String(this.resolveFormulaValue(inner)).toUpperCase();
+    }
+
+    if (upper.startsWith("LOWER(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      return String(this.resolveFormulaValue(inner)).toLowerCase();
+    }
+
+    if (upper.startsWith("TRIM(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      return String(this.resolveFormulaValue(inner)).trim();
+    }
+
+    if (upper.startsWith("SUBSTITUTE(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      const text = String(this.resolveFormulaValue(args[0]));
+      const oldT = String(this.resolveFormulaValue(args[1]));
+      const newT = String(this.resolveFormulaValue(args[2]));
+      return text.split(oldT).join(newT);
+    }
+
+    // 4. Date & Time Functions
+    if (upper === "TODAY()") {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+
+    if (upper === "NOW()") {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    }
+
+    if (upper.startsWith("YEAR(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const val = String(this.resolveFormulaValue(inner));
+      const parsed = new Date(val);
+      return !isNaN(parsed.getFullYear()) ? parsed.getFullYear() : 0;
+    }
+
+    if (upper.startsWith("MONTH(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const val = String(this.resolveFormulaValue(inner));
+      const parsed = new Date(val);
+      return !isNaN(parsed.getMonth()) ? parsed.getMonth() + 1 : 0;
+    }
+
+    if (upper.startsWith("DAY(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const val = String(this.resolveFormulaValue(inner));
+      const parsed = new Date(val);
+      return !isNaN(parsed.getDate()) ? parsed.getDate() : 0;
+    }
+
+    if (upper.startsWith("DATEDIF(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      const d1 = new Date(String(this.resolveFormulaValue(args[0])));
+      const d2 = new Date(String(this.resolveFormulaValue(args[1])));
+      const unit = String(this.resolveFormulaValue(args[2])).toUpperCase();
+      const diffMs = d2.getTime() - d1.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      if (unit === "D") return diffDays;
+      if (unit === "M") return (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
+      if (unit === "Y") return d2.getFullYear() - d1.getFullYear();
+      return diffDays;
+    }
+
+    // 5. Financial Functions
+    if (upper.startsWith("PMT(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      const rate = Number(this.resolveFormulaValue(args[0]));
+      const nper = Number(this.resolveFormulaValue(args[1]));
+      const pv = Number(this.resolveFormulaValue(args[2]));
+      if (rate === 0) return Math.round((-pv / nper) * 100) / 100;
+      const pmt = (rate * pv) / (1 - Math.pow(1 + rate, -nper));
+      return -Math.round(pmt * 100) / 100;
+    }
+
+    if (upper.startsWith("FV(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      const rate = Number(this.resolveFormulaValue(args[0]));
+      const nper = Number(this.resolveFormulaValue(args[1]));
+      const pmt = Number(this.resolveFormulaValue(args[2]));
+      if (rate === 0) return -(pmt * nper);
+      const fv = -(pmt * (Math.pow(1 + rate, nper) - 1)) / rate;
+      return Math.round(fv * 100) / 100;
+    }
+
+    if (upper.startsWith("PV(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      const rate = Number(this.resolveFormulaValue(args[0]));
+      const nper = Number(this.resolveFormulaValue(args[1]));
+      const pmt = Number(this.resolveFormulaValue(args[2]));
+      if (rate === 0) return -(pmt * nper);
+      const pv = -(pmt * (1 - Math.pow(1 + rate, -nper))) / rate;
+      return Math.round(pv * 100) / 100;
+    }
+
+    if (upper.startsWith("NPV(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      const rate = Number(this.resolveFormulaValue(args[0]));
+      const values: number[] = [];
+      for (let i = 1; i < args.length; i++) {
+        if (args[i].includes(":")) {
+          values.push(...this.getNumbersFromRangeArg(args[i]));
+        } else {
+          const n = Number(this.resolveFormulaValue(args[i]));
+          if (!isNaN(n)) values.push(n);
+        }
+      }
+      let npv = 0;
+      for (let t = 0; t < values.length; t++) {
+        npv += values[t] / Math.pow(1 + rate, t + 1);
+      }
+      return Math.round(npv * 100) / 100;
+    }
+
+    if (upper.startsWith("IRR(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      const values = this.getNumbersFromRangeArg(args[0]);
+      if (values.length < 2) return "#VALUE!";
+      let rate = args.length > 1 ? Number(this.resolveFormulaValue(args[1])) : 0.1;
+      for (let iter = 0; iter < 100; iter++) {
+        let npv = 0;
+        let dNpv = 0;
+        for (let t = 0; t < values.length; t++) {
+          npv += values[t] / Math.pow(1 + rate, t);
+          dNpv -= (t * values[t]) / Math.pow(1 + rate, t + 1);
+        }
+        if (Math.abs(dNpv) < 1e-10) break;
+        const newRate = rate - npv / dNpv;
+        if (Math.abs(newRate - rate) < 1e-6) {
+          rate = newRate;
+          break;
+        }
+        rate = newRate;
+      }
+      return Math.round(rate * 10000) / 10000;
+    }
+
+    // 6. Lookup & Reference
+    if (upper.startsWith("XLOOKUP(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      if (args.length >= 3) {
+        const lookupVal = this.resolveFormulaValue(args[0]);
+        const lookCoords = this.getCoordsFromRange(args[1]);
+        const retCoords = this.getCoordsFromRange(args[2]);
+        const notFound = args.length > 3 ? this.resolveFormulaValue(args[3]) : "#N/A";
+
+        const searchStr = String(lookupVal).trim().toLowerCase();
+        let matchedIdx = -1;
+        for (let i = 0; i < lookCoords.length; i++) {
+          const cell = this.cells.get(lookCoords[i]);
+          const val = cell ? (cell.computed !== undefined ? cell.computed : cell.raw) : "";
+          if (String(val).trim().toLowerCase() === searchStr) {
+            matchedIdx = i;
+            break;
+          }
+        }
+        if (matchedIdx >= 0 && matchedIdx < retCoords.length) {
+          const retCell = this.cells.get(retCoords[matchedIdx]);
+          return retCell ? (retCell.computed !== undefined ? retCell.computed : retCell.raw) : "";
+        }
+        return notFound;
+      }
+    }
+
+    if (upper.startsWith("INDEX(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      if (args.length >= 2) {
+        const rangeStr = args[0].replace(/\$/g, "");
+        const rowNum = Number(this.resolveFormulaValue(args[1]));
+        const colNum = args.length > 2 ? Number(this.resolveFormulaValue(args[2])) : 1;
+        const [start, end] = rangeStr.split(":");
+        const c1 = this.coordToColRow(start);
+        const c2 = end ? this.coordToColRow(end) : c1;
+        const targetRow = Math.min(c1.row, c2.row) + (rowNum - 1);
+        const targetCol = Math.min(c1.col, c2.col) + (colNum - 1);
+        const coord = `${this.colIndexToLetter(targetCol)}${targetRow + 1}`;
+        const cell = this.cells.get(coord);
+        return cell ? (cell.computed !== undefined ? cell.computed : cell.raw) : "";
+      }
+    }
+
+    if (upper.startsWith("MATCH(") && upper.endsWith(")")) {
+      const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
+      const args = this.splitFormulaArgs(inner);
+      if (args.length >= 2) {
+        const lookupVal = this.resolveFormulaValue(args[0]);
+        const coords = this.getCoordsFromRange(args[1]);
+        const searchStr = String(lookupVal).trim().toLowerCase();
+        for (let i = 0; i < coords.length; i++) {
+          const cell = this.cells.get(coords[i]);
+          const val = cell ? (cell.computed !== undefined ? cell.computed : cell.raw) : "";
+          if (String(val).trim().toLowerCase() === searchStr) {
+            return i + 1;
+          }
+        }
+        return "#N/A";
+      }
+    }
+
+    // 7. Lookup function: =VLOOKUP(lookup_value, table_range, col_index, [range_lookup])
     if (upper.startsWith("VLOOKUP(") && upper.endsWith(")")) {
       const inner = content.slice(content.indexOf("(") + 1, content.lastIndexOf(")")).trim();
       const args = this.splitFormulaArgs(inner);
@@ -1073,7 +1571,7 @@ export class CalcState {
     return Boolean(single);
   }
 
-  private resolveFormulaValue(valStr: string): string | number {
+  private resolveFormulaValue(valStr: string): string | number | boolean {
     const s = valStr.trim();
     if (!s) return "";
     if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
@@ -1090,6 +1588,13 @@ export class CalcState {
     const n = Number(s);
     if (!isNaN(n)) {
       return n;
+    }
+    if (/^[0-9+\-*/().\s^%]+$/.test(s)) {
+      try {
+        const jsExpr = s.replace(/\^/g, "**");
+        const res = new Function(`return (${jsExpr});`)();
+        if (typeof res === "number" && !isNaN(res)) return res;
+      } catch {}
     }
     return s;
   }
@@ -1128,6 +1633,56 @@ export class CalcState {
       }
     }
     return nums;
+  }
+
+  public getCoordsFromRange(rangeStr: string): string[] {
+    const clean = rangeStr.trim().replace(/\$/g, "").toUpperCase();
+    const coords: string[] = [];
+    if (clean.includes(":")) {
+      const [start, end] = clean.split(":");
+      const c1 = this.coordToColRow(start);
+      const c2 = this.coordToColRow(end);
+      for (let r = Math.min(c1.row, c2.row); r <= Math.max(c1.row, c2.row); r++) {
+        for (let c = Math.min(c1.col, c2.col); c <= Math.max(c1.col, c2.col); c++) {
+          coords.push(`${this.colIndexToLetter(c)}${r + 1}`);
+        }
+      }
+    } else {
+      coords.push(clean);
+    }
+    return coords;
+  }
+
+  public matchesCriteria(cellVal: unknown, criteria: unknown): boolean {
+    const cStr = String(criteria).trim();
+    const vNum = Number(cellVal);
+    const isVNum = !isNaN(vNum) && cellVal !== "" && cellVal !== null && cellVal !== undefined;
+
+    if (cStr.startsWith(">=")) {
+      const num = Number(cStr.slice(2).trim());
+      return isVNum && vNum >= num;
+    }
+    if (cStr.startsWith("<=")) {
+      const num = Number(cStr.slice(2).trim());
+      return isVNum && vNum <= num;
+    }
+    if (cStr.startsWith("<>")) {
+      const num = Number(cStr.slice(2).trim());
+      return isVNum ? vNum !== num : String(cellVal).toLowerCase() !== cStr.slice(2).trim().toLowerCase();
+    }
+    if (cStr.startsWith(">")) {
+      const num = Number(cStr.slice(1).trim());
+      return isVNum && vNum > num;
+    }
+    if (cStr.startsWith("<")) {
+      const num = Number(cStr.slice(1).trim());
+      return isVNum && vNum < num;
+    }
+    if (cStr.startsWith("=")) {
+      const target = cStr.slice(1).trim();
+      return String(cellVal).toLowerCase() === target.toLowerCase();
+    }
+    return String(cellVal).toLowerCase() === cStr.toLowerCase();
   }
 
   updateFormulaReferences() {
@@ -1359,7 +1914,7 @@ export class CalcState {
         const targetRow = start.row + rIdx;
         const cellCoord = `${this.colIndexToLetter(targetCol)}${targetRow + 1}`;
 
-        let computed: string | number = val;
+        let computed: string | number | boolean = val;
         if (val.startsWith("=")) {
           computed = this.evaluateFormula(val);
         } else {
@@ -1686,11 +2241,11 @@ export class CalcState {
     }
 
     const sortCol = sortColIndex !== undefined ? sortColIndex : target.minCol;
-    const rowRecords: { rowIdx: number; cells: Map<number, CellData>; key: string | number }[] = [];
+    const rowRecords: { rowIdx: number; cells: Map<number, CellData>; key: string | number | boolean }[] = [];
 
     for (let r = target.minRow; r <= target.maxRow; r++) {
       const rowMap = new Map<number, CellData>();
-      let sortKey: string | number = "";
+      let sortKey: string | number | boolean = "";
       for (let c = target.minCol; c <= target.maxCol; c++) {
         const coord = `${this.colIndexToLetter(c)}${r + 1}`;
         const cell = this.cells.get(coord);
@@ -2392,6 +2947,487 @@ export class CalcState {
       cell.raw = "";
       cell.computed = "";
     });
+  }
+
+  public defineName(name: string, value: string | number): void {
+    this.definedNames.set(name, value);
+    this.recalculateAll();
+  }
+
+  public getName(name: string): string | number | undefined {
+    return this.definedNames.get(name);
+  }
+
+  public getAllNames(): { name: string; value: string | number }[] {
+    const list: { name: string; value: string | number }[] = [];
+    this.definedNames.forEach((val, name) => {
+      list.push({ name, value: val });
+    });
+    return list;
+  }
+
+  public deleteName(name: string): boolean {
+    const res = this.definedNames.delete(name);
+    if (res) this.recalculateAll();
+    return res;
+  }
+
+  public tracePrecedents(coord?: string): { range: GridRange; color: string }[] {
+    const target = coord || this.selectedCell;
+    const cell = this.cells.get(target);
+    this.formulaReferences = [];
+    if (!cell || !cell.raw || !cell.raw.startsWith("=")) return [];
+
+    const text = cell.raw.slice(1);
+    const regex = /(\$?[A-Z]+\$?[0-9]+)(?::(\$?[A-Z]+\$?[0-9]+))?/gi;
+    const palette = ["#2563eb", "#059669", "#d97706", "#7c3aed", "#e11d48"];
+    let match: RegExpExecArray | null;
+    let idx = 0;
+
+    while ((match = regex.exec(text)) !== null) {
+      const s = match[1].replace(/\$/g, "");
+      const e = match[2] ? match[2].replace(/\$/g, "") : s;
+      const p1 = this.coordToColRow(s);
+      const p2 = this.coordToColRow(e);
+      this.formulaReferences.push({
+        range: {
+          minRow: Math.min(p1.row, p2.row),
+          maxRow: Math.max(p1.row, p2.row),
+          minCol: Math.min(p1.col, p2.col),
+          maxCol: Math.max(p1.col, p2.col),
+        },
+        color: palette[idx % palette.length],
+      });
+      idx++;
+    }
+    return this.formulaReferences;
+  }
+
+  public traceDependents(coord?: string): { range: GridRange; color: string }[] {
+    const target = (coord || this.selectedCell).toUpperCase().replace(/\$/g, "");
+    this.formulaReferences = [];
+
+    this.cells.forEach((cell, cellCoord) => {
+      if (cell.raw && cell.raw.startsWith("=")) {
+        const text = cell.raw.toUpperCase().replace(/\$/g, "");
+        const regex = new RegExp(`\\b${target}\\b`, "i");
+        if (regex.test(text)) {
+          const cr = this.coordToColRow(cellCoord);
+          this.formulaReferences.push({
+            range: { minRow: cr.row, maxRow: cr.row, minCol: cr.col, maxCol: cr.col },
+            color: "#dc2626",
+          });
+        }
+      }
+    });
+    return this.formulaReferences;
+  }
+
+  public removeArrows(): void {
+    this.formulaReferences = [];
+  }
+
+  public importFromCsv(csvText: string, startCoord = "A1"): { rows: number; cols: number } {
+    const start = this.coordToColRow(startCoord);
+    const lines = csvText.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    let maxCols = 0;
+
+    lines.forEach((line, rIdx) => {
+      const tokens: string[] = [];
+      let cur = "";
+      let inQuote = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          inQuote = !inQuote;
+        } else if (ch === ',' && !inQuote) {
+          tokens.push(cur.trim());
+          cur = "";
+        } else {
+          cur += ch;
+        }
+      }
+      tokens.push(cur.trim());
+
+      if (tokens.length > maxCols) maxCols = tokens.length;
+
+      tokens.forEach((tok, cIdx) => {
+        const coord = `${this.colIndexToLetter(start.col + cIdx)}${start.row + rIdx + 1}`;
+        this.setCellValue(coord, tok);
+      });
+    });
+
+    this.recalculateAll();
+    return { rows: lines.length, cols: maxCols };
+  }
+
+  public importFromJson(jsonText: string, startCoord = "A1"): { rows: number; cols: number } {
+    const start = this.coordToColRow(startCoord);
+    let data: unknown;
+    try {
+      data = JSON.parse(jsonText);
+    } catch {
+      return { rows: 0, cols: 0 };
+    }
+
+    if (Array.isArray(data)) {
+      if (data.length === 0) return { rows: 0, cols: 0 };
+      if (typeof data[0] === "object" && data[0] !== null && !Array.isArray(data[0])) {
+        const headers = Object.keys(data[0]);
+        headers.forEach((h, cIdx) => {
+          const coord = `${this.colIndexToLetter(start.col + cIdx)}${start.row + 1}`;
+          this.setCellValue(coord, h);
+          const cell = this.getCell(coord);
+          cell.bold = true;
+          cell.bgColor = "#107c41";
+          cell.color = "#ffffff";
+        });
+
+        data.forEach((item: Record<string, unknown>, rIdx) => {
+          headers.forEach((h, cIdx) => {
+            const coord = `${this.colIndexToLetter(start.col + cIdx)}${start.row + rIdx + 2}`;
+            const val = item[h] !== undefined ? String(item[h]) : "";
+            this.setCellValue(coord, val);
+          });
+        });
+        this.recalculateAll();
+        return { rows: data.length + 1, cols: headers.length };
+      } else if (Array.isArray(data[0])) {
+        let maxCols = 0;
+        data.forEach((rowArr: unknown[], rIdx) => {
+          if (rowArr.length > maxCols) maxCols = rowArr.length;
+          rowArr.forEach((val, cIdx) => {
+            const coord = `${this.colIndexToLetter(start.col + cIdx)}${start.row + rIdx + 1}`;
+            this.setCellValue(coord, String(val ?? ""));
+          });
+        });
+        this.recalculateAll();
+        return { rows: data.length, cols: maxCols };
+      }
+    }
+    return { rows: 0, cols: 0 };
+  }
+
+  public customSort(sortSpecs: { col: number; ascending: boolean }[], range?: GridRange): void {
+    const target = this.getTargetRange(range);
+    const rowRecords: { rowIdx: number; cells: Map<number, CellData> }[] = [];
+
+    for (let r = target.minRow; r <= target.maxRow; r++) {
+      const rowMap = new Map<number, CellData>();
+      for (let c = target.minCol; c <= target.maxCol; c++) {
+        const coord = `${this.colIndexToLetter(c)}${r + 1}`;
+        const cell = this.cells.get(coord);
+        if (cell) rowMap.set(c, { ...cell });
+      }
+      rowRecords.push({ rowIdx: r, cells: rowMap });
+    }
+
+    rowRecords.sort((a, b) => {
+      for (const spec of sortSpecs) {
+        const cellA = a.cells.get(spec.col);
+        const cellB = b.cells.get(spec.col);
+        const valA = cellA ? (cellA.computed !== undefined ? cellA.computed : cellA.raw) : "";
+        const valB = cellB ? (cellB.computed !== undefined ? cellB.computed : cellB.raw) : "";
+
+        const numA = Number(valA);
+        const numB = Number(valB);
+        const isNumA = !isNaN(numA) && typeof valA !== "boolean" && String(valA).trim() !== "";
+        const isNumB = !isNaN(numB) && typeof valB !== "boolean" && String(valB).trim() !== "";
+
+        let cmp = 0;
+        if (isNumA && isNumB) {
+          cmp = numA - numB;
+        } else {
+          cmp = String(valA).localeCompare(String(valB), undefined, { numeric: true, sensitivity: "base" });
+        }
+        if (cmp !== 0) {
+          return spec.ascending ? cmp : -cmp;
+        }
+      }
+      return 0;
+    });
+
+    for (let i = 0; i < rowRecords.length; i++) {
+      const destRow = target.minRow + i;
+      const rec = rowRecords[i];
+      for (let c = target.minCol; c <= target.maxCol; c++) {
+        const destCoord = `${this.colIndexToLetter(c)}${destRow + 1}`;
+        const cellData = rec.cells.get(c);
+        if (cellData) {
+          this.cells.set(destCoord, cellData);
+        } else {
+          this.cells.delete(destCoord);
+        }
+      }
+    }
+
+    this.recalculateAll();
+  }
+
+  public setDataValidation(rule: DataValidationRule, range?: GridRange): void {
+    this.forEachCellInRange(range, (cell) => {
+      cell.validation = { ...rule };
+    });
+  }
+
+  public validateCellValue(coord: string, val: unknown): { valid: boolean; error?: string } {
+    const cell = this.cells.get(coord);
+    if (!cell || !cell.validation) return { valid: true };
+
+    const { type, allow, min, max } = cell.validation;
+    const strVal = String(val).trim();
+
+    if (type === "list") {
+      if (allow && allow.length > 0) {
+        const match = allow.some((item) => item.trim().toLowerCase() === strVal.toLowerCase());
+        if (!match) {
+          return { valid: false, error: `Value must be one of: ${allow.join(", ")}` };
+        }
+      }
+    } else if (type === "whole") {
+      const num = Number(strVal);
+      if (isNaN(num) || !Number.isInteger(num)) {
+        return { valid: false, error: "Value must be a whole number" };
+      }
+      if (min !== undefined && num < min) {
+        return { valid: false, error: `Value must be at least ${min}` };
+      }
+      if (max !== undefined && num > max) {
+        return { valid: false, error: `Value must be at most ${max}` };
+      }
+    } else if (type === "date") {
+      const d = new Date(strVal);
+      if (isNaN(d.getTime())) {
+        return { valid: false, error: "Value must be a valid date (YYYY-MM-DD)" };
+      }
+    }
+    return { valid: true };
+  }
+
+  public groupRows(range?: GridRange): void {
+    const target = this.getTargetRange(range);
+    const sheet = this.getActiveSheet();
+    sheet.rowGroups = sheet.rowGroups || [];
+    sheet.rowGroups.push({ startRow: target.minRow, endRow: target.maxRow });
+  }
+
+  public ungroupRows(range?: GridRange): void {
+    const target = this.getTargetRange(range);
+    const sheet = this.getActiveSheet();
+    if (!sheet.rowGroups) return;
+    sheet.rowGroups = sheet.rowGroups.filter(
+      (g) => !(g.startRow >= target.minRow && g.endRow <= target.maxRow)
+    );
+  }
+
+  public insertSubtotals(groupByCol = 0, sumCol = 1, range?: GridRange): void {
+    const target = this.getTargetRange(range);
+    const sheet = this.getActiveSheet();
+
+    const groups: { key: string; rows: number[] }[] = [];
+    let currentKey = "";
+    let currentRows: number[] = [];
+
+    for (let r = target.minRow; r <= target.maxRow; r++) {
+      const keyCoord = `${this.colIndexToLetter(groupByCol)}${r + 1}`;
+      const cell = sheet.cells.get(keyCoord);
+      const key = String(cell ? (cell.computed !== undefined ? cell.computed : cell.raw) : "").trim();
+      if (key !== currentKey) {
+        if (currentRows.length > 0) {
+          groups.push({ key: currentKey, rows: currentRows });
+        }
+        currentKey = key;
+        currentRows = [r];
+      } else {
+        currentRows.push(r);
+      }
+    }
+    if (currentRows.length > 0) {
+      groups.push({ key: currentKey, rows: currentRows });
+    }
+
+    let grandTotal = 0;
+    for (let g = groups.length - 1; g >= 0; g--) {
+      const grp = groups[g];
+      let groupSum = 0;
+      for (const r of grp.rows) {
+        const sumCoord = `${this.colIndexToLetter(sumCol)}${r + 1}`;
+        const c = sheet.cells.get(sumCoord);
+        const val = Number(c ? (c.computed !== undefined ? c.computed : c.raw) : 0);
+        if (!isNaN(val)) groupSum += val;
+      }
+      grandTotal += groupSum;
+
+      const insertAt = grp.rows[grp.rows.length - 1] + 1;
+      this.insertRow(insertAt);
+      const labelCoord = `${this.colIndexToLetter(groupByCol)}${insertAt + 1}`;
+      const totalCoord = `${this.colIndexToLetter(sumCol)}${insertAt + 1}`;
+      sheet.cells.set(labelCoord, {
+        raw: `${grp.key} Total`,
+        computed: `${grp.key} Total`,
+        bold: true,
+        bgColor: "#f1f5f9",
+        borders: "top,bottom",
+      });
+      sheet.cells.set(totalCoord, {
+        raw: String(groupSum),
+        computed: groupSum,
+        bold: true,
+        bgColor: "#f1f5f9",
+        format: "Currency",
+        borders: "top,bottom",
+      });
+    }
+
+    const grandRow = target.maxRow + groups.length + 1;
+    const gLabelCoord = `${this.colIndexToLetter(groupByCol)}${grandRow + 1}`;
+    const gTotalCoord = `${this.colIndexToLetter(sumCol)}${grandRow + 1}`;
+    sheet.cells.set(gLabelCoord, {
+      raw: "Grand Total",
+      computed: "Grand Total",
+      bold: true,
+      bgColor: "#e2e8f0",
+      borders: "bottom",
+    });
+    sheet.cells.set(gTotalCoord, {
+      raw: String(grandTotal),
+      computed: grandTotal,
+      bold: true,
+      bgColor: "#e2e8f0",
+      format: "Currency",
+      borders: "bottom",
+    });
+
+    this.recalculateAll();
+  }
+
+  public goalSeek(
+    targetCoord: string,
+    targetVal: number,
+    changingCoord: string,
+    maxIterations = 100,
+    tolerance = 0.001
+  ): { success: boolean; iterations: number; finalValue: number } {
+    let x0 = Number(this.getCellValue(changingCoord)) || 0;
+    if (x0 === 0) x0 = 1;
+    this.setCellValue(changingCoord, String(x0));
+    let y0 = Number(this.getCellValue(targetCoord)) - targetVal;
+    if (Math.abs(y0) <= tolerance) {
+      return { success: true, iterations: 0, finalValue: x0 };
+    }
+
+    let x1 = x0 + 1;
+    this.setCellValue(changingCoord, String(x1));
+    let y1 = Number(this.getCellValue(targetCoord)) - targetVal;
+
+    for (let i = 0; i < maxIterations; i++) {
+      if (Math.abs(y1) <= tolerance) {
+        return { success: true, iterations: i + 1, finalValue: Math.round(x1 * 10000) / 10000 };
+      }
+      const denom = y1 - y0;
+      if (Math.abs(denom) < 1e-12) break;
+      const xNext = x1 - (y1 * (x1 - x0)) / denom;
+      x0 = x1;
+      y0 = y1;
+      x1 = xNext;
+      this.setCellValue(changingCoord, String(x1));
+      y1 = Number(this.getCellValue(targetCoord)) - targetVal;
+    }
+
+    const success = Math.abs(y1) <= tolerance * 10;
+    return { success, iterations: maxIterations, finalValue: Math.round(x1 * 10000) / 10000 };
+  }
+
+  public isSheetProtected(): boolean {
+    return Boolean(this.getActiveSheet().isProtected);
+  }
+
+  public protectSheet(password?: string): void {
+    const sheet = this.getActiveSheet();
+    sheet.isProtected = true;
+    sheet.password = password;
+  }
+
+  public unprotectSheet(password?: string): boolean {
+    const sheet = this.getActiveSheet();
+    if (sheet.password && sheet.password !== password) return false;
+    sheet.isProtected = false;
+    sheet.password = undefined;
+    return true;
+  }
+
+  public isWorkbookProtected(): boolean {
+    return this.workbookProtected;
+  }
+
+  public protectWorkbook(password?: string): void {
+    this.workbookProtected = true;
+    this.workbookPassword = password;
+  }
+
+  public unprotectWorkbook(password?: string): boolean {
+    if (this.workbookPassword && this.workbookPassword !== password) return false;
+    this.workbookProtected = false;
+    this.workbookPassword = undefined;
+    return true;
+  }
+
+  public getWorkbookStatistics(): {
+    sheetCount: number;
+    cellCount: number;
+    formulasCount: number;
+    chartsCount: number;
+    tablesCount: number;
+  } {
+    let cellCount = 0;
+    let formulasCount = 0;
+    let chartsCount = 0;
+    let tablesCount = 0;
+
+    this.sheets.forEach((s) => {
+      cellCount += s.cells.size;
+      s.cells.forEach((c) => {
+        if (c.raw && c.raw.startsWith("=")) formulasCount++;
+      });
+      if (s.charts) chartsCount += s.charts.length;
+      if (s.tableRange) tablesCount++;
+    });
+
+    return {
+      sheetCount: this.sheets.length,
+      cellCount,
+      formulasCount,
+      chartsCount,
+      tablesCount,
+    };
+  }
+
+  public setViewMode(mode: "normal" | "pagebreak" | "pagelayout"): void {
+    this.viewMode = mode;
+    this.getActiveSheet().viewMode = mode;
+  }
+
+  public zoomToSelection(range?: GridRange): void {
+    const target = this.getTargetRange(range);
+    const rows = target.maxRow - target.minRow + 1;
+    const cols = target.maxCol - target.minCol + 1;
+    if (rows > 10 || cols > 10) {
+      this.setZoom(0.75);
+    } else if (rows <= 3 && cols <= 3) {
+      this.setZoom(1.25);
+    } else {
+      this.setZoom(1.0);
+    }
+  }
+
+  public toggleSplitWindow(): boolean {
+    this.isSplitWindow = !this.isSplitWindow;
+    return this.isSplitWindow;
+  }
+
+  public toggleShowAllNotes(): boolean {
+    this.showAllNotes = !this.showAllNotes;
+    return this.showAllNotes;
   }
 }
 
