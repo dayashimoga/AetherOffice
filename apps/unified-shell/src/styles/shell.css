@@ -889,3 +889,68 @@ body, html {
   background-color: var(--hover-bg);
 }
 
+/* =========================================================================
+   Print Media Stylesheet - ISO / Canvas Pure Document Output (Subphase 27.1.1)
+   ========================================================================= */
+@media print {
+  body, html, #app {
+    background: #ffffff !important;
+    color: #000000 !important;
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+  }
+
+  .title-bar,
+  .app-rail,
+  .tab-bar,
+  .ribbon-bar,
+  .sub-header-bar,
+  .sidebar-pane,
+  .status-bar,
+  .backstage-overlay,
+  .window-controls,
+  .theme-toggle-btn,
+  .search-box,
+  .calc-sheet-tabs-bar,
+  .collab-presence-bar,
+  .notes-sidebar,
+  .pdf-sidebar,
+  .dialog-overlay,
+  .modal-overlay {
+    display: none !important;
+  }
+
+  .shell-body,
+  .shell-workspace-area,
+  .workspace-layout,
+  .canvas-viewport,
+  .notes-workspace,
+  .pdf-workspace-container {
+    display: block !important;
+    position: static !important;
+    overflow: visible !important;
+    width: 100% !important;
+    height: auto !important;
+    background: transparent !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .word-page-element,
+  .slide-stage-svg,
+  .calc-grid-canvas,
+  .pdf-page-container,
+  .notes-editor-container {
+    box-shadow: none !important;
+    margin: 0 auto 20px auto !important;
+    page-break-inside: avoid;
+  }
+
+  .word-page-element {
+    page-break-after: always;
+  }
+}
+
+

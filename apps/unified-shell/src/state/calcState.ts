@@ -256,6 +256,71 @@ export class CalcState {
     this.zoom = 1.0;
   }
 
+  public exportCSV(): string {
+    const sheet = this.getActiveSheet();
+    if (sheet.cells.size === 0) return "";
+
+    let maxRow = 0;
+    let maxCol = 0;
+    sheet.cells.forEach((_, coord) => {
+      const cr = this.coordToColRow(coord);
+      if (cr.row > maxRow) maxRow = cr.row;
+      if (cr.col > maxCol) maxCol = cr.col;
+    });
+
+    const lines: string[] = [];
+    for (let r = 0; r <= maxRow; r++) {
+      const rowValues: string[] = [];
+      for (let c = 0; c <= maxCol; c++) {
+        const coord = `${this.colIndexToLetter(c)}${r + 1}`;
+        const cell = sheet.cells.get(coord);
+        let val = cell ? (cell.computed !== undefined && cell.computed !== "" ? String(cell.computed) : cell.raw || "") : "";
+        if (val.includes(",") || val.includes('"') || val.includes("\n")) {
+          val = `"${val.replace(/"/g, '""')}"`;
+        }
+        rowValues.push(val);
+      }
+      lines.push(rowValues.join(","));
+    }
+    return lines.join("\n");
+  }
+
+  public loadCSV(csvText: string, sheetName = "Sheet1"): void {
+    this.resetToBlank(sheetName);
+    const lines = csvText.split(/\r?\n/);
+    lines.forEach((line, rIdx) => {
+      if (line.trim().length === 0 && rIdx === lines.length - 1) return;
+      const values: string[] = [];
+      let inQuote = false;
+      let curr = "";
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          if (inQuote && line[i + 1] === '"') {
+            curr += '"';
+            i++;
+          } else {
+            inQuote = !inQuote;
+          }
+        } else if (char === "," && !inQuote) {
+          values.push(curr);
+          curr = "";
+        } else {
+          curr += char;
+        }
+      }
+      values.push(curr);
+
+      values.forEach((val, cIdx) => {
+        if (val.trim().length > 0) {
+          const coord = `${this.colIndexToLetter(cIdx)}${rIdx + 1}`;
+          this.setCellValue(coord, val.trim());
+        }
+      });
+    });
+    this.recalculateAll();
+  }
+
   // Backward compatibility getters & setters delegating to active sheet
   get cells(): Map<string, CellData> {
     return this.getActiveSheet().cells;

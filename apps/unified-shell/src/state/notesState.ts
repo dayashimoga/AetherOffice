@@ -62,6 +62,26 @@ export class NotesState {
     return this.notes.find((n) => n.id === this.activeNoteId) || this.notes[0];
   }
 
+  public getContent(): string {
+    return this.content;
+  }
+
+  public renderMarkdownToHtml(raw: string): string {
+    if (!raw.trim()) return "<p></p>";
+    return raw
+      .split("\n")
+      .map((line) => {
+        if (line.startsWith("# ")) return `<h1>${line.slice(2)}</h1>`;
+        if (line.startsWith("## ")) return `<h2>${line.slice(3)}</h2>`;
+        if (line.startsWith("### ")) return `<h3>${line.slice(4)}</h3>`;
+        if (line.startsWith("- [x] ")) return `<p><input type="checkbox" checked disabled> ${line.slice(6)}</p>`;
+        if (line.startsWith("- [ ] ")) return `<p><input type="checkbox" disabled> ${line.slice(6)}</p>`;
+        if (line.startsWith("- ")) return `<li>${line.slice(2)}</li>`;
+        return `<p>${line}</p>`;
+      })
+      .join("");
+  }
+
   public setContent(newContent: string): void {
     if (this.content !== newContent) {
       this.undoStack.push(this.content);

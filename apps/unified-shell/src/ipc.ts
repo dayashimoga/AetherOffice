@@ -197,6 +197,8 @@ async function invokeTauri<T>(cmd: string, args?: Record<string, unknown>): Prom
           ? "PowerPoint"
           : lower.endsWith(".pdf")
           ? "PDF"
+          : lower.endsWith(".txt") || lower.endsWith(".md") || lower.endsWith(".log") || lower.endsWith(".json")
+          ? "Notes"
           : "Word";
       return {
         session_id: `sess-${Date.now()}`,

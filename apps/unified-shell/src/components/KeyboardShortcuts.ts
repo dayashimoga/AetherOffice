@@ -95,6 +95,10 @@ export class KeyboardShortcuts {
             e.preventDefault();
             this.emit("New");
             break;
+          case "p":
+            e.preventDefault();
+            this.emit("Print");
+            break;
           case "w":
             e.preventDefault();
             this.emit("Close");

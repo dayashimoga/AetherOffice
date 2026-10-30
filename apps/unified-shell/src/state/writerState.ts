@@ -493,6 +493,29 @@ export class WriterState {
     this.saveSnapshot();
   }
 
+  public getTextContent(): string {
+    return this.doc.pages
+      .map((p) =>
+        p.paragraphs
+          .map((para) => para.runs.map((r) => r.text).join(""))
+          .join("\n")
+      )
+      .join("\n\n");
+  }
+
+  public loadDocumentFromText(text: string, title = "Document.docx"): void {
+    this.resetToBlank(title);
+    const lines = text.split(/\r?\n/);
+    this.doc.pages[0].paragraphs = lines.map((line, idx) => ({
+      id: `p-${idx + 1}`,
+      style: "Normal",
+      alignment: "left",
+      runs: [{ text: line, font: "Calibri", size: 11 }],
+    }));
+    this.cursor = { pageIndex: 0, paragraphIndex: 0, runIndex: 0, offset: 0 };
+    this.saveSnapshot();
+  }
+
   public insertNewPage(): void {
     this.insertPageBreak();
   }

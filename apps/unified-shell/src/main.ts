@@ -48,6 +48,19 @@ import { PivotFieldListSidebar } from "./components/PivotFieldListSidebar";
 import { CopilotSidebar } from "./components/CopilotSidebar";
 import { DiffPreviewModal } from "./components/DiffPreviewModal";
 import { themeManager } from "./components/ThemeManager";
+
+export function downloadFile(content: BlobPart, filename: string, mimeType = "application/octet-stream"): void {
+  if (typeof window === "undefined" || !document) return;
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 import { pluginHost } from "./plugins/pluginHost";
 
 export class UnifiedShellApp {
@@ -160,58 +173,22 @@ export class UnifiedShellApp {
         this.sanitizeModal.open(active?.title, active?.docType);
       },
       onSave: async (filePath) => {
-        const active = this.tabBar.getActiveTab();
-        if (active) {
-          const savedPath = await IPC.saveDocument(active.id, filePath);
-          this.tabBar.updateTab(active.id, {
-            isDirty: false,
-            file_path: savedPath,
-            title: savedPath.split(/[/\\]/).pop() || active.title,
-          });
-          const docInfo = document.getElementById("status-doc-info");
-          if (docInfo) {
-            docInfo.textContent = `Saved: ${savedPath.split(/[/\\]/).pop()}`;
-          }
-        }
+        await this.saveActiveDocument(filePath);
       },
-      onOpen: async (filePath) => {
-        const summary = await IPC.openDocument(filePath);
-        this.tabBar.addTab({
-          id: summary.session_id,
-          docType: summary.doc_type,
-          title: summary.title,
-          file_path: summary.file_path,
-          isDirty: false,
-        });
-        this.tabBar.switchTab(summary.session_id);
+      onOpen: async (filePath, fileContent) => {
+        await this.handleOpenFile(filePath, fileContent);
+      },
+      onOpenFile: async (file) => {
+        await this.handleOpenFileObject(file);
       },
       onNew: (docType) => {
-        const title =
-          docType === "Word"
-            ? "Untitled.docx"
-            : docType === "Excel"
-            ? "Book1.xlsx"
-            : docType === "PowerPoint"
-            ? "Presentation1.pptx"
-            : "Document.pdf";
-        const newId = `tab-${Date.now()}`;
-        this.tabBar.addTab({
-          id: newId,
-          docType,
-          title,
-          isDirty: false,
-        });
-        this.tabBar.switchTab(newId);
+        this.handleNewTab(docType);
       },
       onExportPdf: async (outputPath) => {
-        const active = this.tabBar.getActiveTab();
-        if (active) {
-          await IPC.exportPdf(active.id, outputPath);
-          const docInfo = document.getElementById("status-doc-info");
-          if (docInfo) {
-            docInfo.textContent = `Exported PDF: ${outputPath.split(/[/\\]/).pop()}`;
-          }
-        }
+        await this.handleExport("pdf", outputPath);
+      },
+      onExport: async (format, outputPath) => {
+        await this.handleExport(format, outputPath);
       },
       onCloseSession: () => {
         const active = this.tabBar.getActiveTab();
@@ -1778,6 +1755,8 @@ export class UnifiedShellApp {
           calcState.undo();
           this.calcGridCanvas?.render();
         } else {
+          writerState.undo();
+          this.writerCanvas?.render();
           IPC.executeUndo(active.id);
         }
         break;
@@ -1796,12 +1775,22 @@ export class UnifiedShellApp {
           calcState.redo();
           this.calcGridCanvas?.render();
         } else {
+          writerState.redo();
+          this.writerCanvas?.render();
           IPC.executeRedo(active.id);
         }
         break;
       case "Save":
-        IPC.saveDocument(active.id);
-        this.tabBar.setDirty(active.id, false);
+        void this.saveActiveDocument();
+        break;
+      case "SaveAs":
+        this.openBackstageSaveAs();
+        break;
+      case "Open":
+        this.openFilePickerOrBackstage();
+        break;
+      case "Print":
+        window.print();
         break;
       case "New":
         this.handleNewTab();
@@ -1836,6 +1825,205 @@ export class UnifiedShellApp {
         }
         break;
     }
+  }
+
+  public openFilePickerOrBackstage(): void {
+    const active = this.tabBar.getActiveTab();
+    this.backstageMenu.show(
+      active?.docType || this.currentDocType,
+      active?.id || "sess-1",
+      active?.title || "Document",
+      active?.file_path,
+      active?.isDirty || false
+    );
+    this.backstageMenu.setActiveNav("Open");
+    const filePicker = document.querySelector<HTMLInputElement>("#input-file-picker");
+    if (filePicker) {
+      filePicker.click();
+    }
+  }
+
+  public openBackstageSaveAs(): void {
+    const active = this.tabBar.getActiveTab();
+    if (!active) return;
+    this.backstageMenu.show(
+      active.docType,
+      active.id,
+      active.title,
+      active.file_path,
+      active.isDirty
+    );
+    this.backstageMenu.setActiveNav("SaveAs");
+  }
+
+  public async saveActiveDocument(filePath?: string): Promise<string> {
+    const active = this.tabBar.getActiveTab();
+    if (!active) return "";
+    const targetPath = filePath || active.file_path || active.title;
+
+    let savedPath = targetPath;
+    try {
+      const res = await IPC.saveDocument(active.id, filePath);
+      if (res) {
+        savedPath = res;
+      }
+    } catch (e) {
+      console.warn("Tauri IPC saveDocument fallback:", e);
+    }
+
+    const hasTauri =
+      typeof window !== "undefined" &&
+      Boolean((window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__);
+    if (!hasTauri) {
+      let content = "";
+      let mime = "text/plain";
+      if (active.docType === "Notes") {
+        content = notesState.getContent();
+        mime = targetPath.endsWith(".md") ? "text/markdown" : "text/plain";
+      } else if (active.docType === "Excel") {
+        content = calcState.exportCSV();
+        mime = "text/csv";
+      } else if (active.docType === "Word") {
+        content = writerState.getTextContent();
+        mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+      } else if (active.docType === "PowerPoint") {
+        content = JSON.stringify(slidesState.slides, null, 2);
+        mime = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+      } else if (active.docType === "PDF") {
+        content = "%PDF-1.4\n%OpenOfficeRS PDF Document\n";
+        mime = "application/pdf";
+      }
+      downloadFile(content, targetPath.split(/[/\\]/).pop() || active.title, mime);
+    }
+
+    this.tabBar.updateTab(active.id, {
+      isDirty: false,
+      file_path: savedPath,
+      title: savedPath.split(/[/\\]/).pop() || active.title,
+    });
+    this.tabBar.setDirty(active.id, false);
+
+    const docInfo = document.getElementById("status-doc-info");
+    if (docInfo) {
+      docInfo.textContent = `Saved: ${savedPath.split(/[/\\]/).pop()}`;
+    }
+    return savedPath;
+  }
+
+  public async handleOpenFile(filePath: string, fileContent?: string): Promise<void> {
+    const lower = filePath.toLowerCase();
+    const docType: DocumentType =
+      lower.endsWith(".xlsx") || lower.endsWith(".xls") || lower.endsWith(".csv")
+        ? "Excel"
+        : lower.endsWith(".pptx") || lower.endsWith(".ppt")
+        ? "PowerPoint"
+        : lower.endsWith(".pdf")
+        ? "PDF"
+        : lower.endsWith(".txt") || lower.endsWith(".md") || lower.endsWith(".log") || lower.endsWith(".json")
+        ? "Notes"
+        : "Word";
+
+    let sessionId = `tab-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    let title = filePath.split(/[/\\]/).pop() || filePath;
+
+    if (fileContent !== undefined) {
+      if (docType === "Notes") {
+        notesState.resetToBlank(title);
+        notesState.setContent(fileContent);
+      } else if (docType === "Excel" && lower.endsWith(".csv")) {
+        calcState.loadCSV(fileContent);
+      } else if (docType === "Word") {
+        writerState.loadDocumentFromText(fileContent, title);
+      } else if (docType === "PDF") {
+        pdfState.resetToBlank(title);
+      } else if (docType === "PowerPoint") {
+        slidesState.resetToBlank(title);
+      }
+    } else {
+      try {
+        const summary = await IPC.openDocument(filePath);
+        if (summary) {
+          sessionId = summary.session_id;
+          title = summary.title;
+        }
+      } catch (e) {
+        console.warn("IPC openDocument fallback:", e);
+      }
+    }
+
+    this.tabBar.addTab({
+      id: sessionId,
+      docType,
+      title,
+      file_path: filePath,
+      isDirty: false,
+    });
+    this.tabBar.switchTab(sessionId);
+
+    const docInfo = document.getElementById("status-doc-info");
+    if (docInfo) {
+      docInfo.textContent = `Opened: ${title}`;
+    }
+  }
+
+  public async handleOpenFileObject(file: File): Promise<void> {
+    try {
+      const text = await file.text();
+      await this.handleOpenFile(file.name, text);
+    } catch {
+      await this.handleOpenFile(file.name);
+    }
+  }
+
+  public async handleExport(
+    format: "pdf" | "csv" | "txt" | "html" | "md",
+    outputPath?: string
+  ): Promise<string> {
+    const active = this.tabBar.getActiveTab();
+    if (!active) return "";
+    const baseName = (active.file_path || active.title).replace(/\.[^/.]+$/, "");
+    const targetName = outputPath || `${baseName}.${format}`;
+    const filename = targetName.split(/[/\\]/).pop() || `${baseName}.${format}`;
+
+    if (format === "pdf") {
+      try {
+        await IPC.exportPdf(active.id, targetName);
+      } catch (e) {
+        console.warn("IPC exportPdf fallback:", e);
+      }
+      const hasTauri =
+        typeof window !== "undefined" &&
+        Boolean((window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__);
+      if (!hasTauri) {
+        downloadFile("%PDF-1.4\n%OpenOfficeRS Exported Document\n", filename, "application/pdf");
+      }
+    } else if (format === "csv") {
+      const csv = calcState.exportCSV();
+      downloadFile(csv, filename, "text/csv");
+    } else if (format === "txt") {
+      const txt = active.docType === "Notes" ? notesState.getContent() : writerState.getTextContent();
+      downloadFile(txt, filename, "text/plain");
+    } else if (format === "md") {
+      const md = notesState.getContent();
+      downloadFile(md, filename, "text/markdown");
+    } else if (format === "html") {
+      const body =
+        active.docType === "Notes"
+          ? notesState.renderMarkdownToHtml(notesState.getContent())
+          : writerState
+              .getTextContent()
+              .split("\n")
+              .map((l) => `<p>${l}</p>`)
+              .join("");
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${active.title}</title></head><body>${body}</body></html>`;
+      downloadFile(html, filename, "text/html");
+    }
+
+    const docInfo = document.getElementById("status-doc-info");
+    if (docInfo) {
+      docInfo.textContent = `Exported: ${filename}`;
+    }
+    return targetName;
   }
 
   private handleAltKeytip(code: string) {

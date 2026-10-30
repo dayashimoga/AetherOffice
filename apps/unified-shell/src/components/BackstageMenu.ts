@@ -19,9 +19,11 @@ export type BackstageNavTab =
 export interface BackstageMenuCallbacks {
   onClose?: () => void;
   onNew?: (docType: DocumentType) => void;
-  onOpen?: (filePath: string) => void;
+  onOpen?: (filePath: string, fileContent?: string) => void;
+  onOpenFile?: (file: File) => void;
   onSave?: (filePath?: string) => Promise<void>;
   onExportPdf?: (outputPath: string) => Promise<void>;
+  onExport?: (format: "pdf" | "csv" | "txt" | "html" | "md", outputPath?: string) => Promise<void>;
   onCloseSession?: () => void;
   onOpenPlugins?: () => void;
   onInspectDocument?: () => void;
@@ -116,6 +118,8 @@ export class BackstageMenu {
         ? "doc-type-ppt"
         : this.currentDocType === "PDF"
         ? "doc-type-pdf"
+        : this.currentDocType === "Notes"
+        ? "doc-type-notes"
         : "doc-type-word";
 
     this.overlay.innerHTML = `
@@ -222,25 +226,30 @@ export class BackstageMenu {
           <h2 class="backstage-panel-title">New Document</h2>
           <p style="color: #6a737d;">Select a blank document or template format to create:</p>
           <div class="backstage-templates-grid">
-            <div class="backstage-template-card" data-new-type="Word">
+            <div class="backstage-template-card" data-new-type="Word" data-testid="backstage-new-word">
               <span class="backstage-template-icon">📄</span>
               <div class="backstage-template-name">Blank Document</div>
               <div class="backstage-template-desc">ECMA-376 WordprocessingML document (.docx)</div>
             </div>
-            <div class="backstage-template-card" data-new-type="Excel">
+            <div class="backstage-template-card" data-new-type="Excel" data-testid="backstage-new-excel">
               <span class="backstage-template-icon">📊</span>
               <div class="backstage-template-name">Blank Spreadsheet</div>
               <div class="backstage-template-desc">High performance SpreadsheetML workbook (.xlsx)</div>
             </div>
-            <div class="backstage-template-card" data-new-type="PowerPoint">
+            <div class="backstage-template-card" data-new-type="PowerPoint" data-testid="backstage-new-ppt">
               <span class="backstage-template-icon">📽️</span>
               <div class="backstage-template-name">Blank Presentation</div>
               <div class="backstage-template-desc">PresentationML slide deck (.pptx)</div>
             </div>
-            <div class="backstage-template-card" data-new-type="PDF">
+            <div class="backstage-template-card" data-new-type="PDF" data-testid="backstage-new-pdf">
               <span class="backstage-template-icon">📕</span>
               <div class="backstage-template-name">Blank PDF Publication</div>
               <div class="backstage-template-desc">ISO 32000-1 vector publication document (.pdf)</div>
+            </div>
+            <div class="backstage-template-card" data-new-type="Notes" data-testid="backstage-new-notes">
+              <span class="backstage-template-icon">📝</span>
+              <div class="backstage-template-name">Blank Text / Notes</div>
+              <div class="backstage-template-desc">Plain text (.txt) and Markdown notes (.md)</div>
             </div>
           </div>
         `;
@@ -249,9 +258,23 @@ export class BackstageMenu {
         return `
           <h2 class="backstage-panel-title">Open Document</h2>
           <div class="backstage-form-group">
-            <label style="font-weight: 600;">Open Local File from Disk:</label>
-            <input type="text" class="backstage-input" id="input-open-file-path" placeholder="e.g. documents/Report.docx or G:\\budget.xlsx" />
-            <button class="btn-primary-backstage" id="btn-submit-open-file">Open Document</button>
+            <label style="font-weight: 600;">Choose File from Computer:</label>
+            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 16px;">
+              <input
+                type="file"
+                id="input-file-picker"
+                data-testid="input-file-picker"
+                style="display: none;"
+                accept=".docx,.xlsx,.xls,.csv,.pptx,.ppt,.pdf,.txt,.md,.json,.log"
+              />
+              <button class="btn-primary-backstage" id="btn-browse-file" data-testid="btn-browse-file" type="button">
+                📂 Browse Local Files...
+              </button>
+              <span id="label-chosen-file" style="font-size: 13px; color: var(--text-secondary, #6a737d);">No file chosen</span>
+            </div>
+            <label style="font-weight: 600;">Or Enter File Path from Disk:</label>
+            <input type="text" class="backstage-input" id="input-open-file-path" data-testid="input-open-file-path" placeholder="e.g. documents/Report.docx or G:\\budget.csv" />
+            <button class="btn-primary-backstage" id="btn-submit-open-file" data-testid="btn-submit-open-file">Open Document</button>
           </div>
         `;
 
@@ -288,12 +311,42 @@ export class BackstageMenu {
 
       case "Export":
         return `
-          <h2 class="backstage-panel-title">Export to ISO 32000 PDF</h2>
+          <h2 class="backstage-panel-title">Export Document</h2>
           <p style="color: #6a737d; margin-bottom: 16px;">
-            Render the active document into a certified vector PDF file:
+            Render or convert the active document into standard interchange formats:
           </p>
+          <div class="backstage-templates-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 24px;">
+            <div class="backstage-template-card" id="btn-export-pdf" data-testid="btn-export-pdf" data-export-format="pdf">
+              <span class="backstage-template-icon">📕</span>
+              <div class="backstage-template-name">Export to PDF</div>
+              <div class="backstage-template-desc">Certified ISO 32000 publication (.pdf)</div>
+            </div>
+            ${this.currentDocType === "Excel" ? `
+            <div class="backstage-template-card" id="btn-export-csv" data-testid="btn-export-csv" data-export-format="csv">
+              <span class="backstage-template-icon">📊</span>
+              <div class="backstage-template-name">Export to CSV</div>
+              <div class="backstage-template-desc">Comma-separated values spreadsheet (.csv)</div>
+            </div>` : ""}
+            ${this.currentDocType === "Word" || this.currentDocType === "Notes" ? `
+            <div class="backstage-template-card" id="btn-export-txt" data-testid="btn-export-txt" data-export-format="txt">
+              <span class="backstage-template-icon">📄</span>
+              <div class="backstage-template-name">Export Plain Text</div>
+              <div class="backstage-template-desc">UTF-8 plain text file (.txt)</div>
+            </div>
+            <div class="backstage-template-card" id="btn-export-html" data-testid="btn-export-html" data-export-format="html">
+              <span class="backstage-template-icon">🌐</span>
+              <div class="backstage-template-name">Export HTML</div>
+              <div class="backstage-template-desc">Standalone Web HTML document (.html)</div>
+            </div>` : ""}
+            ${this.currentDocType === "Notes" ? `
+            <div class="backstage-template-card" id="btn-export-md" data-testid="btn-export-md" data-export-format="md">
+              <span class="backstage-template-icon">📝</span>
+              <div class="backstage-template-name">Export Markdown</div>
+              <div class="backstage-template-desc">Formatted CommonMark note (.md)</div>
+            </div>` : ""}
+          </div>
           <div class="backstage-form-group">
-            <label style="font-weight: 600;">Export Destination:</label>
+            <label style="font-weight: 600;">Export Destination / Custom Path:</label>
             <input
               type="text"
               class="backstage-input"
@@ -311,7 +364,7 @@ export class BackstageMenu {
           <p style="color: #6a737d; margin-bottom: 20px;">
             Send document pages directly to system printer or print preview:
           </p>
-          <button class="btn-primary-backstage" id="btn-submit-print">Print Document</button>
+          <button class="btn-primary-backstage" id="btn-submit-print" data-testid="btn-submit-print">Print Document</button>
         `;
 
       case "Plugins":
@@ -372,6 +425,35 @@ export class BackstageMenu {
     });
 
     // 4. Open Document
+    const btnBrowse = this.overlay.querySelector<HTMLButtonElement>("#btn-browse-file");
+    const inputFilePicker = this.overlay.querySelector<HTMLInputElement>("#input-file-picker");
+    const labelChosen = this.overlay.querySelector<HTMLSpanElement>("#label-chosen-file");
+
+    if (btnBrowse && inputFilePicker) {
+      btnBrowse.addEventListener("click", () => {
+        inputFilePicker.click();
+      });
+      inputFilePicker.addEventListener("change", () => {
+        const file = inputFilePicker.files?.[0];
+        if (file) {
+          if (labelChosen) {
+            labelChosen.textContent = file.name;
+          }
+          if (this.callbacks.onOpenFile) {
+            this.callbacks.onOpenFile(file);
+            this.hide();
+          } else if (this.callbacks.onOpen) {
+            const reader = new FileReader();
+            reader.onload = () => {
+              this.callbacks.onOpen?.(file.name, typeof reader.result === "string" ? reader.result : "");
+              this.hide();
+            };
+            reader.readAsText(file);
+          }
+        }
+      });
+    }
+
     const btnOpen = this.overlay.querySelector<HTMLButtonElement>("#btn-submit-open-file");
     const inputOpen = this.overlay.querySelector<HTMLInputElement>("#input-open-file-path");
     if (btnOpen && inputOpen) {
@@ -421,7 +503,22 @@ export class BackstageMenu {
       });
     }
 
-    // 7. Export to PDF
+    // 7. Export Options
+    const exportCards = this.overlay.querySelectorAll<HTMLElement>("[data-export-format]");
+    exportCards.forEach((card) => {
+      card.addEventListener("click", async () => {
+        const fmt = card.getAttribute("data-export-format") as "pdf" | "csv" | "txt" | "html" | "md";
+        const customPath = (this.overlay.querySelector<HTMLInputElement>("#input-export-pdf-path")?.value || "").trim();
+        if (fmt === "pdf" && this.callbacks.onExportPdf) {
+          await this.callbacks.onExportPdf(customPath || `${this.currentTitle.replace(/\.[^/.]+$/, "")}.pdf`);
+          this.hide();
+        } else if (fmt && this.callbacks.onExport) {
+          await this.callbacks.onExport(fmt, customPath);
+          this.hide();
+        }
+      });
+    });
+
     const btnExportPdf = this.overlay.querySelector<HTMLButtonElement>("#btn-submit-export-pdf");
     const inputExportPdf = this.overlay.querySelector<HTMLInputElement>("#input-export-pdf-path");
     if (btnExportPdf && inputExportPdf) {
