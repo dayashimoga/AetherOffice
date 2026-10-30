@@ -117,7 +117,7 @@ export class WriterState {
             id: "p1",
             style: "Heading1",
             alignment: "left",
-            runs: [{ text: "OpenOfficeRS — Executive Technical Summary", bold: true, size: 24, color: "#1f497d" }],
+            runs: [{ text: "", bold: true, size: 24, color: "#1f497d" }],
           },
           {
             id: "p2",
@@ -171,7 +171,7 @@ export class WriterState {
             id: "p6",
             style: "Heading1",
             alignment: "left",
-            runs: [{ text: "Performance SLAs & Benchmark Compliance", bold: true, size: 24, color: "#1f497d" }],
+            runs: [{ text: "", bold: true, size: 24, color: "#1f497d" }],
           },
           {
             id: "p7",
@@ -189,7 +189,7 @@ export class WriterState {
             id: "p8",
             style: "Heading2",
             alignment: "left",
-            runs: [{ text: "Universal Adaptive Form-Factor Parity", bold: true, size: 16, color: "#2e75b6" }],
+            runs: [{ text: "", bold: true, size: 16, color: "#2e75b6" }],
           },
           {
             id: "p9",

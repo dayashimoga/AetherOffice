@@ -1,28 +1,26 @@
 ﻿---
 trigger: always_on
-description: Global Engineering Contract (GEC-v2.0) enforcing zero-mockup UI, real-time Rust IPC wiring, 5 standalone binaries, and E2E Playwright verification.
+description: Global Engineering Contract (GEC-v3.0) enforcing Single-Process <45MB Memory Architecture, Zero Prepopulated Fake Text, Native Window Controls, Dark/Light Theme, and 5 Working Modules (Word, Excel, PPT, PDF, Notepad).
 ---
 
-# GLOBAL ENGINEERING CONTRACT (GEC-v2.0)
+# GLOBAL ENGINEERING CONTRACT (GEC-v3.0)
 
-## ARTICLES I - VI (INHERITED FROM GEC-v1.0)
-All Clean-Room, ECMA-376 / ISO 32000 Round-Trip, Performance SLAs (<150ms startup, 120fps), Zero-Panic Rust (`#[forbid(unsafe_code)]`, no `.unwrap()`/`.expect()`), and 5-OS Portability rules remain strictly in force.
+## ARTICLE I: SINGLE-EXECUTABLE, LOW-MEMORY ARCHITECTURE (< 45 MB RAM)
+1. **Single Unified Binary (`AetherOffice`):** The suite MUST compile as a SINGLE desktop/mobile application containing an internal App Switcher Rail and multi-tab workspace supporting 5 modules: **Home Hub**, **Word (`.docx`)**, **Excel (`.xlsx`)**, **PowerPoint (`.pptx`)**, **PDF Studio (`.pdf`)**, and **Notepad/Notes (`.txt`/`.md`)**.
+2. **Strict Memory Budget (Zero System Hang):**
+   - Never pre-allocate 1,000,000 DOM nodes or massive Rust vectors on startup.
+   - Excel grids MUST use lazy `HashMap<(u32, u16), Cell>` storage and render ONLY the visible viewport cells (`~40 rows x 15 cols`) in the DOM.
+   - Word and PDF documents MUST lazily render pages and use clean native/virtualized scrolling.
 
-## ARTICLE VII: ZERO-MOCKUP UI & LIVE RUST IPC MANDATE (NEW - CRITICAL)
-1. **Ban on Hardcoded Demo Documents:**
-   - The frontend (`apps/unified-shell/src/`) MUST NEVER boot into hardcoded fake tabs (`Financials.xlsx`, `Pitch.pptx`, or `"OpenOfficeRS â€” Executive Technical Summary"`).
-   - Every standalone app (`Writer`, `Calc`, `Slides`, `PDF`) must boot into a clean, editable blank document (`Untitled.docx`, `Book1.xlsx`, `Presentation1.pptx`, or PDF Open/Create Screen) or open a file passed via CLI/OS file association.
-2. **Ban on Dead / Placeholder Ribbon Tabs:**
-   - Every top-level menu tab (`File`, `Home`, `Insert`, `Layout`, `Formulas`, `Data`, `Transitions`, `Animations`, `Slide Show`, `PDF Tools`, `Review`, `View`) MUST switch the active ribbon panel cleanly (`activeRibbonTab` state) and render real, clickable controls specific ONLY to the active application mode.
-   - Word styles (`Normal`, `Heading 1`) must NEVER appear inside PowerPoint or Excel ribbons.
-3. **5-Binary Standalone + Unified Hub Architecture:**
-   - The project must produce **5 distinct executable entrypoints**:
-     1. `aether-hub` (Main Unified Launcher & Multi-Window Suite Manager)
-     2. `aether-writer` (Standalone Word Processor `.docx` App)
-     3. `aether-calc` (Standalone Spreadsheet `.xlsx` App)
-     4. `aether-slides` (Standalone Presentation `.pptx` App)
-     5. `aether-pdf` (Standalone PDF Read/Edit/Write `.pdf` App)
-   - Passing `--app writer|calc|slides|pdf` or launching the respective binary must mount ONLY that application's dedicated chrome, menu bar, shortcuts, and file dialogsâ€”zero cross-format clutter.
-4. **End-to-End Interactive Verification Gate:**
-   - No UI subphase (Stages 8â€“13) may be marked `COMPLETED` based solely on Rust unit tests.
-   - Every subphase MUST include an automated frontend integration/E2E test (`apps/unified-shell/src/__tests__/stage_<id>.test.ts` via Vitest/Playwright DOM) that programmatically clicks the Ribbon buttons, simulates keyboard typing/cell editing/shape dragging, and asserts that the underlying document state and DOM canvas actually mutated.
+## ARTICLE II: ABSOLUTE BAN ON PREPOPULATED FAKE / DEMO TEXT
+1. **100% Blank New Documents:**
+   - Creating or opening a new Word document MUST open a completely blank editable page (`""` empty string).
+   - Creating a new Excel workbook MUST open a completely empty grid (`Sheet1` with zero prepopulated numbers).
+   - Creating a new PowerPoint MUST open a clean blank slide with empty placeholder prompts (`Click to add title`).
+   - Creating a new Note MUST open an empty text buffer.
+2. **Banned Strings:** The strings `"Executive Technical Summary"`, `"Performance SLAs"`, `"Market Opportunity"`, `"Revenue"`, and `"Live Demo & Architecture"` are STRICTLY BANNED from `apps/unified-shell/src/` outside of tests. `tools/verify-contract.ps1` will fail if any fake demo text is present.
+
+## ARTICLE III: UI/UX POLISH, NATIVE WINDOW CONTROLS & DARK/LIGHT THEME
+1. **Window Controls:** Minimize, Maximize/Restore, and Close buttons MUST call Tauri's native window API (`appWindow.minimize()`, `appWindow.toggleMaximize()`, `appWindow.close()`) AND native OS window decorations must remain responsive.
+2. **Zero Ribbon Scrollbars:** The Ribbon toolbar MUST use clean CSS Flexbox (`flex-wrap: nowrap`, `overflow: visible` for dropdowns, compact icon+label buttons) with ZERO horizontal or vertical scrollbars clipping the controls.
+3. **Dark & Light Theme Toggle:** Every screen and document workspace must support a 1-click **Dark / Light Theme Toggle** persisted in `localStorage` using CSS custom properties (`--bg-primary`, `--bg-surface`, `--text-primary`, `--border-color`, `--accent-color`).

@@ -286,7 +286,7 @@ export class SlidesState {
           w: 800,
           h: 60,
           fill: "transparent",
-          text: "Live Demo & Architecture Validation",
+          text: "",
           textColor: "#1e293b",
           fontSize: 32,
         },

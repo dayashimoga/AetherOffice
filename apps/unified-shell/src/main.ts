@@ -94,6 +94,9 @@ export class UnifiedShellApp {
   }
 
   public init(autoBoot = true) {
+    // 0. Initialize Window Controls
+    this.initWindowControls();
+
     // 1. Initialize Tab Bar
     this.tabBar = new TabBar("tab-bar-container");
     this.tabBar.setCallbacks({
@@ -328,6 +331,65 @@ export class UnifiedShellApp {
     }
   }
 
+  public initWindowControls() {
+    const minBtn = document.querySelector<HTMLButtonElement>(".win-min");
+    const maxBtn = document.querySelector<HTMLButtonElement>(".win-max");
+    const closeBtn = document.querySelector<HTMLButtonElement>(".win-close");
+
+    const getTauriWindow = async () => {
+      try {
+        if (typeof window !== "undefined" && !(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) {
+          return null;
+        }
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        return getCurrentWindow();
+      } catch {
+        return null;
+      }
+    };
+
+    if (minBtn) {
+      minBtn.addEventListener("click", async () => {
+        try {
+          const win = await getTauriWindow();
+          if (win) {
+            await win.minimize();
+          }
+        } catch (err) {
+          console.warn("Minimize window failed:", err);
+        }
+      });
+    }
+
+    if (maxBtn) {
+      maxBtn.addEventListener("click", async () => {
+        try {
+          const win = await getTauriWindow();
+          if (win) {
+            await win.toggleMaximize();
+          }
+        } catch (err) {
+          console.warn("Toggle maximize window failed:", err);
+        }
+      });
+    }
+
+    if (closeBtn) {
+      closeBtn.addEventListener("click", async () => {
+        try {
+          const win = await getTauriWindow();
+          if (win) {
+            await win.close();
+          } else {
+            window.close();
+          }
+        } catch {
+          window.close();
+        }
+      });
+    }
+  }
+
   public async initBoot() {
     try {
       const bootConfig = await IPC.getBootConfig();
@@ -496,10 +558,11 @@ export class UnifiedShellApp {
           if (p.style === "Heading 2" || p.style === "Heading2") level = 2;
           else if (p.style === "Heading 3" || p.style === "Heading3") level = 3;
           else if (p.style === "Subtitle") level = 2;
-          const text = p.runs.map((r) => r.text).join("").trim();
-          if (text) {
-            headings.push({ level, text, pageIndex: pIdx, paragraphIndex: paraIdx });
+          let text = p.runs.map((r) => r.text).join("").trim();
+          if (!text) {
+            text = "(Untitled Heading)";
           }
+          headings.push({ level, text, pageIndex: pIdx, paragraphIndex: paraIdx });
         }
       });
     });
