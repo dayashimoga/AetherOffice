@@ -2408,6 +2408,8 @@ dependencies = [
 name = "plugin-runtime"
 version = "0.1.0"
 dependencies = [
+ "excel-engine",
+ "ooxml-opc",
  "serde",
  "serde_json",
  "thiserror 2.0.21",

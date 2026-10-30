@@ -46,12 +46,28 @@ export interface PluginShortcutDefinition {
   description?: string;
 }
 
+export interface PluginUdfParameter {
+  name: string;
+  type: string;
+  description?: string;
+}
+
+export interface PluginUdfContribution {
+  name: string;
+  description: string;
+  category?: string;
+  minArgs: number;
+  maxArgs: number;
+  parameters?: PluginUdfParameter[];
+}
+
 export interface PluginManifest {
   id: string;
   name: string;
   version: string;
   description?: string;
   author?: string;
+  icon?: string;
   targetApps?: PluginTargetApp[];
   ribbonContributions?: {
     tabs?: PluginTabDefinition[];
@@ -59,6 +75,7 @@ export interface PluginManifest {
   };
   sidebarContributions?: PluginSidebarDefinition[];
   shortcuts?: PluginShortcutDefinition[];
+  udfContributions?: PluginUdfContribution[];
   enabled?: boolean;
 }
 
@@ -111,10 +128,12 @@ export class PluginHost {
       version: m.version.trim(),
       description: m.description,
       author: m.author,
+      icon: m.icon,
       targetApps: m.targetApps || ["All"],
       ribbonContributions: m.ribbonContributions,
       sidebarContributions: m.sidebarContributions,
       shortcuts: m.shortcuts,
+      udfContributions: m.udfContributions,
       enabled: m.enabled !== undefined ? m.enabled : true,
     };
   }
@@ -308,6 +327,140 @@ export class PluginHost {
         console.error(`Error in plugin lifecycle listener for '${event}':`, e);
       }
     }
+  }
+
+  /**
+   * Get all dynamic calculation functions (UDFs) contributed by active plugins.
+   */
+  public getUdfContributions(docType?: DocumentType): PluginUdfContribution[] {
+    const active = this.getActivePlugins(docType);
+    const udfs: PluginUdfContribution[] = [];
+    for (const plugin of active) {
+      if (plugin.udfContributions) {
+        udfs.push(...plugin.udfContributions);
+      }
+    }
+    return udfs;
+  }
+
+  /**
+   * Return marketplace catalog entries available for installation.
+   */
+  public getMarketplaceCatalog(): PluginManifest[] {
+    return [
+      {
+        id: "com.deepl.translator",
+        name: "DeepL Document Translator",
+        version: "2.1.0",
+        author: "DeepL SE",
+        icon: "🌐",
+        description: "Translate paragraphs and tables into 30+ languages in real time.",
+        targetApps: ["All"],
+        sidebarContributions: [
+          {
+            id: "pane-deepl",
+            title: "DeepL Translate",
+            icon: "🌐",
+            width: 320,
+            entrypointHtml: "<p>DeepL Translator</p>",
+          },
+        ],
+      },
+      {
+        id: "org.wolfram.calc.engine",
+        name: "Wolfram Calculation UDFs",
+        version: "1.4.0",
+        author: "Wolfram Research",
+        icon: "📐",
+        description: "Advanced dynamic math, unit conversion, and calculus UDF formulas.",
+        targetApps: ["Excel"],
+        udfContributions: [
+          {
+            name: "WOLFRAM_CONVERT",
+            description: "Converts between scientific units using Wolfram Engine",
+            minArgs: 3,
+            maxArgs: 3,
+            parameters: [
+              { name: "value", type: "number" },
+              { name: "from_unit", type: "string" },
+              { name: "to_unit", type: "string" },
+            ],
+          },
+        ],
+      },
+      {
+        id: "com.financial.modeler",
+        name: "Black-Scholes & Financial Modeler",
+        version: "3.0.0",
+        author: "QuantOffice Ltd",
+        icon: "📈",
+        description: "Options pricing, bond yields, and portfolio risk calculation UDFs.",
+        targetApps: ["Excel"],
+        udfContributions: [
+          {
+            name: "BLACK_SCHOLES",
+            description: "Calculates European option pricing using Black-Scholes model",
+            minArgs: 5,
+            maxArgs: 6,
+            parameters: [
+              { name: "spot", type: "number" },
+              { name: "strike", type: "number" },
+              { name: "rate", type: "number" },
+              { name: "volatility", type: "number" },
+              { name: "time_to_exp", type: "number" },
+            ],
+          },
+        ],
+      },
+      {
+        id: "org.markdown.exporter",
+        name: "Markdown Exporter Pro",
+        version: "1.1.0",
+        author: "AetherOffice Community",
+        icon: "📝",
+        description: "One-click export of Word and Slides documents into formatted Markdown.",
+        targetApps: ["Word", "PowerPoint"],
+        ribbonContributions: {
+          injectedGroups: [
+            {
+              targetTab: "File",
+              groups: [
+                {
+                  id: "grp-md-export",
+                  title: "Markdown",
+                  buttons: [
+                    {
+                      id: "btn-export-md",
+                      label: "Export MD",
+                      icon: "📝",
+                      action: "plugin:export-markdown",
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ];
+  }
+
+  /**
+   * Install a plugin from the marketplace catalog by ID.
+   */
+  public installFromMarketplace(pluginId: string): PluginManifest {
+    const item = this.getMarketplaceCatalog().find((p) => p.id === pluginId);
+    if (!item) {
+      throw new Error(`Marketplace item '${pluginId}' not found in catalog`);
+    }
+    return this.registerPlugin(item);
+  }
+
+  /**
+   * Install a plugin from a JSON manifest string.
+   */
+  public installFromFile(manifestJson: string): PluginManifest {
+    return this.registerPlugin(manifestJson);
   }
 
   /**

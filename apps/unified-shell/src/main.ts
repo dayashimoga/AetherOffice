@@ -37,6 +37,7 @@ import { PresentationPlayer } from "./components/PresentationPlayer";
 import { PdfWorkspace } from "./apps/pdf/PdfWorkspace";
 import { CollabBar } from "./components/CollabBar";
 import { PluginSidebar } from "./components/PluginSidebar";
+import { PluginManagerModal } from "./components/PluginManagerModal";
 import { pluginHost } from "./plugins/pluginHost";
 
 export class UnifiedShellApp {
@@ -74,6 +75,7 @@ export class UnifiedShellApp {
   private pdfWorkspace?: PdfWorkspace;
   private collabBar!: CollabBar;
   private pluginSidebar!: PluginSidebar;
+  private pluginManagerModal!: PluginManagerModal;
 
   constructor(autoBoot = true) {
     this.init(autoBoot);
@@ -93,10 +95,14 @@ export class UnifiedShellApp {
     this.ribbon.setOnAction((action, payload) => this.handleRibbonAction(action, payload));
 
     // 2.1. Initialize Backstage File Menu
+    this.pluginManagerModal = new PluginManagerModal("app");
     this.backstageMenu = new BackstageMenu("app");
     this.backstageMenu.setCallbacks({
       onClose: () => {
         console.log("Closed Backstage view");
+      },
+      onOpenPlugins: () => {
+        this.pluginManagerModal.open();
       },
       onSave: async (filePath) => {
         const active = this.tabBar.getActiveTab();
@@ -420,6 +426,10 @@ export class UnifiedShellApp {
         pluginHost.setActiveSidebarPane(paneId);
       }
     }
+  }
+
+  public getPluginManagerModal(): PluginManagerModal {
+    return this.pluginManagerModal;
   }
 
   public updateNavigationOutline() {
@@ -966,6 +976,10 @@ export class UnifiedShellApp {
       if (subHeader) {
         subHeader.style.display = subHeader.style.display === "none" ? "flex" : "none";
       }
+      return;
+    }
+    if (action === "OpenPluginManager" || action === "TogglePluginManager") {
+      this.pluginManagerModal.open();
       return;
     }
     if (action.startsWith("TogglePluginSidebar:")) {

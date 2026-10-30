@@ -1,6 +1,16 @@
+import { pluginHost } from "../plugins/pluginHost";
+
 export interface FunctionDefinition {
   name: string;
-  category: "Math & Trig" | "Statistical" | "Financial" | "Logical" | "Text" | "Lookup & Reference" | "Date & Time";
+  category:
+    | "Math & Trig"
+    | "Statistical"
+    | "Financial"
+    | "Logical"
+    | "Text"
+    | "Lookup & Reference"
+    | "Date & Time"
+    | "User Defined";
   syntax: string;
   description: string;
   example: string;
@@ -137,6 +147,7 @@ export class FunctionWizardDialog {
               <option value="Financial">Financial</option>
               <option value="Lookup & Reference">Lookup & Reference</option>
               <option value="Date & Time">Date & Time</option>
+              <option value="User Defined">User Defined (Plugins & Macros)</option>
             </select>
           </div>
 
@@ -192,7 +203,19 @@ export class FunctionWizardDialog {
       const q = searchInput.value.trim().toLowerCase();
       const cat = categorySelect.value;
 
-      const filtered = EXCEL_FUNCTIONS.filter((fn) => {
+      const pluginUdfs: FunctionDefinition[] = pluginHost
+        .getUdfContributions("Excel")
+        .map((udf) => ({
+          name: udf.name,
+          category: "User Defined",
+          syntax: `${udf.name}(${(udf.parameters || []).map((p) => p.name).join(", ")})`,
+          description: udf.description || "Plugin calculation function",
+          example: `=${udf.name}()`,
+        }));
+
+      const allAvailable = [...EXCEL_FUNCTIONS, ...pluginUdfs];
+
+      const filtered = allAvailable.filter((fn) => {
         const matchesCat = cat === "All" || fn.category.toLowerCase().includes(cat.toLowerCase());
         const matchesQuery = !q || fn.name.toLowerCase().includes(q) || fn.description.toLowerCase().includes(q);
         return matchesCat && matchesQuery;

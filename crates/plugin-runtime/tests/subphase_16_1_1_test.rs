@@ -586,3 +586,68 @@ fn test_bidirectional_roundtrip_wit_flow() -> TestResult {
 
     Ok(())
 }
+
+// 11. Plugin UDF registry and excel engine formula evaluation bridge
+#[test]
+fn test_plugin_udf_registry_and_formula_bridge() -> TestResult {
+    use excel_engine::formula::ast::{AstNode, Literal};
+    use excel_engine::functions::{dispatch_function, EvalContext};
+    use excel_engine::grid::CellValue;
+    use plugin_runtime::PluginUdfRegistry;
+    use std::sync::Arc;
+
+    let mut registry = PluginUdfRegistry::new();
+
+    // Register a custom function: ADD_TAX(amount, rate)
+    registry.register_udf(
+        "ADD_TAX",
+        "Adds tax percentage to an amount",
+        2,
+        2,
+        |args| {
+            let amount = match args[0] {
+                CellValue::Number(n) => n,
+                _ => {
+                    return Err(PluginError::HostCallError(
+                        "Expected number for amount".into(),
+                    ))
+                }
+            };
+            let rate = match args[1] {
+                CellValue::Number(n) => n,
+                _ => {
+                    return Err(PluginError::HostCallError(
+                        "Expected number for rate".into(),
+                    ))
+                }
+            };
+            Ok(CellValue::Number(amount * (1.0 + rate)))
+        },
+    );
+
+    assert!(registry.has_udf("ADD_TAX"));
+    assert!(registry.has_udf("add_tax"));
+    assert_eq!(registry.list_udf_names(), vec!["ADD_TAX".to_string()]);
+
+    let udf_handler = Arc::new(registry).create_excel_udf_handler();
+    let ctx = EvalContext::new(None, false).with_udf_handler(udf_handler);
+
+    let args = vec![
+        AstNode::Literal(Literal::Number(100.0)),
+        AstNode::Literal(Literal::Number(0.08)),
+    ];
+
+    let eval_fn = |node: &AstNode, _c: &EvalContext| -> ooxml_opc::error::Result<CellValue> {
+        match node {
+            AstNode::Literal(Literal::Number(n)) => Ok(CellValue::Number(*n)),
+            _ => Ok(CellValue::Empty),
+        }
+    };
+
+    // Call dynamic function through excel engine dispatch_function
+    let res = dispatch_function("ADD_TAX", &args, &ctx, &eval_fn)?;
+
+    assert_eq!(res, CellValue::Number(108.0));
+
+    Ok(())
+}

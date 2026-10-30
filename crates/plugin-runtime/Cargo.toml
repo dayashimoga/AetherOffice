@@ -8,5 +8,7 @@ description = "WebAssembly Component Model runtime and WIT host environment for 
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+ooxml-opc = { path = "../ooxml-opc" }
+excel-engine = { path = "../excel-engine" }
 
 [dev-dependencies]

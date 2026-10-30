@@ -13,6 +13,7 @@ export type BackstageNavTab =
   | "SaveAs"
   | "Export"
   | "Print"
+  | "Plugins"
   | "Close";
 
 export interface BackstageMenuCallbacks {
@@ -22,6 +23,7 @@ export interface BackstageMenuCallbacks {
   onSave?: (filePath?: string) => Promise<void>;
   onExportPdf?: (outputPath: string) => Promise<void>;
   onCloseSession?: () => void;
+  onOpenPlugins?: () => void;
 }
 
 export class BackstageMenu {
@@ -66,9 +68,9 @@ export class BackstageMenu {
   }
 
   public async show(
-    docType: DocumentType,
-    sessionId: string,
-    title: string,
+    docType: DocumentType = "Word",
+    sessionId = "sess-1",
+    title = "Untitled.docx",
     filePath?: string,
     isDirty = false
   ): Promise<void> {
@@ -147,6 +149,12 @@ export class BackstageMenu {
         </button>
         <button class="backstage-nav-item ${this.activeNav === "Print" ? "active" : ""}" data-nav="Print">
           <span>🖨️</span> <span>Print</span>
+        </button>
+
+        <div class="backstage-nav-separator"></div>
+
+        <button class="backstage-nav-item ${this.activeNav === "Plugins" ? "active" : ""}" data-nav="Plugins" data-testid="backstage-tab-plugins">
+          <span>🧩</span> <span>Add-ins & Extensions</span>
         </button>
 
         <div class="backstage-nav-separator"></div>
@@ -304,6 +312,20 @@ export class BackstageMenu {
           <button class="btn-primary-backstage" id="btn-submit-print">Print Document</button>
         `;
 
+      case "Plugins":
+        return `
+          <h2 class="backstage-panel-title">Add-ins & Extensions</h2>
+          <div style="padding: 16px 0; max-width: 600px; display: flex; flex-direction: column; gap: 16px;">
+            <p style="color: #4b5563; font-size: 14px; line-height: 1.5;">
+              Extend AetherOffice with dynamic third-party plugins, custom ribbon tabs, calculation formulas (UDFs), and sandboxed sidebars.
+            </p>
+            <div>
+              <button class="btn-primary-backstage" id="btn-open-plugin-manager" data-testid="btn-open-plugin-manager" style="background-color: var(--primary-accent, #2b579a); padding: 10px 20px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+                <span>🧩</span> <span>Open Plugin Manager & Marketplace</span>
+              </button>
+            </div>
+          </div>
+        `;
       case "Close":
         return `
           <h2 class="backstage-panel-title">Close Document</h2>
@@ -407,6 +429,17 @@ export class BackstageMenu {
       btnPrint.addEventListener("click", () => {
         window.print();
         this.hide();
+      });
+    }
+
+    // 8.1 Open Plugin Manager
+    const btnOpenPlugins = this.overlay.querySelector<HTMLButtonElement>("#btn-open-plugin-manager");
+    if (btnOpenPlugins) {
+      btnOpenPlugins.addEventListener("click", () => {
+        this.hide();
+        if (this.callbacks.onOpenPlugins) {
+          this.callbacks.onOpenPlugins();
+        }
       });
     }
 
