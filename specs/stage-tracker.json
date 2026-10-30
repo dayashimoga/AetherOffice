@@ -803,9 +803,9 @@
                           "title":  "Local On-Device Embedding \u0026 Semantic Chunking Engine",
                           "crate":  "copilot-core",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-20/subphase-20.1.1.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-30T05:56:16Z"
                       },
                       {
                           "id":  "20.1.2",

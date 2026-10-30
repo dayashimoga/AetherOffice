@@ -12,6 +12,7 @@ members = [
     "crates/plugin-runtime",
     "crates/crypto-security",
     "crates/data-connectors",
+    "crates/copilot-core",
     "apps/unified-shell/src-tauri"
 ]
 
@@ -23,6 +24,7 @@ macro-engine = { path = "crates/macro-engine" }
 plugin-runtime = { path = "crates/plugin-runtime" }
 crypto-security = { path = "crates/crypto-security" }
 data-connectors = { path = "crates/data-connectors" }
+copilot-core = { path = "crates/copilot-core" }
 quick-xml = { version = "0.37", features = ["serialize", "async-tokio"] }
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
 serde = { version = "1.0", features = ["derive"] }
