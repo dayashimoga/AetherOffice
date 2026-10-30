@@ -24,6 +24,7 @@ export interface BackstageMenuCallbacks {
   onExportPdf?: (outputPath: string) => Promise<void>;
   onCloseSession?: () => void;
   onOpenPlugins?: () => void;
+  onInspectDocument?: () => void;
 }
 
 export class BackstageMenu {
@@ -213,6 +214,7 @@ export class BackstageMenu {
             </div>
           </div>
           <button class="btn-primary-backstage" id="btn-quick-save">Quick Save Now</button>
+          <button class="btn-primary-backstage" id="btn-backstage-inspect" data-testid="btn-backstage-inspect" style="margin-left: 10px; background-color: #605e5c;">Inspect & Sanitize Document</button>
         `;
 
       case "New":
@@ -394,6 +396,15 @@ export class BackstageMenu {
     };
     if (btnQuickSave) btnQuickSave.addEventListener("click", handleSave);
     if (btnSave) btnSave.addEventListener("click", handleSave);
+
+    const btnInspect = this.overlay.querySelector<HTMLButtonElement>("#btn-backstage-inspect");
+    if (btnInspect) {
+      btnInspect.addEventListener("click", () => {
+        if (this.callbacks.onInspectDocument) {
+          this.callbacks.onInspectDocument();
+        }
+      });
+    }
 
     // 6. Save As
     const btnSaveAs = this.overlay.querySelector<HTMLButtonElement>("#btn-submit-save-as");

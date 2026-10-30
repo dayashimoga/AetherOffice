@@ -9,6 +9,7 @@ serde.workspace = true
 serde_json.workspace = true
 quick-xml.workspace = true
 sha2 = "0.10"
+regex = "1.10"
 
 [dev-dependencies]
 serde_json.workspace = true

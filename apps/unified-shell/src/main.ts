@@ -38,6 +38,7 @@ import { PdfWorkspace } from "./apps/pdf/PdfWorkspace";
 import { CollabBar } from "./components/CollabBar";
 import { PluginSidebar } from "./components/PluginSidebar";
 import { PluginManagerModal } from "./components/PluginManagerModal";
+import { SanitizeModal } from "./components/SanitizeModal";
 import { pluginHost } from "./plugins/pluginHost";
 
 export class UnifiedShellApp {
@@ -76,6 +77,7 @@ export class UnifiedShellApp {
   private collabBar!: CollabBar;
   private pluginSidebar!: PluginSidebar;
   private pluginManagerModal!: PluginManagerModal;
+  private sanitizeModal!: SanitizeModal;
 
   constructor(autoBoot = true) {
     this.init(autoBoot);
@@ -96,6 +98,7 @@ export class UnifiedShellApp {
 
     // 2.1. Initialize Backstage File Menu
     this.pluginManagerModal = new PluginManagerModal("app");
+    this.sanitizeModal = new SanitizeModal("app");
     this.backstageMenu = new BackstageMenu("app");
     this.backstageMenu.setCallbacks({
       onClose: () => {
@@ -103,6 +106,10 @@ export class UnifiedShellApp {
       },
       onOpenPlugins: () => {
         this.pluginManagerModal.open();
+      },
+      onInspectDocument: () => {
+        const active = this.tabBar.getActiveTab();
+        this.sanitizeModal.open(active?.title, active?.docType);
       },
       onSave: async (filePath) => {
         const active = this.tabBar.getActiveTab();
@@ -430,6 +437,10 @@ export class UnifiedShellApp {
 
   public getPluginManagerModal(): PluginManagerModal {
     return this.pluginManagerModal;
+  }
+
+  public getSanitizeModal(): SanitizeModal {
+    return this.sanitizeModal;
   }
 
   public updateNavigationOutline() {
@@ -980,6 +991,11 @@ export class UnifiedShellApp {
     }
     if (action === "OpenPluginManager" || action === "TogglePluginManager") {
       this.pluginManagerModal.open();
+      return;
+    }
+    if (action === "InspectDocument" || action === "SanitizeDocument") {
+      const active = this.tabBar.getActiveTab();
+      this.sanitizeModal.open(active?.title, active?.docType);
       return;
     }
     if (action.startsWith("TogglePluginSidebar:")) {
