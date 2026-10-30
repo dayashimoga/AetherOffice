@@ -19,3 +19,4 @@ Invoke @security-architect under GEC-v2.0:
 5. Add unit and UI integration tests verifying that redacted text bytes are completely expunged from the file payload and UI inspection functions correctly.
 6. Run `powershell -File tools/verify-contract.ps1` and ensure all gates pass. Commit with [GEC-Verified].
 ```
+

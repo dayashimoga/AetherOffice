@@ -19,3 +19,4 @@ Invoke @security-architect under GEC-v2.0:
 5. Add unit and integration tests verifying valid certificates, tampering detection on signed ByteRanges, and signature metadata extraction.
 6. Run `powershell -File tools/verify-contract.ps1` and ensure all gates pass. Commit with [GEC-Verified].
 ```
+

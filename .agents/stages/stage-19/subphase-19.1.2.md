@@ -19,3 +19,4 @@ Invoke @graphics-engineer under GEC-v2.0:
 5. Add unit and UI tests verifying 60fps render loop timing, transform matrices, and fallback behavior on software rendering.
 6. Run `powershell -File tools/verify-contract.ps1` and ensure all gates pass. Commit with [GEC-Verified].
 ```
+

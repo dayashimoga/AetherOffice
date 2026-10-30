@@ -20,3 +20,4 @@ Invoke @frontend-architect under GEC-v2.0:
 6. Add comprehensive Vitest integration tests for field drag-and-drop, aggregation changes, and slicer state updates.
 7. Run `powershell -File tools/verify-contract.ps1` and ensure all gates pass. Commit with [GEC-Verified].
 ```
+

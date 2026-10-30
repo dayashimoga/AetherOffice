@@ -21,3 +21,4 @@ Invoke @ai-architect under GEC-v2.0:
 4. Add unit and integration tests verifying ground-truth citation extraction, token budget trimming, and hallucination guardrails.
 5. Run `powershell -File tools/verify-contract.ps1` and ensure all gates pass. Commit with [GEC-Verified].
 ```
+

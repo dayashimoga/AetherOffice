@@ -20,3 +20,4 @@ Invoke @olap-specialist under GEC-v2.0:
 6. Add comprehensive unit tests covering complex pivots, multi-level nesting, and grand total recalculations.
 7. Run `powershell -File tools/verify-contract.ps1` and ensure all gates pass. Commit with [GEC-Verified].
 ```
+

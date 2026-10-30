@@ -20,3 +20,4 @@ Invoke @frontend-architect under GEC-v2.0:
 6. Add Vitest integration tests covering multi-window state synchronization, timer controls, and annotation event dispatch.
 7. Run `powershell -File tools/verify-contract.ps1` and ensure all gates pass. Commit with [GEC-Verified].
 ```
+

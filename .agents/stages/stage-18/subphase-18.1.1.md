@@ -19,3 +19,4 @@ Invoke @data-engineer under GEC-v2.0:
 5. Add unit and integration tests verifying 100k-row ingestion within SLA budget (< 200ms) and type fidelity.
 6. Run `powershell -File tools/verify-contract.ps1` and ensure all gates pass. Commit with [GEC-Verified].
 ```
+

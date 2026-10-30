@@ -19,3 +19,4 @@ Invoke @security-architect under GEC-v2.0:
 5. Add unit and integration tests verifying roundtrip encryption/decryption, wrong-password rejection, and permission enforcement.
 6. Run `powershell -File tools/verify-contract.ps1` and ensure all gates pass. Commit with [GEC-Verified].
 ```
+

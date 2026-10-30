@@ -523,6 +523,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "crypto-security"
+version = "0.1.0"
+dependencies = [
+ "quick-xml 0.37.5",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "cssparser"
 version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

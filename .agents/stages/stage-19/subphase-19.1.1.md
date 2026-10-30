@@ -20,3 +20,4 @@ Invoke @graphics-engineer under GEC-v2.0:
 6. Add unit and UI integration tests verifying media element positioning, serialization, and playback trigger state.
 7. Run `powershell -File tools/verify-contract.ps1` and ensure all gates pass. Commit with [GEC-Verified].
 ```
+
