@@ -1476,6 +1476,78 @@ export class SlideStageCanvas {
       if (ctx.setLineDash) ctx.setLineDash([]);
       ctx.restore();
     }
+
+    // 5. Render Gridlines Overlay (View Tab)
+    if (this.state.showGridlines) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(148, 163, 184, 0.25)";
+      ctx.lineWidth = 1;
+      const step = 20;
+      for (let x = step; x < this.slideWidth; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, this.slideHeight);
+        ctx.stroke();
+      }
+      for (let y = step; y < this.slideHeight; y += step) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(this.slideWidth, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // 6. Render Center Guides (View Tab)
+    if (this.state.showGuides) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(239, 68, 68, 0.6)";
+      ctx.lineWidth = 1.5;
+      if (ctx.setLineDash) ctx.setLineDash([6, 6]);
+      // Vertical center guide
+      ctx.beginPath();
+      ctx.moveTo(this.slideWidth / 2, 0);
+      ctx.lineTo(this.slideWidth / 2, this.slideHeight);
+      ctx.stroke();
+      // Horizontal center guide
+      ctx.beginPath();
+      ctx.moveTo(0, this.slideHeight / 2);
+      ctx.lineTo(this.slideWidth, this.slideHeight / 2);
+      ctx.stroke();
+      if (ctx.setLineDash) ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    // 7. Render Review Comment Pins
+    const comments = this.state.getComments();
+    if (comments.length > 0) {
+      ctx.save();
+      comments.forEach((comm, idx) => {
+        const cx = comm.x ?? 80 + idx * 40;
+        const cy = comm.y ?? 40;
+        ctx.fillStyle = "#f59e0b";
+        ctx.beginPath();
+        ctx.arc(cx, cy, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 11px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(idx + 1), cx, cy);
+      });
+      ctx.restore();
+    }
+
+    // 8. Color / Grayscale View Mode Filter
+    if (this.wrapper) {
+      if (this.state.colorMode === "grayscale") {
+        this.wrapper.style.filter = "grayscale(100%)";
+      } else if (this.state.colorMode === "bw") {
+        this.wrapper.style.filter = "grayscale(100%) contrast(200%)";
+      } else {
+        this.wrapper.style.filter = "none";
+      }
+    }
   }
 
   public async playTransitionPreview(config?: SlideTransitionConfig): Promise<void> {

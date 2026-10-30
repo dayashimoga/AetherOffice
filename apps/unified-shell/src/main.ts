@@ -1587,6 +1587,9 @@ export class UnifiedShellApp {
       if (subHeader) {
         subHeader.style.display = subHeader.style.display === "none" ? "flex" : "none";
       }
+      if (this.currentDocType === "PowerPoint") {
+        slidesState.toggleRuler();
+      }
       return;
     }
     if (action === "ToggleNavPane" || action === "ToggleNavigationSidebar") {
@@ -1751,10 +1754,13 @@ export class UnifiedShellApp {
           this.presenterConsole?.open();
         }
       } else if (action === "ToggleAnimationPane") {
+        slidesState.execCommand(action, payload);
         this.animationPane?.toggle();
       } else if (action === "PreviewTransition") {
+        slidesState.execCommand(action, payload);
         this.slideStageCanvas?.playTransitionPreview();
       } else if (action === "PreviewAnimation") {
+        slidesState.execCommand(action, payload);
         this.slideStageCanvas?.playAllAnimationsPreview(slidesState.getSlideAnimations());
       } else if (action === "ReorderAnimationEarlier") {
         const selAnim = slidesState.getSelectedAnimation();

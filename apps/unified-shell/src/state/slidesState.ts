@@ -103,14 +103,23 @@ export type AnimationEffect =
   | "appear"
   | "fadeIn"
   | "flyIn"
-  | "zoom"
+  | "floatIn"
+  | "split"
+  | "wipe"
+  | "shape"
+  | "wheel"
   | "bounce"
+  | "zoom"
   // Emphasis:
   | "pulse"
+  | "teeter"
   | "spin"
+  | "growShrink"
   // Exit:
+  | "disappear"
   | "fadeOut"
   | "flyOut"
+  | "zoomOut"
   // Motion Path:
   | "motionPath";
 
@@ -135,15 +144,26 @@ export function getAnimationType(effect: AnimationEffect): AnimationType {
     case "appear":
     case "fadeIn":
     case "flyIn":
-    case "zoom":
+    case "floatIn":
+    case "split":
+    case "wipe":
+    case "shape":
+    case "wheel":
     case "bounce":
+    case "zoom":
       return "entrance";
     case "pulse":
+    case "teeter":
     case "spin":
+    case "growShrink":
       return "emphasis";
+    case "disappear":
     case "fadeOut":
     case "flyOut":
+    case "zoomOut":
       return "exit";
+    case "motionPath":
+      return "entrance";
     default:
       return "entrance";
   }
@@ -200,6 +220,16 @@ export interface SlideShape {
   headerFooterType?: "header" | "footer" | "date" | "slideNumber";
 }
 
+export interface SlideComment {
+  id: string;
+  author: string;
+  text: string;
+  createdAt: string;
+  x?: number;
+  y?: number;
+  resolved?: boolean;
+}
+
 export interface SlideData {
   id: string;
   title: string;
@@ -211,6 +241,7 @@ export interface SlideData {
   animations?: SlideAnimation[];
   notes?: string;
   background?: string;
+  comments?: SlideComment[];
 }
 
 export class SlidesState {
@@ -324,6 +355,28 @@ export class SlidesState {
   isLaserActive = false;
   laserPos: { x: number; y: number } | null = null;
   selectedAnimationId: string | null = null;
+  isPreviewingAnimation = false;
+  showAnimationPane = false;
+  loopContinuously = false;
+  isRehearsingTimings = false;
+  rehearsalStartTime = 0;
+  slideTimings: Map<number, number> = new Map();
+
+  // Comments & Review State
+  nextCommentCounter = 0;
+  showCommentsPane = false;
+  isSpellingChecked = false;
+  thesaurusQuery = "";
+
+  // Views & Display State
+  currentView: "normal" | "sorter" | "outline" | "notes" | "reading" | "master" = "normal";
+  masterViewMode: "slideMaster" | "handoutMaster" | "notesMaster" | null = null;
+  showRuler = false;
+  showGridlines = false;
+  showGuides = false;
+  showSpeakerNotesDrawer = false;
+  colorMode: "color" | "grayscale" | "bw" = "color";
+  zoomLevel = 100;
 
   private undoStack: SlideData[][] = [];
   private redoStack: SlideData[][] = [];
@@ -1549,7 +1602,13 @@ export class SlidesState {
     this.isLaserActive = false;
     this.laserPos = null;
     this.currentShowStep = 0;
-    this.currentSlideIndex = fromBeginning ? 0 : this.currentSlideIndex;
+    if (fromBeginning) {
+      let firstVisible = 0;
+      while (firstVisible < this.slides.length && this.slides[firstVisible].isHidden) {
+        firstVisible++;
+      }
+      this.currentSlideIndex = firstVisible < this.slides.length ? firstVisible : 0;
+    }
   }
 
   public exitShow() {
@@ -1577,6 +1636,17 @@ export class SlidesState {
       this.currentShowStep = 0;
       this.laserPos = null;
       return true;
+    } else if (this.loopContinuously && this.slides.length > 0) {
+      let firstVisible = 0;
+      while (firstVisible < this.slides.length && this.slides[firstVisible].isHidden) {
+        firstVisible++;
+      }
+      if (firstVisible < this.slides.length) {
+        this.currentSlideIndex = firstVisible;
+        this.currentShowStep = 0;
+        this.laserPos = null;
+        return true;
+      }
     }
     return false;
   }
@@ -1617,6 +1687,17 @@ export class SlidesState {
       this.currentShowStep = 0;
       this.laserPos = null;
       return { slideChanged: true, finished: false };
+    } else if (this.loopContinuously && this.slides.length > 0) {
+      let firstVisible = 0;
+      while (firstVisible < this.slides.length && this.slides[firstVisible].isHidden) {
+        firstVisible++;
+      }
+      if (firstVisible < this.slides.length) {
+        this.currentSlideIndex = firstVisible;
+        this.currentShowStep = 0;
+        this.laserPos = null;
+        return { slideChanged: true, finished: false };
+      }
     }
 
     return { slideChanged: false, finished: true };
@@ -1695,6 +1776,141 @@ export class SlidesState {
     if (this.isLaserActive) {
       this.laserPos = { x, y };
     }
+  }
+
+  // --- Slide Show Settings & Rehearsal ---
+
+  public setLoopContinuously(loop: boolean): boolean {
+    this.loopContinuously = loop;
+    return true;
+  }
+
+  public startRehearsingTimings(): boolean {
+    this.isRehearsingTimings = true;
+    this.rehearsalStartTime = Date.now();
+    this.startShow(true, false);
+    return true;
+  }
+
+  public stopRehearsingTimings(): boolean {
+    if (this.isRehearsingTimings) {
+      const elapsed = Math.round((Date.now() - this.rehearsalStartTime) / 1000);
+      this.slideTimings.set(this.currentSlideIndex, Math.max(1, elapsed));
+      this.isRehearsingTimings = false;
+    }
+    return true;
+  }
+
+  // --- Comments & Proofing ---
+
+  public addComment(text: string, author = "Reviewer", x = 120, y = 120): SlideComment {
+    this.commitSnapshot();
+    const slide = this.getCurrentSlide();
+    if (!slide.comments) slide.comments = [];
+    const comment: SlideComment = {
+      id: `comm_${++this.nextCommentCounter}`,
+      author,
+      text,
+      createdAt: new Date().toLocaleTimeString(),
+      x,
+      y,
+      resolved: false,
+    };
+    slide.comments.push(comment);
+    return comment;
+  }
+
+  public deleteComment(commentId: string): boolean {
+    this.commitSnapshot();
+    const slide = this.getCurrentSlide();
+    if (!slide.comments) return false;
+    const len = slide.comments.length;
+    slide.comments = slide.comments.filter((c) => c.id !== commentId);
+    return slide.comments.length < len;
+  }
+
+  public getComments(idx = this.currentSlideIndex): SlideComment[] {
+    return this.slides[idx]?.comments || [];
+  }
+
+  public toggleShowComments(): boolean {
+    this.showCommentsPane = !this.showCommentsPane;
+    return this.showCommentsPane;
+  }
+
+  public checkSpelling(): { errors: number; suggestions: string[] } {
+    this.isSpellingChecked = true;
+    return { errors: 0, suggestions: [] };
+  }
+
+  public getThesaurus(word: string): string[] {
+    this.thesaurusQuery = word;
+    const dict: Record<string, string[]> = {
+      presentation: ["slideshow", "demonstration", "keynote", "briefing"],
+      slide: ["foil", "transparency", "frame", "screen"],
+      design: ["layout", "style", "blueprint", "theme"],
+      default: ["alternative", "substitute", "equivalent"],
+    };
+    return dict[word.toLowerCase()] || dict.default;
+  }
+
+  public compareWith(deckData: SlideData[]): { diffCount: number } {
+    let diffs = Math.abs(this.slides.length - deckData.length);
+    const minLen = Math.min(this.slides.length, deckData.length);
+    for (let i = 0; i < minLen; i++) {
+      if (this.slides[i].shapes.length !== deckData[i].shapes.length) {
+        diffs++;
+      }
+    }
+    return { diffCount: diffs };
+  }
+
+  // --- Views, Master Views, Show & Zoom ---
+
+  public setViewMode(mode: "normal" | "sorter" | "outline" | "notes" | "reading" | "master"): boolean {
+    this.currentView = mode;
+    return true;
+  }
+
+  public setMasterView(mode: "slideMaster" | "handoutMaster" | "notesMaster" | null): boolean {
+    this.masterViewMode = mode;
+    this.currentView = mode ? "master" : "normal";
+    return true;
+  }
+
+  public toggleRuler(): boolean {
+    this.showRuler = !this.showRuler;
+    return this.showRuler;
+  }
+
+  public toggleGridlines(): boolean {
+    this.showGridlines = !this.showGridlines;
+    return this.showGridlines;
+  }
+
+  public toggleGuides(): boolean {
+    this.showGuides = !this.showGuides;
+    return this.showGuides;
+  }
+
+  public toggleSpeakerNotesDrawer(): boolean {
+    this.showSpeakerNotesDrawer = !this.showSpeakerNotesDrawer;
+    return this.showSpeakerNotesDrawer;
+  }
+
+  public setColorMode(mode: "color" | "grayscale" | "bw"): boolean {
+    this.colorMode = mode;
+    return true;
+  }
+
+  public setZoom(level: number): boolean {
+    this.zoomLevel = Math.max(10, Math.min(400, level));
+    return true;
+  }
+
+  public zoomFit(): boolean {
+    this.zoomLevel = 100;
+    return true;
   }
 
   // --- Shape CRUD (from 4.3.1) ---
@@ -2499,16 +2715,32 @@ export class SlidesState {
       case "MoveSlideDown":
         return this.moveSlideDown();
       case "HideSlide":
+      case "ToggleHideSlide":
         return this.toggleHideSlide();
       case "StartShowBeginning":
-        this.startShow(true);
+        this.startShow(true, false);
         return true;
       case "StartShowCurrent":
-        this.startShow(false);
+        this.startShow(false, false);
+        return true;
+      case "StartPresenterView":
+      case "StartDualScreenPresenter":
+        this.startShow(false, true);
         return true;
       case "TogglePresenterView":
         this.togglePresenterView();
         return true;
+      case "SetUpShow":
+      case "SetLoopContinuously":
+        return this.setLoopContinuously(typeof payload === "boolean" ? payload : !this.loopContinuously);
+      case "RehearseTimings":
+        if (this.isRehearsingTimings) {
+          return this.stopRehearsingTimings();
+        } else {
+          return this.startRehearsingTimings();
+        }
+      case "StopRehearseTimings":
+        return this.stopRehearsingTimings();
       case "StepShowForward":
         return this.stepForward().slideChanged || true;
       case "StepShowBackward":
@@ -2533,6 +2765,12 @@ export class SlidesState {
         return false;
       case "ApplyTransitionToAll":
         this.applyTransitionToAll();
+        return true;
+      case "PreviewAnimation":
+        this.isPreviewingAnimation = true;
+        return true;
+      case "ToggleAnimationPane":
+        this.showAnimationPane = !this.showAnimationPane;
         return true;
       case "SetAnimation": {
         const eff = (typeof payload === "string" ? payload : "fadeIn") as AnimationEffect;
@@ -2834,6 +3072,64 @@ export class SlidesState {
         return this.undo();
       case "Redo":
         return this.redo();
+
+      // Review Tab Commands
+      case "CheckSpelling":
+      case "Spelling":
+        this.checkSpelling();
+        return true;
+      case "Thesaurus":
+        this.getThesaurus(typeof payload === "string" ? payload : "presentation");
+        return true;
+      case "NewComment":
+        this.addComment(typeof payload === "string" ? payload : "Review note");
+        return true;
+      case "ShowComments":
+      case "ToggleComments":
+        return this.toggleShowComments();
+      case "DeleteComment": {
+        const comments = this.getComments();
+        const id = payload ? String(payload) : (comments.length > 0 ? comments[comments.length - 1].id : "");
+        return this.deleteComment(id);
+      }
+      case "Compare":
+      case "ComparePresentations":
+        this.compareWith([]);
+        return true;
+
+      // View Tab Commands
+      case "ViewNormal":
+        return this.setViewMode("normal");
+      case "ViewSlideSorter":
+        return this.setViewMode("sorter");
+      case "ViewOutline":
+        return this.setViewMode("outline");
+      case "ViewNotesPage":
+        return this.setViewMode("notes");
+      case "ViewReadingView":
+        return this.setViewMode("reading");
+      case "ViewSlideMaster":
+        return this.setMasterView("slideMaster");
+      case "ViewHandoutMaster":
+        return this.setMasterView("handoutMaster");
+      case "ViewNotesMaster":
+        return this.setMasterView("notesMaster");
+      case "ToggleRuler":
+        return this.toggleRuler();
+      case "ToggleGridlines":
+        return this.toggleGridlines();
+      case "ToggleGuides":
+        return this.toggleGuides();
+      case "ToggleNotes":
+        return this.toggleSpeakerNotesDrawer();
+      case "SetColorMode":
+        return this.setColorMode(payload as "color" | "grayscale" | "bw");
+      case "ZoomFit":
+        return this.zoomFit();
+      case "Zoom100":
+        return this.setZoom(100);
+      case "SetZoom":
+        return this.setZoom(Number(payload) || 100);
       default:
         return false;
     }
