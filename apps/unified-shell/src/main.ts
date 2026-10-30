@@ -38,6 +38,8 @@ import { PresentationPlayer } from "./components/PresentationPlayer";
 import { SlideMediaOverlay } from "./components/SlideMediaOverlay";
 import { PresenterConsoleWindow } from "./components/PresenterConsoleWindow";
 import { PdfWorkspace } from "./apps/pdf/PdfWorkspace";
+import { NotesWorkspace } from "./apps/notes/NotesWorkspace";
+import { notesState } from "./state/notesState";
 import { CollabBar } from "./components/CollabBar";
 import { PluginSidebar } from "./components/PluginSidebar";
 import { PluginManagerModal } from "./components/PluginManagerModal";
@@ -84,6 +86,7 @@ export class UnifiedShellApp {
   private slideMediaOverlay?: SlideMediaOverlay;
   private presenterConsole?: PresenterConsoleWindow;
   private pdfWorkspace?: PdfWorkspace;
+  private notesWorkspace?: NotesWorkspace;
   private collabBar!: CollabBar;
   private pluginSidebar!: PluginSidebar;
   private pluginManagerModal!: PluginManagerModal;
@@ -767,6 +770,10 @@ export class UnifiedShellApp {
     return this.pdfWorkspace;
   }
 
+  public getNotesWorkspace(): NotesWorkspace | undefined {
+    return this.notesWorkspace;
+  }
+
   public getFormulaBar(): FormulaBar {
     return this.formulaBar;
   }
@@ -1109,21 +1116,14 @@ export class UnifiedShellApp {
           },
         });
       } else if (tab.docType === "Notes") {
-        viewportContainer.innerHTML = `
-          <div class="notes-workspace" data-testid="notes-workspace" style="display: flex; width: 100%; height: 100%; background: var(--bg-surface, #ffffff); flex-direction: column;">
-            <div class="notes-toolbar" style="display: flex; align-items: center; justify-content: space-between; padding: 6px 16px; border-bottom: 1px solid var(--border-color, #e0e0e0); background: var(--bg-shell, #f3f3f3);">
-              <span style="font-weight: 600; font-size: 12px; color: var(--text-secondary, #616161);">Notepad & Notes Editor</span>
-              <span style="font-size: 11px; color: var(--text-muted, #8a8a8a);">UTF-8 • Plain Text / Markdown</span>
-            </div>
-            <textarea id="notes-editor-textarea" data-testid="notes-editor-textarea" style="flex: 1; width: 100%; height: 100%; border: none; outline: none; padding: 16px; font-family: 'Consolas', 'Courier New', monospace; font-size: 14px; background: transparent; color: inherit; resize: none; box-sizing: border-box;" placeholder="Type notes here..."></textarea>
-          </div>
-        `;
-        const textarea = document.getElementById("notes-editor-textarea") as HTMLTextAreaElement | null;
-        if (textarea) {
-          textarea.addEventListener("input", () => {
-            this.tabBar.setDirty(tab.id, true);
-          });
-        }
+        this.notesWorkspace = new NotesWorkspace(viewportContainer, notesState);
+        this.notesWorkspace.setCallbacks({
+          onDirty: () => this.tabBar.setDirty(tab.id, true),
+          onStatusChange: (info) => {
+            const docInfo = document.getElementById("status-doc-info");
+            if (docInfo) docInfo.textContent = info;
+          },
+        });
       }
     }
 
@@ -1183,6 +1183,9 @@ export class UnifiedShellApp {
     } else if (type === "PDF") {
       pdfState.resetToBlank(defaultTitle);
       this.pdfWorkspace?.render();
+    } else if (type === "Notes") {
+      notesState.resetToBlank(defaultTitle);
+      this.notesWorkspace?.render();
     }
 
     this.tabBar.addTab({
@@ -1723,6 +1726,19 @@ export class UnifiedShellApp {
           docInfo.textContent = `Page ${pdfState.currentPage} of ${pdfState.pageCount}`;
         }
       }
+    } else if (this.currentDocType === "Notes") {
+      if (action === "SaveDocument") {
+        this.tabBar.setDirty(active.id, false);
+        const docInfo = document.getElementById("status-doc-info");
+        if (docInfo) {
+          docInfo.textContent = `Saved: ${active.title}`;
+        }
+      }
+      const changed = notesState.execCommand(action, payload);
+      if (changed) {
+        this.notesWorkspace?.render();
+        this.tabBar.setDirty(active.id, true);
+      }
     } else if (action === "SetFormField") {
       this.pdfViewerCanvas?.render();
     } else if (action === "ToggleReflow") {
@@ -1755,6 +1771,9 @@ export class UnifiedShellApp {
         } else if (this.currentDocType === "PDF") {
           pdfState.undo();
           this.pdfWorkspace?.render();
+        } else if (this.currentDocType === "Notes") {
+          notesState.undo();
+          this.notesWorkspace?.render();
         } else if (this.currentDocType === "Excel") {
           calcState.undo();
           this.calcGridCanvas?.render();
@@ -1770,6 +1789,9 @@ export class UnifiedShellApp {
         } else if (this.currentDocType === "PDF") {
           pdfState.redo();
           this.pdfWorkspace?.render();
+        } else if (this.currentDocType === "Notes") {
+          notesState.redo();
+          this.notesWorkspace?.render();
         } else if (this.currentDocType === "Excel") {
           calcState.redo();
           this.calcGridCanvas?.render();

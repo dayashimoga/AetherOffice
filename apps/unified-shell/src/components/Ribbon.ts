@@ -4,6 +4,7 @@ import { WriterRibbon } from "./ribbon/WriterRibbon";
 import { CalcRibbon } from "./ribbon/CalcRibbon";
 import { SlidesRibbon } from "./ribbon/SlidesRibbon";
 import { PdfRibbon } from "./ribbon/PdfRibbon";
+import { NotesRibbon } from "./ribbon/NotesRibbon";
 import { ContextualRibbonRouter } from "./ribbon/ContextualRibbonRouter";
 import { pluginHost, PluginHost } from "../plugins/pluginHost";
 
@@ -27,6 +28,7 @@ export class Ribbon {
   private calcRibbon = new CalcRibbon();
   private slidesRibbon = new SlidesRibbon();
   private pdfRibbon = new PdfRibbon();
+  private notesRibbon = new NotesRibbon();
   private router: ContextualRibbonRouter;
 
   constructor(containerId: string, host: PluginHost = pluginHost) {
@@ -62,6 +64,10 @@ export class Ribbon {
     return this.pdfRibbon;
   }
 
+  public getNotesRibbon(): NotesRibbon {
+    return this.notesRibbon;
+  }
+
   public getActiveAppRibbon(): AppRibbonComponent {
     switch (this.docType) {
       case "Word":
@@ -73,6 +79,7 @@ export class Ribbon {
       case "PDF":
         return this.pdfRibbon;
       case "Notes":
+        return this.notesRibbon;
       default:
         return this.writerRibbon;
     }
