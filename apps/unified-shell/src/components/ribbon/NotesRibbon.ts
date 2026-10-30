@@ -156,3 +156,4 @@ export class NotesRibbon implements AppRibbonComponent {
     body.appendChild(inlineGroup);
   }
 }
+
