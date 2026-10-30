@@ -858,9 +858,9 @@
                           "title":  "Visual Overhaul: Non-Overflowing Flexbox Ribbon \u0026 Dark/Light Theme Toggle",
                           "crate":  "render-core",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-21/subphase-21.2.1.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-30T08:33:01Z"
                       },
                       {
                           "id":  "22.1.1",

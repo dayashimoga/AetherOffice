@@ -45,6 +45,7 @@ import { SanitizeModal } from "./components/SanitizeModal";
 import { PivotFieldListSidebar } from "./components/PivotFieldListSidebar";
 import { CopilotSidebar } from "./components/CopilotSidebar";
 import { DiffPreviewModal } from "./components/DiffPreviewModal";
+import { themeManager } from "./components/ThemeManager";
 import { pluginHost } from "./plugins/pluginHost";
 
 export class UnifiedShellApp {
@@ -96,8 +97,9 @@ export class UnifiedShellApp {
   }
 
   public init(autoBoot = true) {
-    // 0. Initialize Window Controls
+    // 0. Initialize Window Controls & Theme Engine
     this.initWindowControls();
+    themeManager.init();
 
     // 0.1 Initialize Left App Switcher Rail (48px)
     const railContainer = document.getElementById("app-rail-container");
@@ -145,7 +147,7 @@ export class UnifiedShellApp {
     this.backstageMenu = new BackstageMenu("app");
     this.backstageMenu.setCallbacks({
       onClose: () => {
-        console.log("Closed Backstage view");
+        this.ribbon?.setBackstageActive(false);
       },
       onOpenPlugins: () => {
         this.pluginManagerModal.open();
@@ -662,7 +664,9 @@ export class UnifiedShellApp {
   public toggleBackstage() {
     if (this.backstageMenu.isOpen()) {
       this.backstageMenu.hide();
+      this.ribbon?.setBackstageActive(false);
     } else {
+      this.ribbon?.setBackstageActive(true);
       const active = this.tabBar.getActiveTab();
       if (active) {
         this.backstageMenu.show(

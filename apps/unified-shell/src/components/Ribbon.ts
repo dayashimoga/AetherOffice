@@ -20,6 +20,7 @@ export class Ribbon {
     Notes: "Home",
   };
   private keytipsActive = false;
+  private backstageActive = false;
   private onActionCallback?: (action: string, payload?: unknown) => void;
 
   private writerRibbon = new WriterRibbon();
@@ -125,6 +126,15 @@ export class Ribbon {
     return this.keytipsActive;
   }
 
+  public setBackstageActive(isOpen: boolean) {
+    this.backstageActive = isOpen;
+    this.render();
+  }
+
+  public isBackstageActive(): boolean {
+    return this.backstageActive;
+  }
+
   public getVisibleTabs(): string[] {
     return this.router.getVisibleTabs(this.docType, this.getActiveAppRibbon().getTabs());
   }
@@ -140,7 +150,7 @@ export class Ribbon {
     // 1.1 Dedicated File Tab / Backstage Trigger
     // STRICT CONTRACT: File is NEVER an active tab, never underlined. It is a Backstage overlay trigger.
     const fileBtn = document.createElement("button");
-    fileBtn.className = "ribbon-tab-btn ribbon-file-tab";
+    fileBtn.className = `ribbon-tab-btn ribbon-file-tab ${this.backstageActive ? "backstage-active active" : ""}`;
     fileBtn.setAttribute("data-testid", "ribbon-tab-file");
     fileBtn.textContent = "File";
     fileBtn.style.backgroundColor = this.getDocAccentColor();
