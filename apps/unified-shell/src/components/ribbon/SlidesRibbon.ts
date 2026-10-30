@@ -332,6 +332,13 @@ export class SlidesRibbon implements AppRibbonComponent {
       transRow2.appendChild(createRibbonButton(t, t, () => emit("SetTransition", t)));
     });
     transGroup.appendChild(transRow2);
+
+    const transRow3 = document.createElement("div");
+    transRow3.className = "ribbon-group-row";
+    ["Cube", "Flip", "Vortex", "Honeycomb", "Origami", "Ripple"].forEach((t) => {
+      transRow3.appendChild(createRibbonButton(t, `🎲 ${t}`, () => emit("SetTransition", t)));
+    });
+    transGroup.appendChild(transRow3);
     body.appendChild(transGroup);
 
     // 3. Effect Options
@@ -386,6 +393,7 @@ export class SlidesRibbon implements AppRibbonComponent {
     animRow2.className = "ribbon-group-row";
     animRow2.appendChild(createRibbonButton("Pulse", "🟡 Pulse", () => emit("SetAnimation", "pulse")));
     animRow2.appendChild(createRibbonButton("Spin", "🟡 Spin", () => emit("SetAnimation", "spin")));
+    animRow2.appendChild(createRibbonButton("Motion Path", "➰ Motion", () => emit("AddMotionPath")));
     animRow2.appendChild(createRibbonButton("Fade Out", "🔴 Fade Out", () => emit("SetAnimation", "fadeOut")));
     animRow2.appendChild(createRibbonButton("Fly Out", "🔴 Fly Out", () => emit("SetAnimation", "flyOut")));
     animRow2.appendChild(createRibbonButton("None", "None", () => emit("SetAnimation", "none")));

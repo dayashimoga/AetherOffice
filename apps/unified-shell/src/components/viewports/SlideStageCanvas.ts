@@ -5,6 +5,7 @@ import {
   SlidesState,
   slidesState,
 } from "../../state/slidesState";
+import { SlideTransitionEngine } from "../SlideTransitionEngine";
 
 export interface AlignmentGuide {
   orientation: "vertical" | "horizontal";
@@ -1038,6 +1039,40 @@ export class SlideStageCanvas {
           ctx.strokeRect(h.x - 3.5, h.y - 3.5, 7, 7);
         });
 
+        // Motion Path Trajectory Guide if present
+        const motionAnim = this.state.getSlideAnimations().find(
+          (a) => a.shapeId === sh.id && a.effect === "motionPath" && a.motionPath
+        );
+        if (motionAnim?.motionPath) {
+          const trajectory = SlideTransitionEngine.compileTrajectory(
+            motionAnim.motionPath,
+            motionAnim.easing,
+            40,
+            false
+          );
+          ctx.save();
+          ctx.strokeStyle = "#38bdf8";
+          ctx.lineWidth = 2;
+          if (ctx.setLineDash) ctx.setLineDash([4, 3]);
+          ctx.beginPath();
+          trajectory.forEach((pt, idx) => {
+            const px = sh.x + sh.w / 2 + pt.x;
+            const py = sh.y + sh.h / 2 + pt.y;
+            if (idx === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          });
+          ctx.stroke();
+          if (ctx.setLineDash) ctx.setLineDash([]);
+          const lastPt = trajectory[trajectory.length - 1];
+          if (lastPt) {
+            ctx.fillStyle = "#38bdf8";
+            ctx.beginPath();
+            ctx.arc(sh.x + sh.w / 2 + lastPt.x, sh.y + sh.h / 2 + lastPt.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
         ctx.restore();
       }
     });
@@ -1066,42 +1101,9 @@ export class SlideStageCanvas {
 
   public async playTransitionPreview(config?: SlideTransitionConfig): Promise<void> {
     const trans = config || this.state.getSlideTransition();
-    if (!trans || trans.effect === "None") {
+    await SlideTransitionEngine.executeTransition(this.wrapper, trans, () => {
       this.render();
-      return;
-    }
-
-    this.wrapper.style.transition = `all ${trans.duration}s cubic-bezier(0.4, 0, 0.2, 1)`;
-
-    if (trans.effect === "Fade") {
-      this.wrapper.style.opacity = "0";
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      this.render();
-      this.wrapper.style.opacity = "1";
-    } else if (trans.effect === "Push") {
-      const dir = trans.direction || "right";
-      const shift =
-        dir === "left" ? "-80px" : dir === "right" ? "80px" : dir === "top" ? "-80px" : "80px";
-      this.wrapper.style.transform =
-        dir === "left" || dir === "right" ? `translateX(${shift})` : `translateY(${shift})`;
-      this.wrapper.style.opacity = "0.5";
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      this.render();
-      this.wrapper.style.transform = "none";
-      this.wrapper.style.opacity = "1";
-    } else {
-      this.wrapper.style.transform = "scale(0.92)";
-      this.wrapper.style.opacity = "0.6";
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      this.render();
-      this.wrapper.style.transform = "none";
-      this.wrapper.style.opacity = "1";
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, Math.max(100, trans.duration * 300)));
-    this.wrapper.style.transition = "none";
-    this.wrapper.style.transform = "none";
-    this.wrapper.style.opacity = "1";
+    });
   }
 
   public async playAnimationPreview(anim: SlideAnimation): Promise<void> {
@@ -1109,6 +1111,36 @@ export class SlideStageCanvas {
       (s) => s.id === anim.shapeId
     );
     if (!shape) return;
+
+    if (anim.effect === "motionPath" && anim.motionPath) {
+      const origX = shape.x;
+      const origY = shape.y;
+      const origRot = shape.rotation ?? 0;
+      const trajectory = SlideTransitionEngine.compileTrajectory(
+        anim.motionPath,
+        anim.easing || "ease-in-out",
+        30,
+        anim.rotateToPath ?? true
+      );
+
+      for (const pt of trajectory) {
+        shape.x = origX + pt.x;
+        shape.y = origY + pt.y;
+        if (anim.rotateToPath) {
+          shape.rotation = origRot + pt.angle;
+        }
+        this.render();
+        await new Promise((r) =>
+          setTimeout(r, Math.max(16, (anim.duration * 1000) / trajectory.length))
+        );
+      }
+
+      shape.x = origX;
+      shape.y = origY;
+      shape.rotation = origRot;
+      this.render();
+      return;
+    }
 
     const origStroke = shape.stroke;
     const origStrokeWidth = shape.strokeWidth;

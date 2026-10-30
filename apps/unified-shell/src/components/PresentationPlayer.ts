@@ -3,6 +3,7 @@ import {
   SlidesState,
   slidesState,
 } from "../state/slidesState";
+import { SlideTransitionEngine } from "./SlideTransitionEngine";
 
 export type PresentationMode = "slide" | "presenter";
 
@@ -984,45 +985,8 @@ export class PresentationPlayer {
       return;
     }
 
-    // Play CSS animation on the canvas element for smooth visual transition
-    this.slideCanvas.style.transition = `all ${trans.duration}s cubic-bezier(0.4, 0, 0.2, 1)`;
-
-    switch (trans.effect) {
-      case "Fade":
-        this.slideCanvas.style.opacity = "0";
-        setTimeout(() => {
-          this.render();
-          this.slideCanvas.style.opacity = "1";
-        }, 50);
-        break;
-
-      case "Push": {
-        const dir = trans.direction || "right";
-        const translate = dir === "left" ? "translateX(-100px)" : dir === "right" ? "translateX(100px)" : dir === "top" ? "translateY(-100px)" : "translateY(100px)";
-        this.slideCanvas.style.transform = translate;
-        this.slideCanvas.style.opacity = "0.5";
-        setTimeout(() => {
-          this.render();
-          this.slideCanvas.style.transform = "none";
-          this.slideCanvas.style.opacity = "1";
-        }, 50);
-        break;
-      }
-
-      case "Wipe":
-      case "Split":
-      case "Morph":
-        this.slideCanvas.style.transform = "scale(0.95)";
-        this.slideCanvas.style.opacity = "0.6";
-        setTimeout(() => {
-          this.render();
-          this.slideCanvas.style.transform = "none";
-          this.slideCanvas.style.opacity = "1";
-        }, 50);
-        break;
-
-      default:
-        this.render();
-    }
+    SlideTransitionEngine.executeTransition(this.slideCanvas, trans, () => {
+      this.render();
+    });
   }
 }

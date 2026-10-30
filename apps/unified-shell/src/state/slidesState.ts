@@ -38,7 +38,13 @@ export type TransitionEffect =
   | "Reveal"
   | "Cover"
   | "Random Bars"
-  | "Shape";
+  | "Shape"
+  | "Cube"
+  | "Flip"
+  | "Vortex"
+  | "Honeycomb"
+  | "Origami"
+  | "Ripple";
 
 export type TransitionDirection =
   | "left"
@@ -68,7 +74,9 @@ export type AnimationEffect =
   | "spin"
   // Exit:
   | "fadeOut"
-  | "flyOut";
+  | "flyOut"
+  // Motion Path:
+  | "motionPath";
 
 export type AnimationTrigger = "click" | "withPrev" | "afterPrev";
 
@@ -81,6 +89,9 @@ export interface SlideAnimation {
   duration: number; // in seconds, default 0.5
   delay: number; // in seconds, default 0
   order: number;
+  motionPath?: string;
+  easing?: "linear" | "ease-in-out" | "cubic-bezier" | "bounce" | "spring";
+  rotateToPath?: boolean;
 }
 
 export function getAnimationType(effect: AnimationEffect): AnimationType {
@@ -988,6 +999,37 @@ export class SlidesState {
     return newAnim;
   }
 
+  public addMotionPathAnimation(
+    shapeId = this.selectedShapeId || "",
+    path = "M 0 0 C 100 -50 200 150 300 0",
+    duration = 1.5,
+    easing: "linear" | "ease-in-out" | "cubic-bezier" | "bounce" | "spring" = "ease-in-out",
+    rotateToPath = true
+  ): SlideAnimation | null {
+    if (!shapeId) return null;
+    const slide = this.slides[this.currentSlideIndex];
+    if (!slide) return null;
+    if (!slide.animations) slide.animations = [];
+
+    this.commitSnapshot();
+    const newAnim: SlideAnimation = {
+      id: `anim_${++this.nextAnimCounter}`,
+      shapeId,
+      type: "emphasis",
+      effect: "motionPath",
+      trigger: "click",
+      duration: Math.max(0.1, duration),
+      delay: 0,
+      order: slide.animations.length + 1,
+      motionPath: path,
+      easing,
+      rotateToPath,
+    };
+    slide.animations.push(newAnim);
+    this.selectedAnimationId = newAnim.id;
+    return newAnim;
+  }
+
   public removeAnimation(animId: string): boolean {
     const slide = this.slides[this.currentSlideIndex];
     if (!slide || !slide.animations) return false;
@@ -1750,6 +1792,15 @@ export class SlidesState {
             this.addAnimation(p.shapeId, p.effect, undefined, p.trigger, p.duration);
             return true;
           }
+        }
+        return false;
+      }
+      case "AddMotionPath": {
+        const sel = this.getSelectedShape();
+        if (sel) {
+          const path = typeof payload === "string" ? payload : (payload as any)?.path;
+          this.addMotionPathAnimation(sel.id, path);
+          return true;
         }
         return false;
       }

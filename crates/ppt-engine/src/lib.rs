@@ -16,6 +16,7 @@ pub mod morph;
 pub mod package;
 pub mod parser;
 pub mod serializer;
+pub mod transition_3d;
 
 pub use animation::{
     apply_accel_decel, compute_node_progress, solve_cubic_bezier_easing, AnimatedSceneState,
@@ -49,6 +50,10 @@ pub use parser::{
 pub use serializer::{
     serialize_notes_slide, serialize_presentation, serialize_slide, serialize_slide_layout,
     serialize_slide_master, serialize_theme,
+};
+pub use transition_3d::{
+    EasingCurve, MotionPathCompiler, MotionTrajectoryPoint, SlideTransition3DEngine,
+    Transform3DMatrix, Transition3DDirection, Transition3DEffect, Transition3DFrame,
 };
 
 pub fn health_check() -> bool {
