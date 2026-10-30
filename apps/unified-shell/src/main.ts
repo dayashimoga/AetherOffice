@@ -39,6 +39,7 @@ import { CollabBar } from "./components/CollabBar";
 import { PluginSidebar } from "./components/PluginSidebar";
 import { PluginManagerModal } from "./components/PluginManagerModal";
 import { SanitizeModal } from "./components/SanitizeModal";
+import { PivotFieldListSidebar } from "./components/PivotFieldListSidebar";
 import { pluginHost } from "./plugins/pluginHost";
 
 export class UnifiedShellApp {
@@ -78,6 +79,7 @@ export class UnifiedShellApp {
   private pluginSidebar!: PluginSidebar;
   private pluginManagerModal!: PluginManagerModal;
   private sanitizeModal!: SanitizeModal;
+  private pivotFieldListSidebar!: PivotFieldListSidebar;
 
   constructor(autoBoot = true) {
     this.init(autoBoot);
@@ -99,6 +101,7 @@ export class UnifiedShellApp {
     // 2.1. Initialize Backstage File Menu
     this.pluginManagerModal = new PluginManagerModal("app");
     this.sanitizeModal = new SanitizeModal("app");
+    this.pivotFieldListSidebar = new PivotFieldListSidebar();
     this.backstageMenu = new BackstageMenu("app");
     this.backstageMenu.setCallbacks({
       onClose: () => {
@@ -441,6 +444,10 @@ export class UnifiedShellApp {
 
   public getSanitizeModal(): SanitizeModal {
     return this.sanitizeModal;
+  }
+
+  public getPivotFieldListSidebar(): PivotFieldListSidebar {
+    return this.pivotFieldListSidebar;
   }
 
   public updateNavigationOutline() {
@@ -996,6 +1003,23 @@ export class UnifiedShellApp {
     if (action === "InspectDocument" || action === "SanitizeDocument") {
       const active = this.tabBar.getActiveTab();
       this.sanitizeModal.open(active?.title, active?.docType);
+      return;
+    }
+    if (action === "InsertPivotTable" || action === "TogglePivotTable") {
+      this.pivotFieldListSidebar.toggle();
+      this.calcGridCanvas?.render();
+      return;
+    }
+    if (action === "InsertPivotChart") {
+      this.pivotFieldListSidebar.show();
+      this.pivotFieldListSidebar.createLinkedPivotChart("column");
+      this.calcChartOverlay?.refresh();
+      this.calcGridCanvas?.render();
+      return;
+    }
+    if (action === "InsertSlicer") {
+      this.pivotFieldListSidebar.show();
+      this.pivotFieldListSidebar.addSlicer("Region");
       return;
     }
     if (action.startsWith("TogglePluginSidebar:")) {

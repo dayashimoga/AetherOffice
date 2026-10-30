@@ -198,6 +198,8 @@ export class CalcRibbon implements AppRibbonComponent {
     const tblRow = document.createElement("div");
     tblRow.className = "ribbon-group-row";
     tblRow.appendChild(createRibbonButton("PivotTable", "📊 PivotTable", () => emit("InsertPivotTable")));
+    tblRow.appendChild(createRibbonButton("PivotChart", "📈 PivotChart", () => emit("InsertPivotChart")));
+    tblRow.appendChild(createRibbonButton("Slicer", "🔪 Slicer", () => emit("InsertSlicer")));
     tblRow.appendChild(createRibbonButton("Table", "▦ Table", () => emit("InsertTable")));
     tblGroup.appendChild(tblRow);
     body.appendChild(tblGroup);
