@@ -1034,9 +1034,9 @@
                           "title":  "Fix Word Home, Insert \u0026 Layout Ribbons (100% Working Controls)",
                           "crate":  "word-engine",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-29/subphase-29.1.2.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-30T13:52:57Z"
                       },
                       {
                           "id":  "29.2.1",

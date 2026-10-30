@@ -1568,7 +1568,7 @@ export class UnifiedShellApp {
         if (action === "SetStyle" || action === "setStyle") {
           this.updateNavigationOutline();
         } else if (action === "SetMargins" || action === "setMargins") {
-          const leftMargin = payload === "narrow" ? 48 : payload === "wide" ? 144 : 96;
+          const leftMargin = payload === "narrow" ? 48 : payload === "moderate" ? 72 : payload === "wide" ? 144 : 96;
           this.wordRuler.setMargins(leftMargin, leftMargin, 0);
           this.writerCanvas?.setMargins(leftMargin, leftMargin);
         }

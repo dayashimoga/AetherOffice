@@ -30,6 +30,7 @@ export function createRibbonButton(
   if (testId) {
     btn.setAttribute("data-testid", testId);
   }
+  btn.onmousedown = (e) => e.preventDefault();
   btn.onclick = () => {
     if (isToggle) btn.classList.toggle("active");
     onClick();

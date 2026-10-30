@@ -32,10 +32,55 @@ export class WriterCanvas {
   private canvases: HTMLCanvasElement[] = [];
   private state: WriterState;
 
-  public readonly pageWidth = 816; // 8.5 inches at 96 dpi
-  public readonly pageHeight = 1056; // 11 inches at 96 dpi
-  public marginX = 96; // 1 inch
-  public marginY = 96;
+  public getPageDimensions(): { width: number; height: number } {
+    let baseW = 816;
+    let baseH = 1056;
+    if (this.state.doc.pageSize === "a4") {
+      baseW = 794;
+      baseH = 1123;
+    } else if (this.state.doc.pageSize === "legal") {
+      baseW = 816;
+      baseH = 1296;
+    }
+    if (this.state.doc.pageOrientation === "landscape") {
+      return { width: baseH, height: baseW };
+    }
+    return { width: baseW, height: baseH };
+  }
+
+  public get pageWidth(): number {
+    return this.getPageDimensions().width;
+  }
+
+  public get pageHeight(): number {
+    return this.getPageDimensions().height;
+  }
+
+  private _customMarginX?: number;
+  private _customMarginY?: number;
+
+  public get marginX(): number {
+    const m = this.state.doc.margins;
+    if (m === "narrow") return 48;
+    if (m === "moderate") return 72;
+    if (m === "wide") return 144;
+    return this._customMarginX ?? 96;
+  }
+  public set marginX(val: number) {
+    this._customMarginX = val;
+  }
+
+  public get marginY(): number {
+    const m = this.state.doc.margins;
+    if (m === "narrow") return 48;
+    if (m === "moderate") return 72;
+    if (m === "wide") return 96;
+    return this._customMarginY ?? 96;
+  }
+  public set marginY(val: number) {
+    this._customMarginY = val;
+  }
+
   public readonly pageGap = 32;
 
   private caretVisible = true;
@@ -735,10 +780,28 @@ export class WriterCanvas {
       pageEl.style.height = `${this.pageHeight * this.state.zoom}px`;
       pageEl.style.backgroundColor = (this.state.doc as any).backgroundColor || "#ffffff";
       pageEl.style.boxShadow = "0 4px 16px rgba(0, 0, 0, 0.12)";
-      pageEl.style.border = "1px solid #d1d5db";
+      pageEl.style.border = this.state.doc.pageBorder || "1px solid #d1d5db";
       pageEl.style.position = "relative";
       pageEl.style.boxSizing = "border-box";
       pageEl.style.overflow = "hidden";
+
+      if (this.state.doc.watermark) {
+        const wm = document.createElement("div");
+        wm.className = "word-watermark";
+        wm.setAttribute("data-testid", "word-watermark");
+        wm.textContent = this.state.doc.watermark;
+        wm.style.position = "absolute";
+        wm.style.top = "50%";
+        wm.style.left = "50%";
+        wm.style.transform = "translate(-50%, -50%) rotate(-45deg)";
+        wm.style.fontSize = `${54 * this.state.zoom}pt`;
+        wm.style.fontWeight = "bold";
+        wm.style.color = "rgba(156, 163, 175, 0.2)";
+        wm.style.pointerEvents = "none";
+        wm.style.zIndex = "2";
+        wm.style.userSelect = "none";
+        pageEl.appendChild(wm);
+      }
 
       // 1. Header Zone
       const headerEl = document.createElement("div");
@@ -880,6 +943,12 @@ export class WriterCanvas {
       bodyEl.style.whiteSpace = "pre-wrap";
       bodyEl.style.wordBreak = "break-word";
       bodyEl.style.padding = "4px";
+
+      if (this.state.doc.columns && this.state.doc.columns > 1) {
+        bodyEl.style.columnCount = String(this.state.doc.columns);
+        bodyEl.style.columnGap = "24px";
+        bodyEl.style.columnRule = "1px solid #e5e7eb";
+      }
 
       const textOnly = page.paragraphs
         .filter((p) => !p.shape && !p.image && !p.table)

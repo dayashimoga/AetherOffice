@@ -36,7 +36,7 @@ export interface WordImageData {
 }
 
 export interface WordShapeData {
-  shapeType: "rect" | "roundRect" | "ellipse" | "triangle" | "arrow" | "star";
+  shapeType: "rect" | "roundRect" | "ellipse" | "triangle" | "arrow" | "star" | "callout";
   width: number;
   height: number;
   color?: string;
@@ -64,6 +64,8 @@ export interface WordParagraph {
   image?: WordImageData;
   shape?: WordShapeData;
   commentId?: string;
+  shading?: string;
+  border?: string;
 }
 
 export interface DocPage {
@@ -76,7 +78,7 @@ export interface WordDocumentModel {
   title: string;
   pages: DocPage[];
   pageOrientation?: "portrait" | "landscape";
-  margins?: "normal" | "narrow" | "wide";
+  margins?: "normal" | "narrow" | "moderate" | "wide";
   pageSize?: "letter" | "a4" | "legal";
   columns?: number;
   headerText?: string;
@@ -84,6 +86,12 @@ export interface WordDocumentModel {
   comments?: WordComment[];
   trackChanges?: boolean;
   viewMode?: "print" | "web" | "read";
+  backgroundColor?: string;
+  pageBorder?: string;
+  watermark?: string;
+  lineNumbers?: boolean;
+  hyphenation?: boolean;
+  showFormattingMarks?: boolean;
 }
 
 export interface CaretPosition {
@@ -103,6 +111,18 @@ export function comparePositions(a: CaretPosition, b: CaretPosition): number {
   if (a.paragraphIndex !== b.paragraphIndex) return a.paragraphIndex - b.paragraphIndex;
   if (a.runIndex !== b.runIndex) return a.runIndex - b.runIndex;
   return a.offset - b.offset;
+}
+
+export interface WordFormatState {
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  strikethrough: boolean;
+  font: string;
+  size: number;
+  color: string;
+  alignment: "left" | "center" | "right" | "justify";
+  lineSpacing: number;
 }
 
 export class WriterState {
@@ -506,6 +526,51 @@ export class WriterState {
       .join("\n\n");
   }
 
+  public clipboardText = "";
+  public getSelectedText(): string {
+    if (!this.selection || this.isSelectionCollapsed()) return "";
+    const isForward = comparePositions(this.selection.anchor, this.selection.focus) <= 0;
+    const start = isForward ? this.selection.anchor : this.selection.focus;
+    const end = isForward ? this.selection.focus : this.selection.anchor;
+    let result = "";
+    for (let pIdx = start.pageIndex; pIdx <= end.pageIndex; pIdx++) {
+      const page = this.doc.pages[pIdx];
+      if (!page) continue;
+      const startP = pIdx === start.pageIndex ? start.paragraphIndex : 0;
+      const endP = pIdx === end.pageIndex ? end.paragraphIndex : page.paragraphs.length - 1;
+      for (let p = startP; p <= endP; p++) {
+        const para = page.paragraphs[p];
+        if (!para) continue;
+        const startR = (pIdx === start.pageIndex && p === start.paragraphIndex) ? start.runIndex : 0;
+        const endR = (pIdx === end.pageIndex && p === end.paragraphIndex) ? end.runIndex : para.runs.length - 1;
+        for (let r = startR; r <= endR; r++) {
+          const run = para.runs[r];
+          if (!run) continue;
+          const sOff = (pIdx === start.pageIndex && p === start.paragraphIndex && r === start.runIndex) ? start.offset : 0;
+          const eOff = (pIdx === end.pageIndex && p === end.paragraphIndex && r === end.runIndex) ? end.offset : run.text.length;
+          result += run.text.slice(sOff, eOff);
+        }
+        if (p < endP) result += "\n";
+      }
+    }
+    return result;
+  }
+
+  public copy(): string {
+    const text = this.getSelectedText();
+    if (text) {
+      this.clipboardText = text;
+    }
+    return this.clipboardText;
+  }
+
+  public paste(text?: string): void {
+    const textToInsert = text !== undefined ? text : this.clipboardText;
+    if (textToInsert) {
+      this.insertText(textToInsert);
+    }
+  }
+
   public loadDocumentFromText(text: string, title = "Document.docx"): void {
     this.resetToBlank(title);
     const lines = text.split(/\r?\n/);
@@ -856,7 +921,7 @@ export class WriterState {
     this.cursor.paragraphIndex++;
   }
 
-  public insertShape(shapeType: "rect" | "roundRect" | "ellipse" | "triangle" | "arrow" | "star" = "rect"): void {
+  public insertShape(shapeType: "rect" | "roundRect" | "ellipse" | "triangle" | "arrow" | "star" | "callout" = "rect"): void {
     this.saveSnapshot();
     const page = this.doc.pages[this.cursor.pageIndex] || this.doc.pages[0];
     const shapePara: WordParagraph = {
@@ -868,6 +933,153 @@ export class WriterState {
     };
     page.paragraphs.splice(this.cursor.paragraphIndex + 1, 0, shapePara);
     this.cursor.paragraphIndex++;
+  }
+
+  public sortParagraphs(pageIndex: number = this.cursor.pageIndex): void {
+    this.saveSnapshot();
+    const page = this.doc.pages[pageIndex] || this.doc.pages[0];
+    if (!page) return;
+    const textParas = page.paragraphs.filter((p) => !p.shape && !p.image && !p.table);
+    const nonText = page.paragraphs.filter((p) => p.shape || p.image || p.table);
+    textParas.sort((a, b) => {
+      const textA = a.runs.map((r) => r.text).join("").trim();
+      const textB = b.runs.map((r) => r.text).join("").trim();
+      return textA.localeCompare(textB);
+    });
+    page.paragraphs = [...textParas, ...nonText];
+  }
+
+  public changeCase(mode: "uppercase" | "lowercase" | "titlecase" | "toggle" = "uppercase"): void {
+    this.saveSnapshot();
+    this.applyRunMutation((r) => {
+      if (mode === "uppercase") {
+        r.text = r.text.toUpperCase();
+      } else if (mode === "lowercase") {
+        r.text = r.text.toLowerCase();
+      } else if (mode === "titlecase") {
+        r.text = r.text.replace(/\b\w/g, (c) => c.toUpperCase());
+      } else if (mode === "toggle") {
+        r.text = r.text.split("").map((c) => (c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase())).join("");
+      }
+    });
+  }
+
+  public insertCoverPage(): void {
+    this.saveSnapshot();
+    const coverPage: DocPage = {
+      pageNumber: 1,
+      paragraphs: [
+        {
+          id: `cov-title-${Date.now()}`,
+          style: "Title",
+          alignment: "left",
+          runs: [{ text: "Document Title", font: "Calibri", size: 36, bold: true, color: "#1f497d" }],
+        },
+        {
+          id: `cov-sub-${Date.now()}`,
+          style: "Subtitle",
+          alignment: "left",
+          runs: [{ text: "Subtitle / Executive Abstract", font: "Calibri", size: 14, italic: true, color: "#595959" }],
+        },
+        {
+          id: `cov-meta-${Date.now()}`,
+          style: "Normal",
+          alignment: "left",
+          runs: [{ text: `Author: AetherOffice User  |  Date: ${new Date().toLocaleDateString()}`, font: "Calibri", size: 10, color: "#9ca3af" }],
+        },
+      ],
+    };
+    this.doc.pages.unshift(coverPage);
+    this.doc.pages.forEach((p, idx) => (p.pageNumber = idx + 1));
+    this.cursor = { pageIndex: 0, paragraphIndex: 0, runIndex: 0, offset: 0 };
+  }
+
+  public insertSymbol(symbol: string = "©"): void {
+    this.insertText(symbol);
+  }
+
+  public insertChart(chartType: "column" | "bar" | "line" | "pie" = "column"): void {
+    this.saveSnapshot();
+    const page = this.doc.pages[this.cursor.pageIndex] || this.doc.pages[0];
+    const chartPara: WordParagraph = {
+      id: `chart-${Date.now()}`,
+      style: "Normal",
+      alignment: "center",
+      runs: [{ text: `[Chart: ${chartType.toUpperCase()}]`, font: "Calibri", size: 11, bold: true, color: "#2563eb" }],
+      shape: {
+        shapeType: "rect",
+        width: 300,
+        height: 180,
+        color: "#f8fafc",
+        text: `Chart: ${chartType.toUpperCase()}`,
+      },
+    };
+    page.paragraphs.splice(this.cursor.paragraphIndex + 1, 0, chartPara);
+    this.cursor.paragraphIndex++;
+  }
+
+  public insertTextBox(text: string = "Text Box Content"): void {
+    this.saveSnapshot();
+    const page = this.doc.pages[this.cursor.pageIndex] || this.doc.pages[0];
+    const boxPara: WordParagraph = {
+      id: `txtbox-${Date.now()}`,
+      style: "Normal",
+      alignment: "left",
+      runs: [{ text, font: "Calibri", size: 11, color: "#111827" }],
+      shape: {
+        shapeType: "rect",
+        width: 180,
+        height: 100,
+        color: "#ffffff",
+        text,
+      },
+    };
+    page.paragraphs.splice(this.cursor.paragraphIndex + 1, 0, boxPara);
+    this.cursor.paragraphIndex++;
+  }
+
+  public insertWordArt(text: string = "WordArt Title"): void {
+    this.saveSnapshot();
+    const page = this.doc.pages[this.cursor.pageIndex] || this.doc.pages[0];
+    const artPara: WordParagraph = {
+      id: `wordart-${Date.now()}`,
+      style: "Normal",
+      alignment: "center",
+      runs: [{ text, font: "Impact", size: 28, bold: true, color: "#2563eb" }],
+    };
+    page.paragraphs.splice(this.cursor.paragraphIndex + 1, 0, artPara);
+    this.cursor.paragraphIndex++;
+  }
+
+  public insertDropCap(): void {
+    this.saveSnapshot();
+    const page = this.doc.pages[this.cursor.pageIndex] || this.doc.pages[0];
+    const para = page.paragraphs[this.cursor.paragraphIndex];
+    if (para && para.runs.length > 0 && para.runs[0].text.length > 0) {
+      const firstChar = para.runs[0].text.slice(0, 1);
+      const rest = para.runs[0].text.slice(1);
+      para.runs[0].text = rest;
+      para.runs.unshift({
+        text: firstChar,
+        font: "Georgia",
+        size: 32,
+        bold: true,
+        color: "#1e3a8a",
+      });
+    }
+  }
+
+  private copiedFormat: Partial<WordFormatState> | null = null;
+  public copyFormat(): void {
+    this.copiedFormat = { ...this.activeFormat };
+  }
+  public pasteFormat(): void {
+    if (this.copiedFormat) {
+      this.activeFormat = { ...this.activeFormat, ...this.copiedFormat };
+      this.applyRunMutation((r) => {
+        Object.assign(r, this.copiedFormat);
+      });
+    }
   }
 
   public updateShape(shapeId: string, updates: Partial<WordShapeData>): boolean {
@@ -1137,6 +1349,146 @@ export class WriterState {
 
   execCommand(cmd: string, val?: any) {
     switch (cmd) {
+      case "cut":
+      case "Cut":
+        if (this.selection && !this.isSelectionCollapsed()) {
+          this.copy();
+          this.deleteSelection();
+        }
+        break;
+
+      case "copy":
+      case "Copy":
+        this.copy();
+        break;
+
+      case "paste":
+      case "Paste":
+        this.paste(typeof val === "string" ? val : undefined);
+        break;
+
+      case "formatPainter":
+      case "FormatPainter":
+        if (this.copiedFormat) {
+          this.pasteFormat();
+        } else {
+          this.copyFormat();
+        }
+        break;
+
+      case "changeCase":
+      case "ChangeCase":
+        this.changeCase(val || "uppercase");
+        break;
+
+      case "toggleMultilevelList":
+      case "ToggleMultilevelList":
+        this.applyParagraphMutation((p) => {
+          if (p.runs.length > 0) {
+            const firstRun = p.runs[0];
+            if (firstRun.text.startsWith("1.1 ")) {
+              firstRun.text = firstRun.text.slice(4);
+            } else {
+              firstRun.text = `1.1 ${firstRun.text}`;
+            }
+          }
+        });
+        break;
+
+      case "sortParagraphs":
+      case "SortParagraphs":
+        this.sortParagraphs();
+        break;
+
+      case "toggleFormattingMarks":
+      case "ToggleFormattingMarks":
+        this.doc.showFormattingMarks = !this.doc.showFormattingMarks;
+        break;
+
+      case "setShading":
+      case "SetShading":
+        this.applyParagraphMutation((p) => {
+          p.shading = val || "#f3f4f6";
+        });
+        break;
+
+      case "setParagraphBorder":
+      case "SetParagraphBorder":
+        this.applyParagraphMutation((p) => {
+          p.border = val || "1px solid #94a3b8";
+        });
+        break;
+
+      case "insertCoverPage":
+      case "InsertCoverPage":
+        this.insertCoverPage();
+        break;
+
+      case "insertChart":
+      case "InsertChart":
+        this.insertChart(val || "column");
+        break;
+
+      case "insertHeader":
+      case "InsertHeader":
+        this.doc.headerText = typeof val === "string" ? val : "Document Header";
+        break;
+
+      case "insertFooter":
+      case "InsertFooter":
+        this.doc.footerText = typeof val === "string" ? val : "Document Footer";
+        break;
+
+      case "insertPageNumber":
+      case "InsertPageNumber":
+        this.doc.footerText = "Page 1 of 1";
+        break;
+
+      case "insertTextBox":
+      case "InsertTextBox":
+        this.insertTextBox(typeof val === "string" ? val : undefined);
+        break;
+
+      case "insertWordArt":
+      case "InsertWordArt":
+        this.insertWordArt(typeof val === "string" ? val : undefined);
+        break;
+
+      case "insertDropCap":
+      case "InsertDropCap":
+        this.insertDropCap();
+        break;
+
+      case "insertSymbol":
+      case "InsertSymbol":
+        this.insertSymbol(typeof val === "string" ? val : "©");
+        break;
+
+      case "insertBookmark":
+      case "InsertBookmark":
+        this.insertText(`[Bookmark: ${val || "BM-1"}]`);
+        break;
+
+      case "toggleLineNumbers":
+      case "ToggleLineNumbers":
+        this.doc.lineNumbers = !this.doc.lineNumbers;
+        break;
+
+      case "toggleHyphenation":
+      case "ToggleHyphenation":
+        this.doc.hyphenation = !this.doc.hyphenation;
+        break;
+
+      case "setPageBorder":
+      case "SetPageBorder":
+        this.doc.pageBorder = val || "1px solid #d1d5db";
+        break;
+
+      case "setWatermark":
+      case "SetWatermark":
+        this.doc.watermark = typeof val === "string" ? val : "CONFIDENTIAL";
+        break;
+
       case "toggleBold":
       case "ToggleBold":
         this.activeFormat.bold = !this.activeFormat.bold;
