@@ -1912,16 +1912,118 @@ export class UnifiedShellApp {
       } else if (action === "Paste") {
         this.calcGridCanvas?.paste();
       } else if (action === "InsertChart") {
-        const cType = String(payload || "column").toLowerCase() as "column" | "bar" | "line" | "pie";
+        const cType = String(payload || "column").toLowerCase() as "column" | "bar" | "line" | "pie" | "scatter" | "doughnut";
         calcState.insertChart(cType);
         this.calcChartOverlay?.refresh();
         this.calcGridCanvas?.render();
         this.tabBar.setDirty(active.id, true);
+      } else if (action === "InsertSparkline") {
+        const sType = String(payload || "line").toLowerCase() as "line" | "column" | "winloss";
+        calcState.insertSparkline(sType);
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "FormatAsTable" || action === "InsertTable") {
+        calcState.formatAsTable();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "PivotSummary" || action === "InsertPivotSummary") {
+        calcState.generatePivotSummary();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "AutoFitColumn") {
+        calcState.autoFitColumnWidth();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "AutoFitRow") {
+        calcState.autoFitRowHeight();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "FillDown") {
+        calcState.fillDown();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "FillRight") {
+        calcState.fillRight();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "FillSeries") {
+        calcState.fillSeries();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "ClearFormats") {
+        calcState.clearFormats();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "ClearContents") {
+        calcState.clearContents();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "CellStyles") {
+        calcState.setFillColor("#e0f2fe");
+        calcState.setFontColor("#0369a1");
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "FormatCells") {
+        calcState.setBorders("all");
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "InsertPicture") {
+        calcState.setCellValue(calcState.selectedCell, "[Picture]");
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "InsertShape") {
+        calcState.setCellValue(calcState.selectedCell, `[Shape: ${payload || "rect"}]`);
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "InsertLink") {
+        calcState.setCellValue(calcState.selectedCell, "https://github.com/rustoffice");
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "SetTheme") {
+        calcState.setTheme(String(payload || "Office"));
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "SetThemeColors") {
+        calcState.setThemeColors(String(payload || "Office"));
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "SetThemeFonts") {
+        calcState.setThemeFonts(String(payload || "Calibri"));
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "SetMargins") {
+        calcState.setMargins(String(payload || "normal") as any);
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "SetOrientation") {
+        calcState.setOrientation(String(payload || "portrait") as any);
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "SetPrintArea") {
+        calcState.setPrintArea();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "ClearPrintArea") {
+        calcState.clearPrintArea();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "TogglePrintGrid") {
+        calcState.togglePrintGrid();
+        this.calcGridCanvas?.render();
+      } else if (action === "TogglePrintHeadings") {
+        calcState.togglePrintHeadings();
+        this.calcGridCanvas?.render();
+      } else if (action === "ScaleToFit") {
+        calcState.setZoom(0.85);
+        this.calcGridCanvas?.render();
       } else if (action === "ConditionalFormatting") {
+        const cfType = typeof payload === "string" ? payload : "greaterThan";
         calcState.addConditionalFormat({
-          type: "greaterThan",
+          type: cfType === "dataBar" ? "dataBar" : cfType === "colorScale" ? "colorScale" : cfType === "lessThan" ? "lessThan" : "greaterThan",
           range: calcState.getTargetRange(),
-          value1: 20000,
+          value1: cfType === "lessThan" ? 1000 : 20000,
+          bgColor: cfType === "lessThan" ? "#fef3c7" : "#fee2e2",
+          color: cfType === "lessThan" ? "#b45309" : "#991b1b",
         });
         this.calcGridCanvas?.render();
         this.tabBar.setDirty(active.id, true);

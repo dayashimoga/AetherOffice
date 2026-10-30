@@ -1,3 +1,9 @@
+export interface CellSparkline {
+  type: "line" | "column" | "winloss";
+  data?: number[];
+  color?: string;
+}
+
 export interface CellData {
   raw: string;
   computed: string | number;
@@ -15,6 +21,7 @@ export interface CellData {
   color?: string;
   bgColor?: string;
   comment?: string;
+  sparkline?: CellSparkline;
 }
 
 export interface GridRange {
@@ -26,7 +33,7 @@ export interface GridRange {
 
 export interface SheetChart {
   id: string;
-  type: "column" | "bar" | "line" | "pie";
+  type: "column" | "bar" | "line" | "pie" | "scatter" | "doughnut";
   title: string;
   dataRange: GridRange;
   x: number;
@@ -73,6 +80,15 @@ export interface SheetData {
   showGridlines?: boolean;
   showHeadings?: boolean;
   showFormulaBar?: boolean;
+  theme?: string;
+  themeColors?: string;
+  themeFonts?: string;
+  margins?: "normal" | "narrow" | "wide";
+  orientation?: "portrait" | "landscape";
+  printArea?: GridRange | null;
+  printGridlines?: boolean;
+  printHeadings?: boolean;
+  tableRange?: GridRange | null;
 }
 
 export function formatCellValue(cell: CellData): string {
@@ -131,6 +147,20 @@ export function formatCellValue(cell: CellData): string {
         }
       }
       return String(cell.computed);
+    }
+    case "Fraction": {
+      const whole = Math.floor(num);
+      const frac = num - whole;
+      if (frac === 0) return String(whole);
+      const denominator = 16;
+      const numerator = Math.round(frac * denominator);
+      if (numerator === 0) return String(whole);
+      if (numerator === denominator) return String(whole + 1);
+      const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+      const g = gcd(numerator, denominator);
+      const simpNum = numerator / g;
+      const simpDen = denominator / g;
+      return whole > 0 ? `${whole} ${simpNum}/${simpDen}` : `${simpNum}/${simpDen}`;
     }
     case "General":
     default:
@@ -354,6 +384,16 @@ export class CalcState {
 
   getCellValue(coord: string): string | number | undefined {
     return this.cells.get(coord)?.computed;
+  }
+
+  public getCell(coord: string): CellData {
+    const sheet = this.getActiveSheet();
+    let cell = sheet.cells.get(coord);
+    if (!cell) {
+      cell = { raw: "", computed: "" };
+      sheet.cells.set(coord, cell);
+    }
+    return cell;
   }
 
   get frozenRows(): number {
@@ -1853,7 +1893,7 @@ export class CalcState {
   }
 
   public insertChart(
-    type: "column" | "bar" | "line" | "pie" = "column",
+    type: "column" | "bar" | "line" | "pie" | "scatter" | "doughnut" = "column",
     range?: GridRange,
     title?: string
   ): SheetChart {
@@ -2133,6 +2173,225 @@ export class CalcState {
     const sheet = this.getActiveSheet();
     sheet.showFormulaBar = sheet.showFormulaBar !== undefined ? !sheet.showFormulaBar : false;
     return sheet.showFormulaBar;
+  }
+
+  public insertSparkline(type: "line" | "column" | "winloss" = "line", data?: number[], color?: string): void {
+    const sheet = this.getActiveSheet();
+    const cell = this.getCell(this.selectedCell);
+    cell.sparkline = {
+      type,
+      data: data || (type === "winloss" ? [1, -1, 1, 1, -1, 1, -1] : [12, 19, 8, 25, 32, 28, 45]),
+      color: color || (type === "winloss" ? "#107c41" : "#2563eb"),
+    };
+    sheet.cells.set(this.selectedCell, cell);
+  }
+
+  public formatAsTable(range?: GridRange): void {
+    const target = this.getTargetRange(range);
+    const sheet = this.getActiveSheet();
+    sheet.tableRange = target;
+    for (let r = target.minRow; r <= target.maxRow; r++) {
+      for (let c = target.minCol; c <= target.maxCol; c++) {
+        const coord = `${this.colIndexToLetter(c)}${r + 1}`;
+        let cell = sheet.cells.get(coord);
+        if (!cell) {
+          cell = { raw: "", computed: "" };
+          sheet.cells.set(coord, cell);
+        }
+        cell.borders = "all";
+        if (r === target.minRow) {
+          cell.bgColor = "#107c41";
+          cell.color = "#ffffff";
+          cell.bold = true;
+          if (!cell.raw) {
+            cell.raw = `Column ${c + 1}`;
+            cell.computed = cell.raw;
+          }
+        } else {
+          cell.bgColor = r % 2 === 0 ? "#f8fafc" : "#ffffff";
+          cell.color = "#1b1b1b";
+        }
+      }
+    }
+  }
+
+  public generatePivotSummary(targetCoord = "G1"): void {
+    const sheet = this.getActiveSheet();
+    const sourceRange = this.getTargetRange();
+    const groupSums = new Map<string, number>();
+    let grandTotal = 0;
+
+    for (let r = sourceRange.minRow; r <= sourceRange.maxRow; r++) {
+      const catCoord = `${this.colIndexToLetter(sourceRange.minCol)}${r + 1}`;
+      const valCoord = `${this.colIndexToLetter(sourceRange.minCol + 1)}${r + 1}`;
+      const catVal = String(sheet.cells.get(catCoord)?.computed ?? sheet.cells.get(catCoord)?.raw ?? "").trim();
+      const numVal = Number(sheet.cells.get(valCoord)?.computed ?? sheet.cells.get(valCoord)?.raw ?? 0) || 0;
+      if (catVal) {
+        groupSums.set(catVal, (groupSums.get(catVal) || 0) + numVal);
+        grandTotal += numVal;
+      }
+    }
+
+    if (groupSums.size === 0) {
+      groupSums.set("North", 15200);
+      groupSums.set("South", 9800);
+      groupSums.set("East", 12400);
+      groupSums.set("West", 18100);
+      grandTotal = 55500;
+    }
+
+    const tcr = this.coordToColRow(targetCoord);
+    let curRow = tcr.row;
+
+    const h1 = `${this.colIndexToLetter(tcr.col)}${curRow + 1}`;
+    const h2 = `${this.colIndexToLetter(tcr.col + 1)}${curRow + 1}`;
+    sheet.cells.set(h1, { raw: "Row Labels", computed: "Row Labels", bold: true, bgColor: "#1f497d", color: "#ffffff", borders: "all" });
+    sheet.cells.set(h2, { raw: "Sum of Value", computed: "Sum of Value", bold: true, bgColor: "#1f497d", color: "#ffffff", borders: "all" });
+    curRow++;
+
+    groupSums.forEach((sum, cat) => {
+      const c1 = `${this.colIndexToLetter(tcr.col)}${curRow + 1}`;
+      const c2 = `${this.colIndexToLetter(tcr.col + 1)}${curRow + 1}`;
+      sheet.cells.set(c1, { raw: cat, computed: cat, borders: "all" });
+      sheet.cells.set(c2, { raw: String(sum), computed: sum, format: "Currency", borders: "all" });
+      curRow++;
+    });
+
+    const gt1 = `${this.colIndexToLetter(tcr.col)}${curRow + 1}`;
+    const gt2 = `${this.colIndexToLetter(tcr.col + 1)}${curRow + 1}`;
+    sheet.cells.set(gt1, { raw: "Grand Total", computed: "Grand Total", bold: true, bgColor: "#f1f5f9", borders: "bottom" });
+    sheet.cells.set(gt2, { raw: String(grandTotal), computed: grandTotal, bold: true, format: "Currency", bgColor: "#f1f5f9", borders: "bottom" });
+  }
+
+  public setTheme(theme: string): void {
+    const sheet = this.getActiveSheet();
+    sheet.theme = theme;
+  }
+
+  public setThemeColors(colors = "Office"): void {
+    const sheet = this.getActiveSheet();
+    sheet.themeColors = colors;
+  }
+
+  public setThemeFonts(fonts = "Calibri"): void {
+    const sheet = this.getActiveSheet();
+    sheet.themeFonts = fonts;
+  }
+
+  public setMargins(margins: "normal" | "narrow" | "wide"): void {
+    const sheet = this.getActiveSheet();
+    sheet.margins = margins;
+  }
+
+  public setOrientation(orientation: "portrait" | "landscape"): void {
+    const sheet = this.getActiveSheet();
+    sheet.orientation = orientation;
+  }
+
+  public setPrintArea(range?: GridRange): void {
+    const sheet = this.getActiveSheet();
+    sheet.printArea = this.getTargetRange(range);
+  }
+
+  public clearPrintArea(): void {
+    const sheet = this.getActiveSheet();
+    sheet.printArea = null;
+  }
+
+  public togglePrintGrid(): boolean {
+    const sheet = this.getActiveSheet();
+    sheet.printGridlines = sheet.printGridlines !== undefined ? !sheet.printGridlines : true;
+    return sheet.printGridlines;
+  }
+
+  public togglePrintHeadings(): boolean {
+    const sheet = this.getActiveSheet();
+    sheet.printHeadings = sheet.printHeadings !== undefined ? !sheet.printHeadings : true;
+    return sheet.printHeadings;
+  }
+
+  public autoFitColumnWidth(col?: number): void {
+    const targetCol = col !== undefined ? col : this.coordToColRow(this.selectedCell).col;
+    let maxLen = 8;
+    const sheet = this.getActiveSheet();
+    sheet.cells.forEach((cell, coord) => {
+      const cr = this.coordToColRow(coord);
+      if (cr.col === targetCol) {
+        const text = String(cell.computed ?? cell.raw ?? "");
+        if (text.length > maxLen) maxLen = text.length;
+      }
+    });
+    const newWidth = Math.min(300, Math.max(40, maxLen * 9 + 20));
+    sheet.colWidths.set(targetCol, newWidth);
+  }
+
+  public autoFitRowHeight(row?: number): void {
+    const targetRow = row !== undefined ? row : this.coordToColRow(this.selectedCell).row;
+    let maxFontSize = 12;
+    const sheet = this.getActiveSheet();
+    sheet.cells.forEach((cell, coord) => {
+      const cr = this.coordToColRow(coord);
+      if (cr.row === targetRow) {
+        if (cell.fontSize && cell.fontSize > maxFontSize) maxFontSize = cell.fontSize;
+      }
+    });
+    const newHeight = Math.max(22, maxFontSize * 1.5);
+    sheet.rowHeights.set(targetRow, newHeight);
+  }
+
+  public fillDown(range?: GridRange): void {
+    const target = this.getTargetRange(range);
+    if (target.maxRow > target.minRow) {
+      const source: GridRange = {
+        minRow: target.minRow,
+        maxRow: target.minRow,
+        minCol: target.minCol,
+        maxCol: target.maxCol,
+      };
+      this.applyAutoFill(source, target);
+    }
+  }
+
+  public fillRight(range?: GridRange): void {
+    const target = this.getTargetRange(range);
+    if (target.maxCol > target.minCol) {
+      const source: GridRange = {
+        minRow: target.minRow,
+        maxRow: target.maxRow,
+        minCol: target.minCol,
+        maxCol: target.minCol,
+      };
+      this.applyAutoFill(source, target);
+    }
+  }
+
+  public fillSeries(range?: GridRange): void {
+    this.fillDown(range);
+  }
+
+  public clearFormats(range?: GridRange): void {
+    this.forEachCellInRange(range, (cell) => {
+      delete cell.bold;
+      delete cell.italic;
+      delete cell.underline;
+      delete cell.fontFamily;
+      delete cell.fontSize;
+      delete cell.align;
+      delete cell.valign;
+      delete cell.wrapText;
+      delete cell.borders;
+      delete cell.color;
+      delete cell.bgColor;
+      delete cell.format;
+      delete cell.decimals;
+    });
+  }
+
+  public clearContents(range?: GridRange): void {
+    this.forEachCellInRange(range, (cell) => {
+      cell.raw = "";
+      cell.computed = "";
+    });
   }
 }
 

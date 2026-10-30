@@ -926,6 +926,43 @@ export class CalcGridCanvas {
             ctx.closePath();
             ctx.fill();
           }
+
+          if (cellData.sparkline) {
+            const spark = cellData.sparkline;
+            const data = spark.data || [10, 25, 15, 30, 45, 20, 35];
+            const padX = 6;
+            const padY = 4;
+            const sparkW = colWidth - padX * 2;
+            const sparkH = rowHeight - padY * 2;
+            const minVal = Math.min(...data);
+            const maxVal = Math.max(...data);
+            const range = maxVal - minVal || 1;
+
+            ctx.save();
+            if (spark.type === "column" || spark.type === "winloss") {
+              const barW = Math.max(2, sparkW / data.length - 2);
+              data.forEach((val, i) => {
+                const hRatio = spark.type === "winloss" ? (val >= 0 ? 0.8 : 0.4) : (val - minVal) / range;
+                const barH = Math.max(3, hRatio * sparkH);
+                const barX = x + padX + i * (barW + 2);
+                const barY = y + padY + sparkH - barH;
+                ctx.fillStyle = spark.type === "winloss" && val < 0 ? "#ef4444" : (spark.color || "#2563eb");
+                ctx.fillRect(barX, barY, barW, barH);
+              });
+            } else {
+              ctx.strokeStyle = spark.color || "#2563eb";
+              ctx.lineWidth = 1.5;
+              ctx.beginPath();
+              data.forEach((val, i) => {
+                const ptX = x + padX + (i / Math.max(1, data.length - 1)) * sparkW;
+                const ptY = y + padY + sparkH - ((val - minVal) / range) * sparkH;
+                if (i === 0) ctx.moveTo(ptX, ptY);
+                else ctx.lineTo(ptX, ptY);
+              });
+              ctx.stroke();
+            }
+            ctx.restore();
+          }
         }
 
         // Filter dropdown arrow indicator
@@ -1147,6 +1184,30 @@ export class CalcGridCanvas {
       ctx.moveTo(fx, 0);
       ctx.lineTo(fx, h);
       ctx.stroke();
+      ctx.restore();
+    }
+
+    // 5d. Print Boundary Lines
+    const currentSheet = this.state.getActiveSheet();
+    if (currentSheet.orientation || currentSheet.printArea) {
+      ctx.save();
+      ctx.strokeStyle = "#94a3b8";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([6, 6]);
+      if (currentSheet.printArea) {
+        const paX = curHeaderW + this.state.getColOffset(currentSheet.printArea.minCol) - this.scrollX;
+        const paY = curHeaderH + this.state.getRowOffset(currentSheet.printArea.minRow) - this.scrollY;
+        const paW = this.state.getColOffset(currentSheet.printArea.maxCol + 1) - this.state.getColOffset(currentSheet.printArea.minCol);
+        const paH = this.state.getRowOffset(currentSheet.printArea.maxRow + 1) - this.state.getRowOffset(currentSheet.printArea.minRow);
+        ctx.strokeRect(paX, paY, paW, paH);
+      } else {
+        const splitCol = currentSheet.orientation === "landscape" ? 12 : 8;
+        const pbX = curHeaderW + this.state.getColOffset(splitCol) - this.scrollX;
+        ctx.beginPath();
+        ctx.moveTo(pbX, 0);
+        ctx.lineTo(pbX, h);
+        ctx.stroke();
+      }
       ctx.restore();
     }
 

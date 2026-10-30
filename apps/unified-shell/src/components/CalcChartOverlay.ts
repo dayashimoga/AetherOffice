@@ -181,10 +181,14 @@ export class CalcChartOverlay {
 
     if (chart.type === "pie") {
       this.renderPieChartSvg(svg, data, w, h);
+    } else if (chart.type === "doughnut") {
+      this.renderPieChartSvg(svg, data, w, h, true);
     } else if (chart.type === "line") {
       this.renderLineChartSvg(svg, data, w, h);
     } else if (chart.type === "bar") {
       this.renderBarChartSvg(svg, data, w, h);
+    } else if (chart.type === "scatter") {
+      this.renderScatterChartSvg(svg, data, w, h);
     } else {
       // Default: column chart
       this.renderColumnChartSvg(svg, data, w, h);
@@ -422,7 +426,8 @@ export class CalcChartOverlay {
     svg: SVGSVGElement,
     data: { categories: string[]; series: { name: string; values: number[] }[] },
     w: number,
-    h: number
+    h: number,
+    isDoughnut = false
   ) {
     const series = data.series[0];
     if (!series || series.values.length === 0) return;
@@ -483,6 +488,60 @@ export class CalcChartOverlay {
         legText.textContent = `${catName} (${pct}%)`;
         svg.appendChild(legText);
       }
+    });
+
+    if (isDoughnut) {
+      const hole = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      hole.setAttribute("cx", String(cx));
+      hole.setAttribute("cy", String(cy));
+      hole.setAttribute("r", String(r * 0.55));
+      hole.setAttribute("fill", "#ffffff");
+      svg.appendChild(hole);
+    }
+  }
+
+  private renderScatterChartSvg(
+    svg: SVGSVGElement,
+    data: { categories: string[]; series: { name: string; values: number[] }[] },
+    w: number,
+    h: number
+  ) {
+    const padLeft = 40;
+    const padRight = 20;
+    const padTop = 20;
+    const padBottom = 30;
+    const plotW = w - padLeft - padRight;
+    const plotH = h - padTop - padBottom;
+
+    // Gridlines
+    for (let i = 0; i <= 4; i++) {
+      const y = padTop + plotH - (i / 4) * plotH;
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", String(padLeft));
+      line.setAttribute("y1", String(y));
+      line.setAttribute("x2", String(w - padRight));
+      line.setAttribute("y2", String(y));
+      line.setAttribute("stroke", "#f3f4f6");
+      svg.appendChild(line);
+    }
+
+    const allValues = data.series.flatMap((s) => s.values);
+    const maxVal = Math.max(...allValues, 100);
+
+    data.series.forEach((s, sIdx) => {
+      const color = PALETTE[sIdx % PALETTE.length];
+      s.values.forEach((val, i) => {
+        const cx = padLeft + (i / Math.max(1, s.values.length - 1)) * plotW;
+        const cy = padTop + plotH - (val / maxVal) * plotH;
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", String(cx));
+        circle.setAttribute("cy", String(cy));
+        circle.setAttribute("r", "5");
+        circle.setAttribute("fill", color);
+        circle.setAttribute("stroke", "#ffffff");
+        circle.setAttribute("stroke-width", "1");
+        svg.appendChild(circle);
+      });
     });
   }
 
