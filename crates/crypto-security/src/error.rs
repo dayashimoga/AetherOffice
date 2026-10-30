@@ -47,7 +47,24 @@ pub enum CryptoSecurityError {
     #[error("XMLDSIG verification error: {0}")]
     XmlDsigError(String),
 
+    #[error("Invalid password provided for document decryption")]
+    InvalidPassword,
+
+    #[error("Authentication failed: {0}")]
+    AuthenticationFailed(String),
+
+    #[error("Invalid cipher padding: {0}")]
+    InvalidPadding(String),
+
+    #[error("Document permission denied: {0}")]
+    PermissionDenied(String),
+
+    #[error("OOXML Agile Encryption error: {0}")]
+    OoxmlEncryptionError(String),
+
+    #[error("PDF Standard Security error: {0}")]
+    PdfSecurityError(String),
+
     #[error("IO/Buffer error: {0}")]
     BufferError(String),
 }
-

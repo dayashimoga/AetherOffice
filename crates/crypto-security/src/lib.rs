@@ -6,26 +6,38 @@
 
 #![forbid(unsafe_code)]
 
+pub mod aes;
 pub mod asn1;
 pub mod base64;
 pub mod digest;
 pub mod error;
+pub mod kdf;
+pub mod ooxml_crypto;
 pub mod pades;
+pub mod pdf_crypto;
 pub mod pkcs7;
 pub mod timestamp;
 pub mod x509;
 pub mod xmldsig;
+pub mod zero_knowledge;
 
+pub use aes::{
+    aes256_cbc_decrypt, aes256_cbc_encrypt, aes256_gcm_decrypt, aes256_gcm_encrypt, Aes256,
+};
 pub use asn1::DerValue;
 pub use digest::{compute_digest, verify_digest, HashAlgorithm};
 pub use error::CryptoSecurityError;
+pub use kdf::{hmac, pbkdf2};
+pub use ooxml_crypto::{AgileEncryptionInfo, OoxmlAgileCrypto};
 pub use pades::{PadesSigner, PadesValidationReport, PadesValidator, PdfByteRange};
+pub use pdf_crypto::{PdfAccessSession, PdfEncryptDict, PdfPermissions, PdfSecurityEngine};
 pub use pkcs7::{Pkcs7SignedData, SignatureVerificationResult, SignerInfo};
 pub use timestamp::{TimeStampToken, TstInfo};
 pub use x509::{CertificateChainValidator, DistinguishedName, ValidityPeriod, X509Certificate};
 pub use xmldsig::{
     OoxmlSignatureReport, XmlDsigBuilder, XmlDsigReference, XmlDsigSignature, XmlDsigValidator,
 };
+pub use zero_knowledge::ProtectedKey;
 
 #[cfg(test)]
 mod tests {
