@@ -1560,8 +1560,8 @@ export class UnifiedShellApp {
     if (this.currentDocType === "Word") {
       if (action === "InsertBlankPage" || action === "InsertPageBreak" || action === "InsertNewPage") {
         this.writerCanvas?.insertNewPage();
-      } else if (action === "DeleteEmptyPage") {
-        this.writerCanvas?.deleteEmptyPage();
+      } else if (action === "DeleteEmptyPage" || action === "DeletePage") {
+        this.writerCanvas?.deletePage();
       } else {
         writerState.execCommand(action, payload);
         this.writerCanvas?.render();

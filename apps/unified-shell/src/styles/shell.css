@@ -1206,5 +1206,178 @@ body.theme-dark .tab-popout-btn:hover {
   cursor: pointer;
 }
 
+/* =========================================================================
+   Word Page ContentEditable Body & Floating Shapes (Subphase 29.1.1)
+   ========================================================================= */
+.word-page-body {
+  position: absolute;
+  outline: none;
+  z-index: 5;
+  box-sizing: border-box;
+  cursor: text;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: transparent;
+  color: inherit;
+}
+
+.word-page-body:empty:before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.word-floating-shape {
+  position: absolute;
+  z-index: 10;
+  box-sizing: border-box;
+  cursor: move;
+  user-select: none;
+}
+
+.word-floating-shape.selected {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.word-floating-shape .shape-body {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+}
+
+.word-floating-shape .shape-body.rect {
+  border-radius: 0px;
+}
+
+.word-floating-shape .shape-body.roundRect {
+  border-radius: 12px;
+}
+
+.word-floating-shape .shape-body.ellipse {
+  border-radius: 50%;
+}
+
+.word-floating-shape .shape-body.triangle {
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+}
+
+.word-floating-shape .shape-body.star {
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+
+.word-floating-shape .shape-body.arrow {
+  clip-path: polygon(0% 20%, 60% 20%, 60% 0%, 100% 50%, 60% 100%, 60% 80%, 0% 80%);
+}
+
+.word-floating-shape .shape-text {
+  color: #ffffff;
+  font-family: Calibri, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  outline: none;
+  cursor: text;
+  padding: 4px;
+}
+
+.word-floating-shape .shape-delete-btn {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ef4444;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 11px;
+  z-index: 15;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.word-floating-shape.selected .shape-delete-btn {
+  display: flex;
+}
+
+.word-floating-shape .shape-handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: #ffffff;
+  border: 1.5px solid #2563eb;
+  border-radius: 2px;
+  display: none;
+  z-index: 12;
+}
+
+.word-floating-shape.selected .shape-handle {
+  display: block;
+}
+
+.word-floating-shape .shape-handle.handle-nw { top: -4px; left: -4px; cursor: nwse-resize; }
+.word-floating-shape .shape-handle.handle-n  { top: -4px; left: calc(50% - 4px); cursor: ns-resize; }
+.word-floating-shape .shape-handle.handle-ne { top: -4px; right: -4px; cursor: nesw-resize; }
+.word-floating-shape .shape-handle.handle-e  { top: calc(50% - 4px); right: -4px; cursor: ew-resize; }
+.word-floating-shape .shape-handle.handle-se { bottom: -4px; right: -4px; cursor: nwse-resize; }
+.word-floating-shape .shape-handle.handle-s  { bottom: -4px; left: calc(50% - 4px); cursor: ns-resize; }
+.word-floating-shape .shape-handle.handle-sw { bottom: -4px; left: -4px; cursor: nesw-resize; }
+.word-floating-shape .shape-handle.handle-w  { top: calc(50% - 4px); left: -4px; cursor: ew-resize; }
+
+.word-page-divider-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.btn-add-page-floating {
+  padding: 6px 14px;
+  background: var(--bg-surface, #ffffff);
+  color: var(--text-primary, #374151);
+  border: 1px solid var(--border-subtle, #d1d5db);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  transition: all 0.15s ease;
+}
+
+.btn-add-page-floating:hover {
+  background: var(--hover-bg, #f3f4f6);
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.btn-delete-page {
+  padding: 2px 6px;
+  background: transparent;
+  color: #ef4444;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.btn-delete-page:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+}
+
+
 
 

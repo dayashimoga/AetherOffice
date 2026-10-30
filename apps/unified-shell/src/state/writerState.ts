@@ -40,6 +40,9 @@ export interface WordShapeData {
   width: number;
   height: number;
   color?: string;
+  x?: number;
+  y?: number;
+  text?: string;
 }
 
 export interface WordComment {
@@ -548,6 +551,30 @@ export class WriterState {
     return false;
   }
 
+  public deletePage(pageIndex?: number, force = true): boolean {
+    const idx = pageIndex !== undefined ? pageIndex : this.cursor.pageIndex;
+    if (this.doc.pages.length <= 1 || idx < 0 || idx >= this.doc.pages.length) {
+      return false;
+    }
+    if (!force) {
+      return this.deleteEmptyPage(idx);
+    }
+    this.saveSnapshot();
+    this.doc.pages.splice(idx, 1);
+    this.doc.pages.forEach((p, i) => {
+      p.pageNumber = i + 1;
+    });
+    if (this.cursor.pageIndex >= this.doc.pages.length) {
+      this.cursor.pageIndex = this.doc.pages.length - 1;
+    }
+    const curPage = this.doc.pages[this.cursor.pageIndex];
+    this.cursor.paragraphIndex = Math.min(this.cursor.paragraphIndex, curPage.paragraphs.length - 1);
+    const curPara = curPage.paragraphs[this.cursor.paragraphIndex];
+    this.cursor.runIndex = Math.min(this.cursor.runIndex, curPara.runs.length - 1);
+    this.cursor.offset = Math.min(this.cursor.offset, curPara.runs[this.cursor.runIndex].text.length);
+    return true;
+  }
+
   public insertPageBreak(): void {
     this.saveSnapshot();
     const newPageNum = this.doc.pages.length + 1;
@@ -837,10 +864,35 @@ export class WriterState {
       style: "Normal",
       alignment: "center",
       runs: [{ text: `[Shape: ${shapeType}]`, font: "Calibri", size: 10, italic: true, color: "#6b7280" }],
-      shape: { shapeType, width: 220, height: 120, color: "#2563eb" },
+      shape: { shapeType, width: 140, height: 90, color: "#2563eb", x: 40, y: 40, text: "" },
     };
     page.paragraphs.splice(this.cursor.paragraphIndex + 1, 0, shapePara);
     this.cursor.paragraphIndex++;
+  }
+
+  public updateShape(shapeId: string, updates: Partial<WordShapeData>): boolean {
+    this.saveSnapshot();
+    for (const page of this.doc.pages) {
+      for (const p of page.paragraphs) {
+        if (p.id === shapeId && p.shape) {
+          p.shape = { ...p.shape, ...updates };
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  public deleteShape(shapeId: string): boolean {
+    this.saveSnapshot();
+    for (const page of this.doc.pages) {
+      const idx = page.paragraphs.findIndex((p) => p.id === shapeId);
+      if (idx !== -1) {
+        page.paragraphs.splice(idx, 1);
+        return true;
+      }
+    }
+    return false;
   }
 
   public insertHyperlink(text: string, url: string): void {
@@ -1365,6 +1417,24 @@ export class WriterState {
       case "insertShape":
       case "InsertShape":
         this.insertShape((val as any) || "rect");
+        break;
+
+      case "deleteShape":
+      case "DeleteShape":
+        if (typeof val === "string") this.deleteShape(val);
+        break;
+
+      case "updateShape":
+      case "UpdateShape":
+        if (val && typeof val === "object") {
+          const { shapeId, updates } = val as { shapeId: string; updates: Partial<WordShapeData> };
+          this.updateShape(shapeId, updates);
+        }
+        break;
+
+      case "deletePage":
+      case "DeletePage":
+        this.deletePage(typeof val === "number" ? val : undefined, true);
         break;
 
       case "insertHorizontalLine":

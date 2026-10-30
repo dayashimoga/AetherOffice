@@ -115,6 +115,15 @@ export class WriterCanvas {
     return res;
   }
 
+  public deletePage(pageIndex?: number, force = true): boolean {
+    const res = this.state.deletePage(pageIndex, force);
+    if (res) {
+      this.emitDocChange("DeletePage");
+      this.render();
+    }
+    return res;
+  }
+
   public destroy() {
     if (this.caretTimer) clearInterval(this.caretTimer);
   }
@@ -290,6 +299,17 @@ export class WriterCanvas {
   public typeText(text: string) {
     for (const char of text) {
       this.handleKeyDown(new KeyboardEvent("keydown", { key: char }));
+    }
+    const pIdx = this.state.cursor.pageIndex;
+    const bodyEl = this.container.querySelector(`.word-page-body[data-page-index="${pIdx}"]`) as HTMLElement | null;
+    if (bodyEl) {
+      const page = this.state.doc.pages[pIdx];
+      if (page) {
+        bodyEl.innerText = page.paragraphs
+          .filter((p) => !p.shape && !p.image && !p.table)
+          .map((p) => p.runs.map((r) => r.text).join(""))
+          .join("\n");
+      }
     }
   }
 
@@ -747,6 +767,19 @@ export class WriterCanvas {
 
       headerEl.appendChild(headerTitle);
       headerEl.appendChild(headerPageNum);
+
+      if (totalPages > 1) {
+        const delPageBtn = document.createElement("button");
+        delPageBtn.className = "btn-delete-page";
+        delPageBtn.setAttribute("data-testid", "btn-delete-page");
+        delPageBtn.title = "Delete Page";
+        delPageBtn.textContent = "✕";
+        delPageBtn.onclick = (e) => {
+          e.stopPropagation();
+          this.deletePage(pIdx, true);
+        };
+        headerEl.appendChild(delPageBtn);
+      }
       headerEl.onclick = (e) => {
         e.stopPropagation();
         this.activateHeaderEditing(headerEl, pIdx);
@@ -824,7 +857,75 @@ export class WriterCanvas {
       };
       pageEl.appendChild(footerEl);
 
+      // 4. ContentEditable Body (Subphase 29.1.1)
+      const bodyEl = document.createElement("div");
+      bodyEl.className = "word-page-body";
+      bodyEl.contentEditable = "true";
+      bodyEl.setAttribute("data-page-index", String(pIdx));
+      bodyEl.setAttribute("data-testid", "word-page-body");
+      bodyEl.setAttribute("spellcheck", "false");
+      bodyEl.setAttribute("data-placeholder", "Click here or type to add content...");
+      bodyEl.style.position = "absolute";
+      bodyEl.style.top = `${this.marginY * this.state.zoom}px`;
+      bodyEl.style.left = `${this.marginX * this.state.zoom}px`;
+      bodyEl.style.width = `${(this.pageWidth - this.marginX * 2) * this.state.zoom}px`;
+      bodyEl.style.height = `${(this.pageHeight - this.marginY * 2) * this.state.zoom}px`;
+      bodyEl.style.outline = "none";
+      bodyEl.style.zIndex = "5";
+      bodyEl.style.fontSize = `${11 * this.state.zoom}pt`;
+      bodyEl.style.fontFamily = "Calibri, sans-serif";
+      bodyEl.style.lineHeight = "1.5";
+      bodyEl.style.boxSizing = "border-box";
+      bodyEl.style.cursor = "text";
+      bodyEl.style.whiteSpace = "pre-wrap";
+      bodyEl.style.wordBreak = "break-word";
+      bodyEl.style.padding = "4px";
+
+      const textOnly = page.paragraphs
+        .filter((p) => !p.shape && !p.image && !p.table)
+        .map((p) => p.runs.map((r) => r.text).join(""))
+        .join("\n");
+      bodyEl.textContent = textOnly;
+
+      bodyEl.addEventListener("input", () => {
+        const textCount = (bodyEl.textContent?.match(/\n/g) || []).length;
+        const innerCount = (bodyEl.innerText?.match(/\n/g) || []).length;
+        const text = textCount >= innerCount
+          ? (bodyEl.textContent || bodyEl.innerText || "")
+          : (bodyEl.innerText || bodyEl.textContent || "");
+        const lines = text.split(/\r?\n/);
+        this.syncPageTextFromDom(pIdx, lines);
+      });
+
+      bodyEl.addEventListener("focus", () => {
+        this.state.cursor.pageIndex = pIdx;
+        this.updateStatus();
+      });
+
+      pageEl.appendChild(bodyEl);
+
+      // 5. Interactive Floating Shapes (Subphase 29.1.1)
+      page.paragraphs.forEach((p) => {
+        if (p.shape) {
+          const shapeEl = this.createFloatingShapeElement(p, pIdx);
+          pageEl.appendChild(shapeEl);
+        }
+      });
+
       pagesContainer.appendChild(pageEl);
+
+      if (pIdx < totalPages - 1) {
+        const divider = document.createElement("div");
+        divider.className = "word-page-divider-action";
+        const addBtn = document.createElement("button");
+        addBtn.className = "btn-add-page-floating btn-add-page";
+        addBtn.setAttribute("data-testid", "btn-add-page");
+        addBtn.innerHTML = "<span>➕</span> <strong>Add Page</strong>";
+        addBtn.title = "Add a new blank page";
+        addBtn.onclick = () => this.insertNewPage();
+        divider.appendChild(addBtn);
+        pagesContainer.appendChild(divider);
+      }
 
       // 4. Layout Paragraphs on this page's Canvas
       if (ctx) {
@@ -1385,6 +1486,187 @@ export class WriterCanvas {
     if (this.ghostText) {
       this.ghostText = null;
       this.render();
+    }
+  }
+
+  private syncPageTextFromDom(pageIndex: number, lines: string[]) {
+    const page = this.state.doc.pages[pageIndex];
+    if (!page) return;
+    const nonTextParas = page.paragraphs.filter((p) => p.shape || p.image || p.table);
+    const newParas = lines.map((line, idx) => ({
+      id: `p-${pageIndex}-${idx}-${Date.now()}`,
+      style: "Normal",
+      alignment: "left" as const,
+      runs: [{ text: line, font: "Calibri", size: 11 }],
+    }));
+    page.paragraphs = [...newParas, ...nonTextParas];
+    this.emitDocChange("UpdateText", { pageIndex, lines });
+    this.updateStatus();
+  }
+
+  private createFloatingShapeElement(p: import("../../state/writerState").WordParagraph, _pageIndex: number): HTMLElement {
+    const s = p.shape!;
+    const shapeEl = document.createElement("div");
+    shapeEl.className = "word-floating-shape";
+    shapeEl.setAttribute("data-shape-id", p.id);
+    shapeEl.setAttribute("data-testid", "word-floating-shape");
+    shapeEl.tabIndex = 0;
+
+    const left = (s.x ?? 40) * this.state.zoom;
+    const top = (this.marginY + (s.y ?? 40)) * this.state.zoom;
+    const w = (s.width || 140) * this.state.zoom;
+    const h = (s.height || 90) * this.state.zoom;
+
+    shapeEl.style.left = `${left}px`;
+    shapeEl.style.top = `${top}px`;
+    shapeEl.style.width = `${w}px`;
+    shapeEl.style.height = `${h}px`;
+
+    // Shape Body
+    const body = document.createElement("div");
+    body.className = `shape-body ${s.shapeType}`;
+    body.style.backgroundColor = s.color || "#2563eb";
+
+    // Shape Text inside
+    const textSpan = document.createElement("span");
+    textSpan.className = "shape-text";
+    textSpan.contentEditable = "true";
+    textSpan.textContent = s.text || "";
+    textSpan.addEventListener("input", (e) => {
+      e.stopPropagation();
+      s.text = textSpan.textContent || "";
+      this.state.updateShape(p.id, { text: s.text });
+    });
+    body.appendChild(textSpan);
+    shapeEl.appendChild(body);
+
+    // Delete Button
+    const delBtn = document.createElement("button");
+    delBtn.className = "shape-delete-btn";
+    delBtn.setAttribute("data-testid", "shape-delete-btn");
+    delBtn.title = "Delete Shape";
+    delBtn.textContent = "✕";
+    delBtn.onclick = (e) => {
+      e.stopPropagation();
+      this.state.deleteShape(p.id);
+      this.emitDocChange("DeleteShape", { shapeId: p.id });
+      this.render();
+    };
+    shapeEl.appendChild(delBtn);
+
+    // 8 Resize Handles
+    const handlePositions = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
+    handlePositions.forEach((pos) => {
+      const hEl = document.createElement("div");
+      hEl.className = `shape-handle handle-${pos}`;
+      hEl.setAttribute("data-handle", pos);
+      hEl.addEventListener("mousedown", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        this.startShapeResize(e, p.id, pos, shapeEl);
+      });
+      shapeEl.appendChild(hEl);
+    });
+
+    // Select on click
+    shapeEl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      document.querySelectorAll(".word-floating-shape.selected").forEach((el) => el.classList.remove("selected"));
+      shapeEl.classList.add("selected");
+    });
+
+    // Delete on Del or Backspace key
+    shapeEl.addEventListener("keydown", (e) => {
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (document.activeElement !== textSpan) {
+          e.preventDefault();
+          this.state.deleteShape(p.id);
+          this.emitDocChange("DeleteShape", { shapeId: p.id });
+          this.render();
+        }
+      }
+    });
+
+    // Drag to move
+    shapeEl.addEventListener("mousedown", (e) => {
+      if ((e.target as HTMLElement).classList.contains("shape-handle") || e.target === textSpan || e.target === delBtn) {
+        return;
+      }
+      document.querySelectorAll(".word-floating-shape.selected").forEach((el) => el.classList.remove("selected"));
+      shapeEl.classList.add("selected");
+      this.startShapeDrag(e, p.id, shapeEl);
+    });
+
+    return shapeEl;
+  }
+
+  private startShapeDrag(e: MouseEvent, shapeId: string, shapeEl: HTMLElement) {
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const initLeft = parseFloat(shapeEl.style.left) || 0;
+    const initTop = parseFloat(shapeEl.style.top) || 0;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const dx = (ev.clientX - startX) / this.state.zoom;
+      const dy = (ev.clientY - startY) / this.state.zoom;
+      const newLeft = Math.max(0, initLeft + dx);
+      const newTop = Math.max(0, initTop + dy);
+      shapeEl.style.left = `${newLeft}px`;
+      shapeEl.style.top = `${newTop}px`;
+    };
+
+    const onMouseUp = () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+      }
+      const finalX = parseFloat(shapeEl.style.left) / this.state.zoom;
+      const finalY = (parseFloat(shapeEl.style.top) - this.marginY * this.state.zoom) / this.state.zoom;
+      this.state.updateShape(shapeId, { x: Math.max(0, Math.round(finalX)), y: Math.max(0, Math.round(finalY)) });
+      this.emitDocChange("MoveShape", { shapeId, x: finalX, y: finalY });
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+    }
+  }
+
+  private startShapeResize(e: MouseEvent, shapeId: string, handle: string, shapeEl: HTMLElement) {
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const initW = parseFloat(shapeEl.style.width) || 140;
+    const initH = parseFloat(shapeEl.style.height) || 90;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const dx = (ev.clientX - startX) / this.state.zoom;
+      const dy = (ev.clientY - startY) / this.state.zoom;
+      let newW = initW;
+      let newH = initH;
+
+      if (handle.includes("e")) newW = Math.max(30, initW + dx);
+      if (handle.includes("s")) newH = Math.max(30, initH + dy);
+      if (handle.includes("w")) newW = Math.max(30, initW - dx);
+      if (handle.includes("n")) newH = Math.max(30, initH - dy);
+
+      shapeEl.style.width = `${newW}px`;
+      shapeEl.style.height = `${newH}px`;
+    };
+
+    const onMouseUp = () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+      }
+      const finalW = Math.round(parseFloat(shapeEl.style.width) / this.state.zoom);
+      const finalH = Math.round(parseFloat(shapeEl.style.height) / this.state.zoom);
+      this.state.updateShape(shapeId, { width: finalW, height: finalH });
+      this.emitDocChange("ResizeShape", { shapeId, width: finalW, height: finalH });
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
     }
   }
 
