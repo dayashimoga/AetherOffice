@@ -1571,10 +1571,18 @@ export class UnifiedShellApp {
       return;
     }
     if (action === "Find") {
+      if (this.currentDocType === "Notes") {
+        notesState.isFindBarVisible = true;
+        this.notesWorkspace?.render();
+      }
       this.showFindReplace("find");
       return;
     }
     if (action === "Replace") {
+      if (this.currentDocType === "Notes") {
+        notesState.isReplaceBarVisible = true;
+        this.notesWorkspace?.render();
+      }
       this.showFindReplace("replace");
       return;
     }
@@ -2285,18 +2293,41 @@ export class UnifiedShellApp {
         }
       }
     } else if (this.currentDocType === "Notes") {
-      if (action === "SaveDocument") {
+      if (action === "SaveDocument" || action === "SaveDocumentMd") {
+        if (action === "SaveDocumentMd" && !active.title.endsWith(".md")) {
+          active.title = active.title.replace(/\.[^/.]+$/, "") + ".md";
+          notesState.title = active.title;
+        }
         this.tabBar.setDirty(active.id, false);
         const docInfo = document.getElementById("status-doc-info");
         if (docInfo) {
           docInfo.textContent = `Saved: ${active.title}`;
         }
+        IPC.saveDocument(active.id).catch(() => {});
+      } else if (action === "OpenNote") {
+        this.openFilePickerOrBackstage();
+      } else if (action === "PrintDocument") {
+        try { window.print(); } catch {}
+      } else if (action === "ShowStatistics") {
+        const stats = notesState.getStats();
+        try { alert(`Lines: ${stats.lines}\nWords: ${stats.words}\nCharacters: ${stats.chars}`); } catch {}
+      } else if (action === "Cut" || action === "Copy" || action === "Paste" || action === "SelectAll") {
+        const ta = this.notesWorkspace?.getTextarea();
+        if (ta) {
+          ta.focus();
+          if (action === "SelectAll") {
+            ta.select();
+          }
+        }
       }
       const changed = notesState.execCommand(action, payload);
       if (changed) {
         this.notesWorkspace?.render();
-        this.tabBar.setDirty(active.id, true);
+        if (action !== "SaveDocument" && action !== "SaveDocumentMd" && action !== "CloseFind" && action !== "CloseReplace") {
+          this.tabBar.setDirty(active.id, true);
+        }
       }
+      this.updateStatusBar();
     } else if (action === "SetFormField") {
       this.pdfViewerCanvas?.render();
     } else if (action === "ToggleReflow") {

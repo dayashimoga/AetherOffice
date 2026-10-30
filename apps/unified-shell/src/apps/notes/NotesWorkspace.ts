@@ -181,6 +181,35 @@ export class NotesWorkspace {
       nameSpan.style.whiteSpace = "nowrap";
       nameSpan.style.overflow = "hidden";
       nameSpan.style.textOverflow = "ellipsis";
+      nameSpan.title = "Double-click to rename";
+      nameSpan.ondblclick = (e) => {
+        e.stopPropagation();
+        const input = document.createElement("input");
+        input.type = "text";
+        input.value = note.title;
+        input.className = "input-rename-scratchpad";
+        input.setAttribute("data-testid", "input-rename-scratchpad");
+        input.style.fontSize = "12px";
+        input.style.width = "120px";
+        input.style.padding = "1px 4px";
+        input.onblur = () => {
+          if (input.value.trim()) {
+            this.state.renameNote(note.id, input.value.trim());
+          }
+          this.render();
+          if (this.callbacks.onDirty) this.callbacks.onDirty();
+        };
+        input.onkeydown = (ke) => {
+          if (ke.key === "Enter") {
+            input.blur();
+          } else if (ke.key === "Escape") {
+            this.render();
+          }
+        };
+        labelWrap.replaceChild(input, nameSpan);
+        input.focus();
+        input.select();
+      };
       labelWrap.appendChild(icon);
       labelWrap.appendChild(nameSpan);
       card.appendChild(labelWrap);
@@ -340,6 +369,111 @@ export class NotesWorkspace {
     toolbar.appendChild(rightControls);
     this.mainEl.appendChild(toolbar);
 
+    // Optional Find & Replace Bar
+    if (this.state.isFindBarVisible || this.state.isReplaceBarVisible) {
+      const frBar = document.createElement("div");
+      frBar.className = "notes-find-replace-bar";
+      frBar.setAttribute("data-testid", "notes-find-replace-bar");
+      frBar.style.display = "flex";
+      frBar.style.alignItems = "center";
+      frBar.style.flexWrap = "wrap";
+      frBar.style.gap = "8px";
+      frBar.style.padding = "6px 14px";
+      frBar.style.backgroundColor = "var(--bg-surface, #f1f5f9)";
+      frBar.style.borderBottom = "1px solid var(--border-color, #cbd5e1)";
+      frBar.style.fontSize = "12px";
+
+      const findInput = document.createElement("input");
+      findInput.type = "text";
+      findInput.placeholder = "Find...";
+      findInput.className = "notes-input-find";
+      findInput.setAttribute("data-testid", "notes-input-find");
+      findInput.value = this.state.searchKeyword;
+      findInput.style.padding = "3px 8px";
+      findInput.style.borderRadius = "3px";
+      findInput.style.border = "1px solid var(--border-color, #cbd5e1)";
+      findInput.style.fontSize = "12px";
+      findInput.oninput = () => {
+        this.state.searchKeyword = findInput.value;
+      };
+      frBar.appendChild(findInput);
+
+      const matchCaseCb = document.createElement("input");
+      matchCaseCb.type = "checkbox";
+      matchCaseCb.id = "notes-cb-match-case";
+      matchCaseCb.setAttribute("data-testid", "notes-cb-match-case");
+      const matchCaseLabel = document.createElement("label");
+      matchCaseLabel.htmlFor = "notes-cb-match-case";
+      matchCaseLabel.textContent = "Aa";
+      matchCaseLabel.title = "Match Case";
+
+      const regexCb = document.createElement("input");
+      regexCb.type = "checkbox";
+      regexCb.id = "notes-cb-regex";
+      regexCb.setAttribute("data-testid", "notes-cb-regex");
+      const regexLabel = document.createElement("label");
+      regexLabel.htmlFor = "notes-cb-regex";
+      regexLabel.textContent = ".*";
+      regexLabel.title = "Regex";
+
+      if (this.state.isReplaceBarVisible) {
+        const replaceInput = document.createElement("input");
+        replaceInput.type = "text";
+        replaceInput.placeholder = "Replace with...";
+        replaceInput.className = "notes-input-replace";
+        replaceInput.setAttribute("data-testid", "notes-input-replace");
+        replaceInput.style.padding = "3px 8px";
+        replaceInput.style.borderRadius = "3px";
+        replaceInput.style.border = "1px solid var(--border-color, #cbd5e1)";
+        replaceInput.style.fontSize = "12px";
+        frBar.appendChild(replaceInput);
+
+        const btnReplace = document.createElement("button");
+        btnReplace.textContent = "Replace";
+        btnReplace.setAttribute("data-testid", "notes-btn-replace-one");
+        btnReplace.style.padding = "3px 8px";
+        btnReplace.style.cursor = "pointer";
+        btnReplace.onclick = () => {
+          this.state.replaceText(findInput.value, replaceInput.value, matchCaseCb.checked, regexCb.checked);
+          this.syncEditorContent();
+        };
+        frBar.appendChild(btnReplace);
+
+        const btnReplaceAll = document.createElement("button");
+        btnReplaceAll.textContent = "Replace All";
+        btnReplaceAll.setAttribute("data-testid", "notes-btn-replace-all");
+        btnReplaceAll.style.padding = "3px 8px";
+        btnReplaceAll.style.cursor = "pointer";
+        btnReplaceAll.onclick = () => {
+          this.state.replaceText(findInput.value, replaceInput.value, matchCaseCb.checked, regexCb.checked);
+          this.syncEditorContent();
+        };
+        frBar.appendChild(btnReplaceAll);
+      }
+
+      frBar.appendChild(matchCaseCb);
+      frBar.appendChild(matchCaseLabel);
+      frBar.appendChild(regexCb);
+      frBar.appendChild(regexLabel);
+
+      const closeBtn = document.createElement("button");
+      closeBtn.innerHTML = "&times;";
+      closeBtn.setAttribute("data-testid", "notes-btn-close-find");
+      closeBtn.style.border = "none";
+      closeBtn.style.background = "none";
+      closeBtn.style.cursor = "pointer";
+      closeBtn.style.fontSize = "16px";
+      closeBtn.style.color = "#64748b";
+      closeBtn.onclick = () => {
+        this.state.isFindBarVisible = false;
+        this.state.isReplaceBarVisible = false;
+        this.renderMain();
+      };
+      frBar.appendChild(closeBtn);
+
+      this.mainEl.appendChild(frBar);
+    }
+
     // Central Split Area
     const splitContainer = document.createElement("div");
     splitContainer.style.flex = "1";
@@ -369,8 +503,17 @@ export class NotesWorkspace {
       this.lineGutterEl.style.backgroundColor = "var(--bg-surface, #f8fafc)";
       this.lineGutterEl.style.borderRight = "1px solid var(--border-color, #e2e8f0)";
       this.lineGutterEl.style.userSelect = "none";
-      this.lineGutterEl.style.fontFamily = "'Consolas', 'Courier New', monospace";
-      this.lineGutterEl.style.fontSize = `${this.state.fontSize}px`;
+      const effectiveSize = Math.round((this.state.fontSize * this.state.zoom) / 100);
+      const ff = this.state.fontFamily;
+      const effectiveFont =
+        ff === "monospace" || ff === "Consolas" || ff === "JetBrains Mono"
+          ? "'JetBrains Mono', 'Consolas', 'Courier New', monospace"
+          : ff === "Serif"
+          ? "'Georgia', 'Times New Roman', serif"
+          : "'Inter', Segoe UI, -apple-system, sans-serif";
+
+      this.lineGutterEl.style.fontFamily = effectiveFont;
+      this.lineGutterEl.style.fontSize = `${effectiveSize}px`;
       this.lineGutterEl.style.lineHeight = "1.5";
       this.lineGutterEl.style.overflow = "hidden";
 
@@ -390,12 +533,9 @@ export class NotesWorkspace {
       this.textareaEl.style.boxSizing = "border-box";
       this.textareaEl.style.backgroundColor = "transparent";
       this.textareaEl.style.color = "inherit";
-      this.textareaEl.style.fontSize = `${this.state.fontSize}px`;
+      this.textareaEl.style.fontSize = `${effectiveSize}px`;
       this.textareaEl.style.lineHeight = "1.5";
-      this.textareaEl.style.fontFamily =
-        this.state.fontFamily === "monospace"
-          ? "'Consolas', 'Courier New', monospace"
-          : "Segoe UI, -apple-system, sans-serif";
+      this.textareaEl.style.fontFamily = effectiveFont;
       this.textareaEl.style.whiteSpace = this.state.wordWrap ? "pre-wrap" : "pre";
       this.textareaEl.style.overflowWrap = this.state.wordWrap ? "break-word" : "normal";
 

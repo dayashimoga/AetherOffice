@@ -7,7 +7,7 @@ export interface NoteItem {
 }
 
 export type NotesViewMode = "editor" | "split" | "preview";
-export type NotesFontFamily = "monospace" | "sans";
+export type NotesFontFamily = "monospace" | "sans" | "JetBrains Mono" | "Consolas" | "Inter" | "Serif";
 
 export class NotesState {
   public notes: NoteItem[] = [];
@@ -23,6 +23,11 @@ export class NotesState {
   public cursorLine = 1;
   public cursorCol = 1;
   public encoding = "UTF-8";
+
+  public zoom = 100;
+  public searchKeyword = "";
+  public isFindBarVisible = false;
+  public isReplaceBarVisible = false;
 
   private undoStack: string[] = [];
   private redoStack: string[] = [];
@@ -54,6 +59,10 @@ export class NotesState {
     this.tabSize = 4;
     this.cursorLine = 1;
     this.cursorCol = 1;
+    this.zoom = 100;
+    this.searchKeyword = "";
+    this.isFindBarVisible = false;
+    this.isReplaceBarVisible = false;
     this.undoStack = [];
     this.redoStack = [];
   }
@@ -201,7 +210,9 @@ export class NotesState {
     return formatted;
   }
 
-  public transformText(type: "upper" | "lower" | "title" | "sort_lines" | "reverse_lines"): void {
+  public transformText(
+    type: "upper" | "lower" | "title" | "sort_lines" | "sort_az" | "sort_za" | "reverse_lines" | "remove_duplicates" | "trim_whitespace"
+  ): void {
     let result = this.content;
     switch (type) {
       case "upper":
@@ -214,16 +225,32 @@ export class NotesState {
         result = this.content.replace(/\b\w/g, (c) => c.toUpperCase());
         break;
       case "sort_lines":
+      case "sort_az":
         result = this.content.split("\n").sort().join("\n");
         break;
+      case "sort_za":
       case "reverse_lines":
-        result = this.content.split("\n").reverse().join("\n");
+        result = this.content.split("\n").sort().reverse().join("\n");
+        break;
+      case "remove_duplicates":
+        result = this.content
+          .split("\n")
+          .filter((line, idx, arr) => arr.indexOf(line) === idx)
+          .join("\n");
+        break;
+      case "trim_whitespace":
+        result = this.content
+          .split("\n")
+          .map((line) => line.trimEnd())
+          .join("\n");
         break;
     }
     this.setContent(result);
   }
 
-  public insertMarkdownSnippet(kind: "h1" | "h2" | "h3" | "bold" | "italic" | "code" | "checklist" | "table" | "quote"): void {
+  public insertMarkdownSnippet(
+    kind: "h1" | "h2" | "h3" | "bold" | "italic" | "code" | "checklist" | "table" | "quote" | "inline_code" | "link" | "hr"
+  ): void {
     let snippet = "";
     switch (kind) {
       case "h1":
@@ -241,6 +268,9 @@ export class NotesState {
       case "italic":
         snippet = " *italic text* ";
         break;
+      case "inline_code":
+        snippet = " `code` ";
+        break;
       case "code":
         snippet = "\n```ts\nconsole.log('code');\n```\n";
         break;
@@ -253,8 +283,40 @@ export class NotesState {
       case "quote":
         snippet = "\n> Important note\n";
         break;
+      case "link":
+        snippet = " [Link](https://example.com) ";
+        break;
+      case "hr":
+        snippet = "\n\n---\n\n";
+        break;
     }
     this.setContent(this.content ? `${this.content}${snippet}` : snippet.trimStart());
+  }
+
+  public goToLine(line: number): number {
+    const lines = this.content.split("\n");
+    const targetLine = Math.max(1, Math.min(lines.length, line));
+    let offset = 0;
+    for (let i = 0; i < targetLine - 1; i++) {
+      offset += lines[i].length + 1; // +1 for newline
+    }
+    this.setCursor(targetLine, 1);
+    return offset;
+  }
+
+  public zoomIn(): number {
+    this.zoom = Math.min(300, this.zoom + 10);
+    return this.zoom;
+  }
+
+  public zoomOut(): number {
+    this.zoom = Math.max(50, this.zoom - 10);
+    return this.zoom;
+  }
+
+  public zoom100(): number {
+    this.zoom = 100;
+    return this.zoom;
   }
 
   public replaceText(findText: string, replaceText: string, matchCase = false, useRegex = false): number {
@@ -336,11 +398,8 @@ export class NotesState {
         this.toggleWordWrap();
         return true;
       case "SetFontFamily":
-        if (payload === "monospace" || payload === "sans") {
-          this.setFontFamily(payload);
-          return true;
-        }
-        return false;
+        this.setFontFamily(payload as NotesFontFamily);
+        return true;
       case "SetFontSize":
         if (typeof payload === "number") {
           this.setFontSize(payload);
@@ -351,7 +410,7 @@ export class NotesState {
         this.insertTimeDate();
         return true;
       case "TransformText":
-        if (typeof payload === "string" && ["upper", "lower", "title", "sort_lines", "reverse_lines"].includes(payload)) {
+        if (typeof payload === "string") {
           this.transformText(payload as any);
           return true;
         }
@@ -368,6 +427,41 @@ export class NotesState {
           return this.replaceText(find, replace, !!matchCase, !!useRegex) > 0;
         }
         return false;
+      case "Find":
+        this.isFindBarVisible = true;
+        return true;
+      case "Replace":
+        this.isReplaceBarVisible = true;
+        return true;
+      case "CloseFind":
+        this.isFindBarVisible = false;
+        return true;
+      case "CloseReplace":
+        this.isReplaceBarVisible = false;
+        return true;
+      case "GoToLine":
+        if (typeof payload === "number") {
+          this.goToLine(payload);
+          return true;
+        }
+        return false;
+      case "ZoomIn":
+        this.zoomIn();
+        return true;
+      case "ZoomOut":
+        this.zoomOut();
+        return true;
+      case "Zoom100":
+        this.zoom100();
+        return true;
+      case "SaveDocumentMd": {
+        const active = this.getActiveNote();
+        if (active && !active.title.endsWith(".md")) {
+          active.title = active.title.replace(/\.[^/.]+$/, "") + ".md";
+          this.title = active.title;
+        }
+        return true;
+      }
       case "Undo":
         return this.undo();
       case "Redo":

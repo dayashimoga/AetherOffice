@@ -53,7 +53,10 @@ export class NotesRibbon implements AppRibbonComponent {
     noteRow.className = "ribbon-group-row";
     noteRow.appendChild(createRibbonButton("+ New Note", "📄 New", () => emit("NewNote"), false, "notes-btn-new"));
     noteRow.appendChild(createRibbonButton("Open File", "📂 Open", () => emit("OpenNote"), false, "notes-btn-open"));
+    noteRow.appendChild(createRibbonButton("Save (.txt)", "💾 Save .txt", () => emit("SaveDocument"), false, "notes-btn-save-txt"));
     noteRow.appendChild(createRibbonButton("Save Note", "💾 Save", () => emit("SaveDocument"), false, "notes-btn-save"));
+    noteRow.appendChild(createRibbonButton("Save (.md)", "📝 Save .md", () => emit("SaveDocumentMd"), false, "notes-btn-save-md"));
+    noteRow.appendChild(createRibbonButton("Print", "🖨️ Print", () => emit("PrintDocument"), false, "notes-btn-print"));
     noteGroup.appendChild(noteRow);
     body.appendChild(noteGroup);
 
@@ -62,27 +65,34 @@ export class NotesRibbon implements AppRibbonComponent {
     const fontRow1 = document.createElement("div");
     fontRow1.className = "ribbon-group-row";
     fontRow1.appendChild(
-      createRibbonSelect(["monospace", "sans"], "monospace", (val) =>
+      createRibbonSelect(["JetBrains Mono", "Consolas", "Inter", "Serif"], "JetBrains Mono", (val) =>
         emit("SetFontFamily", val)
-      )
+      , "notes-select-font-family")
     );
     fontRow1.appendChild(
-      createRibbonSelect([11, 12, 14, 16, 18, 20, 24], 14, (val) =>
+      createRibbonSelect([11, 12, 14, 16, 18, 20, 24, 28], 14, (val) =>
         emit("SetFontSize", parseFloat(val))
-      )
+      , "notes-select-font-size")
     );
     fontRow1.appendChild(createRibbonButton("Word Wrap", "↩ Wrap", () => emit("ToggleWordWrap"), true, "notes-btn-word-wrap"));
+    fontRow1.appendChild(createRibbonButton("Line Numbers", "# Numbers", () => emit("ToggleLineNumbers"), true, "notes-btn-line-numbers"));
     fontGroup.appendChild(fontRow1);
     body.appendChild(fontGroup);
 
-    // 3. Text Utilities
+    // 3. Text Utilities / Power Tools
     const utilGroup = createRibbonGroup("Utilities");
     const utilRow1 = document.createElement("div");
     utilRow1.className = "ribbon-group-row";
     utilRow1.appendChild(createRibbonButton("Time/Date (F5)", "⏱️ Time/Date", () => emit("InsertTimeDate"), false, "notes-btn-timedate"));
     utilRow1.appendChild(createRibbonButton("Uppercase", "AA Upper", () => emit("TransformText", "upper"), false, "notes-btn-upper"));
     utilRow1.appendChild(createRibbonButton("Lowercase", "aa Lower", () => emit("TransformText", "lower"), false, "notes-btn-lower"));
+    utilRow1.appendChild(createRibbonButton("Title Case", "Aa Title", () => emit("TransformText", "title"), false, "notes-btn-title-case"));
+    utilRow1.appendChild(createRibbonButton("Sort Lines A-Z", "⇅ Sort A-Z", () => emit("TransformText", "sort_az"), false, "notes-btn-sort-az"));
     utilRow1.appendChild(createRibbonButton("Sort Lines", "⇅ Sort", () => emit("TransformText", "sort_lines"), false, "notes-btn-sort"));
+    utilRow1.appendChild(createRibbonButton("Sort Lines Z-A", "⇵ Sort Z-A", () => emit("TransformText", "sort_za"), false, "notes-btn-sort-za"));
+    utilRow1.appendChild(createRibbonButton("Remove Duplicates", "🧹 De-dup", () => emit("TransformText", "remove_duplicates"), false, "notes-btn-remove-duplicates"));
+    utilRow1.appendChild(createRibbonButton("Trim Whitespace", "✂ Trim", () => emit("TransformText", "trim_whitespace"), false, "notes-btn-trim-whitespace"));
+    utilRow1.appendChild(createRibbonButton("Statistics", "📊 Stats", () => emit("ShowStatistics"), false, "notes-btn-stats"));
     utilGroup.appendChild(utilRow1);
     body.appendChild(utilGroup);
   }
@@ -97,13 +107,24 @@ export class NotesRibbon implements AppRibbonComponent {
     histGroup.appendChild(histRow);
     body.appendChild(histGroup);
 
-    // 2. Search & Replace
+    // 2. Clipboard
+    const clipGroup = createRibbonGroup("Clipboard");
+    const clipRow = document.createElement("div");
+    clipRow.className = "ribbon-group-row";
+    clipRow.appendChild(createRibbonButton("Cut", "✂️ Cut", () => emit("Cut"), false, "notes-btn-cut"));
+    clipRow.appendChild(createRibbonButton("Copy", "📋 Copy", () => emit("Copy"), false, "notes-btn-copy"));
+    clipRow.appendChild(createRibbonButton("Paste", "📥 Paste", () => emit("Paste"), false, "notes-btn-paste"));
+    clipRow.appendChild(createRibbonButton("Select All", "🔲 Select All", () => emit("SelectAll"), false, "notes-btn-select-all"));
+    clipGroup.appendChild(clipRow);
+    body.appendChild(clipGroup);
+
+    // 3. Search & Replace
     const searchGroup = createRibbonGroup("Find & Replace");
     const searchRow = document.createElement("div");
     searchRow.className = "ribbon-group-row";
     searchRow.appendChild(createRibbonButton("Find Text", "🔍 Find", () => emit("Find"), false, "notes-btn-find"));
     searchRow.appendChild(createRibbonButton("Replace Text", "🔄 Replace", () => emit("Replace"), false, "notes-btn-replace"));
-    searchRow.appendChild(createRibbonButton("Select All", "🔲 Select All", () => emit("SelectAll"), false, "notes-btn-select-all"));
+    searchRow.appendChild(createRibbonButton("Go To Line", "➡️ Go To Line", () => emit("GoToLine"), false, "notes-btn-goto-line"));
     searchGroup.appendChild(searchRow);
     body.appendChild(searchGroup);
   }
@@ -123,7 +144,8 @@ export class NotesRibbon implements AppRibbonComponent {
     const dispGroup = createRibbonGroup("Display");
     const dispRow = document.createElement("div");
     dispRow.className = "ribbon-group-row";
-    dispRow.appendChild(createRibbonButton("Line Numbers", "# Numbers", () => emit("ToggleLineNumbers"), true, "notes-btn-line-numbers"));
+    dispRow.appendChild(createRibbonButton("Line Numbers", "# Numbers", () => emit("ToggleLineNumbers"), true, "notes-btn-view-line-numbers"));
+    dispRow.appendChild(createRibbonButton("Word Wrap", "↩ Wrap", () => emit("ToggleWordWrap"), true, "notes-btn-view-word-wrap"));
     dispRow.appendChild(createRibbonButton("Zoom In", "+ In", () => emit("ZoomIn"), false, "notes-btn-zoom-in"));
     dispRow.appendChild(createRibbonButton("Zoom Out", "- Out", () => emit("ZoomOut"), false, "notes-btn-zoom-out"));
     dispRow.appendChild(createRibbonButton("100%", "100%", () => emit("Zoom100"), false, "notes-btn-zoom-100"));
@@ -140,6 +162,7 @@ export class NotesRibbon implements AppRibbonComponent {
     structRow.appendChild(createRibbonButton("H2", "H2", () => emit("InsertMarkdownSnippet", "h2"), false, "notes-btn-h2"));
     structRow.appendChild(createRibbonButton("H3", "H3", () => emit("InsertMarkdownSnippet", "h3"), false, "notes-btn-h3"));
     structRow.appendChild(createRibbonButton("Blockquote", "> Quote", () => emit("InsertMarkdownSnippet", "quote"), false, "notes-btn-quote"));
+    structRow.appendChild(createRibbonButton("Horizontal Rule", "--- HR", () => emit("InsertMarkdownSnippet", "hr"), false, "notes-btn-hr"));
     structGroup.appendChild(structRow);
     body.appendChild(structGroup);
 
@@ -149,8 +172,10 @@ export class NotesRibbon implements AppRibbonComponent {
     inlineRow.className = "ribbon-group-row";
     inlineRow.appendChild(createRibbonButton("Bold", "𝗕 Bold", () => emit("InsertMarkdownSnippet", "bold"), false, "notes-btn-md-bold"));
     inlineRow.appendChild(createRibbonButton("Italic", "𝘪 Italic", () => emit("InsertMarkdownSnippet", "italic"), false, "notes-btn-md-italic"));
+    inlineRow.appendChild(createRibbonButton("Inline Code", "` Code `", () => emit("InsertMarkdownSnippet", "inline_code"), false, "notes-btn-md-inline-code"));
     inlineRow.appendChild(createRibbonButton("Code Block", "``` Code", () => emit("InsertMarkdownSnippet", "code"), false, "notes-btn-md-code"));
     inlineRow.appendChild(createRibbonButton("Checklist", "☑ Task", () => emit("InsertMarkdownSnippet", "checklist"), false, "notes-btn-md-check"));
+    inlineRow.appendChild(createRibbonButton("Link", "🔗 Link", () => emit("InsertMarkdownSnippet", "link"), false, "notes-btn-md-link"));
     inlineRow.appendChild(createRibbonButton("Table", "▦ Table", () => emit("InsertMarkdownSnippet", "table"), false, "notes-btn-md-table"));
     inlineGroup.appendChild(inlineRow);
     body.appendChild(inlineGroup);
