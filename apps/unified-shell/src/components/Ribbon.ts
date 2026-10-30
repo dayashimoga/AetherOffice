@@ -17,6 +17,7 @@ export class Ribbon {
     Excel: "Home",
     PowerPoint: "Home",
     PDF: "Home",
+    Notes: "Home",
   };
   private keytipsActive = false;
   private onActionCallback?: (action: string, payload?: unknown) => void;
@@ -70,6 +71,9 @@ export class Ribbon {
         return this.slidesRibbon;
       case "PDF":
         return this.pdfRibbon;
+      case "Notes":
+      default:
+        return this.writerRibbon;
     }
   }
 
@@ -83,6 +87,9 @@ export class Ribbon {
         return "#c43e1c";
       case "PDF":
         return "#d9381e";
+      case "Notes":
+      default:
+        return "#7c3aed";
     }
   }
 

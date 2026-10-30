@@ -14,7 +14,8 @@ export class TabBar {
   private activeTabId: string | null = null;
   private onTabChangeCallback?: (tab: TabItem) => void;
   private onTabCloseCallback?: (id: string) => void;
-  private onNewTabCallback?: () => void;
+  private onNewTabCallback?: (docType?: DocumentType) => void;
+  private outsideClickListener?: (e: MouseEvent) => void;
 
   constructor(containerId: string) {
     const el = document.getElementById(containerId);
@@ -26,7 +27,7 @@ export class TabBar {
   public setCallbacks(callbacks: {
     onTabChange?: (tab: TabItem) => void;
     onTabClose?: (id: string) => void;
-    onNewTab?: () => void;
+    onNewTab?: (docType?: DocumentType) => void;
   }) {
     this.onTabChangeCallback = callbacks.onTabChange;
     this.onTabCloseCallback = callbacks.onTabClose;
@@ -122,9 +123,22 @@ export class TabBar {
           ? "tab-type-word"
           : tab.docType === "Excel"
           ? "tab-type-excel"
-          : "tab-type-ppt";
+          : tab.docType === "PowerPoint"
+          ? "tab-type-ppt"
+          : tab.docType === "PDF"
+          ? "tab-type-pdf"
+          : "tab-type-notes";
 
-      const iconChar = tab.docType === "Word" ? "W" : tab.docType === "Excel" ? "X" : "P";
+      const iconChar =
+        tab.docType === "Word"
+          ? "W"
+          : tab.docType === "Excel"
+          ? "X"
+          : tab.docType === "PowerPoint"
+          ? "P"
+          : tab.docType === "PDF"
+          ? "PDF"
+          : "N";
 
       const icon = document.createElement("span");
       icon.className = `tab-type-icon ${typeClass}`;
@@ -148,14 +162,62 @@ export class TabBar {
       this.container.appendChild(tabEl);
     });
 
+    // Add Tab Container with New Document Dropdown Menu
+    const addContainer = document.createElement("div");
+    addContainer.className = "tab-add-container";
+    addContainer.style.position = "relative";
+    addContainer.style.display = "inline-flex";
+    addContainer.style.alignItems = "center";
+
     const addBtn = document.createElement("button");
     addBtn.className = "tab-add-btn";
+    addBtn.dataset.testid = "tab-add-btn";
     addBtn.textContent = "+";
-    addBtn.title = "New Document";
-    addBtn.onclick = () => {
-      if (this.onNewTabCallback) this.onNewTabCallback();
+    addBtn.title = "New Document (Click for options)";
+
+    const dropdown = document.createElement("div");
+    dropdown.className = "tab-new-dropdown";
+    dropdown.dataset.testid = "tab-new-dropdown";
+    dropdown.style.display = "none";
+
+    const options: { docType: DocumentType; label: string; icon: string; cls: string }[] = [
+      { docType: "Word", label: "Blank Word Document (.docx)", icon: "W", cls: "tab-type-word" },
+      { docType: "Excel", label: "Blank Excel Workbook (.xlsx)", icon: "X", cls: "tab-type-excel" },
+      { docType: "PowerPoint", label: "Blank PowerPoint Presentation (.pptx)", icon: "P", cls: "tab-type-ppt" },
+      { docType: "PDF", label: "Open / Blank PDF (.pdf)", icon: "PDF", cls: "tab-type-pdf" },
+      { docType: "Notes", label: "Blank Note / Markdown (.txt/.md)", icon: "N", cls: "tab-type-notes" },
+    ];
+
+    options.forEach((opt) => {
+      const item = document.createElement("button");
+      item.className = "tab-dropdown-item";
+      item.dataset.newType = opt.docType;
+      item.dataset.testid = `dropdown-new-${opt.docType.toLowerCase()}`;
+      item.innerHTML = `<span class="tab-type-icon ${opt.cls}">${opt.icon}</span> <span>${opt.label}</span>`;
+      item.onclick = (e) => {
+        e.stopPropagation();
+        dropdown.style.display = "none";
+        if (this.onNewTabCallback) this.onNewTabCallback(opt.docType);
+      };
+      dropdown.appendChild(item);
+    });
+
+    addBtn.onclick = (e) => {
+      e.stopPropagation();
+      const isVisible = dropdown.style.display === "block";
+      dropdown.style.display = isVisible ? "none" : "block";
     };
-    this.container.appendChild(addBtn);
+
+    if (this.outsideClickListener) {
+      document.removeEventListener("click", this.outsideClickListener);
+    }
+    this.outsideClickListener = () => {
+      dropdown.style.display = "none";
+    };
+    document.addEventListener("click", this.outsideClickListener);
+
+    addContainer.appendChild(addBtn);
+    addContainer.appendChild(dropdown);
+    this.container.appendChild(addContainer);
   }
 }
-

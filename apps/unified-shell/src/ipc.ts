@@ -2,7 +2,7 @@
  * Tauri IPC Client for OpenOfficeRS Unified Shell
  */
 
-export type DocumentType = "Word" | "Excel" | "PowerPoint" | "PDF";
+export type DocumentType = "Word" | "Excel" | "PowerPoint" | "PDF" | "Notes";
 
 export interface SessionSummary {
   session_id: string;
@@ -53,13 +53,13 @@ export type UiActionEvent =
   | { type: "MarkSaved" };
 
 export interface BootConfig {
-  app_mode: "hub" | "writer" | "calc" | "slides" | "pdf";
+  app_mode: "hub" | "writer" | "calc" | "slides" | "pdf" | "notes";
   initial_file?: string | null;
 }
 
 export interface AppInstance {
   instance_id: string;
-  app_mode: "hub" | "writer" | "calc" | "slides" | "pdf";
+  app_mode: "hub" | "writer" | "calc" | "slides" | "pdf" | "notes";
   title: string;
   file_path?: string | null;
   process_id?: number | null;

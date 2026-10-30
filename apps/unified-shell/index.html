@@ -27,42 +27,50 @@
         </div>
       </header>
 
-      <!-- Multi-Document Tab Bar -->
-      <nav id="tab-bar-container" class="tab-bar" aria-label="Open documents"></nav>
+      <!-- Main Shell Body: Left App Switcher Rail (48px) + Workspace Layout -->
+      <div class="shell-body" style="display: flex; flex: 1; overflow: hidden; position: relative;">
+        <!-- Left App Switcher Rail (48px) -->
+        <aside id="app-rail-container" class="app-rail" aria-label="Application Rail"></aside>
 
-      <!-- Contextual Ribbon Bar -->
-      <section id="ribbon-container" class="ribbon-bar" aria-label="Command Ribbon"></section>
+        <!-- Right / Central Workspace Area -->
+        <div class="shell-workspace-area" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+          <!-- Multi-Document Tab Bar -->
+          <nav id="tab-bar-container" class="tab-bar" aria-label="Open documents"></nav>
 
-      <!-- Excel Formula Bar / Word Ruler Sub-header -->
-      <section id="sub-header-container" class="sub-header-bar"></section>
+          <!-- Contextual Ribbon Bar -->
+          <section id="ribbon-container" class="ribbon-bar" aria-label="Command Ribbon"></section>
 
-      <!-- Main Workspace (Navigation Pane + Canvas Viewport) -->
-      <main class="workspace-layout">
-        <!-- Navigation / Outline Pane / Slide Sorter Filmstrip -->
-        <aside id="sidebar-container" class="sidebar-pane" aria-label="Document Navigation"></aside>
+          <!-- Excel Formula Bar / Word Ruler Sub-header -->
+          <section id="sub-header-container" class="sub-header-bar"></section>
 
-        <!-- Document Canvas Viewport -->
-        <section class="canvas-viewport" id="viewport-container" tabindex="0">
-          <canvas id="render-surface"></canvas>
-        </section>
-      </main>
+          <!-- Main Workspace (Navigation Pane + Canvas Viewport) -->
+          <main class="workspace-layout">
+            <!-- Navigation / Outline Pane / Slide Sorter Filmstrip -->
+            <aside id="sidebar-container" class="sidebar-pane" aria-label="Document Navigation"></aside>
 
-      <!-- Status Bar -->
-      <footer id="status-bar" class="status-bar">
-        <div class="status-left">
-          <span id="status-doc-info">Page 1 of 1</span>
-          <span class="status-divider">|</span>
-          <span id="status-word-count">0 words</span>
-          <span class="status-divider">|</span>
-          <span id="status-lang">English (US)</span>
+            <!-- Document Canvas Viewport -->
+            <section class="canvas-viewport" id="viewport-container" tabindex="0">
+              <canvas id="render-surface"></canvas>
+            </section>
+          </main>
+
+          <!-- Status Bar -->
+          <footer id="status-bar" class="status-bar">
+            <div class="status-left">
+              <span id="status-doc-info">Page 1 of 1</span>
+              <span class="status-divider">|</span>
+              <span id="status-word-count">0 words</span>
+              <span class="status-divider">|</span>
+              <span id="status-lang">English (US)</span>
+            </div>
+            <div class="status-right">
+              <span id="status-zoom-level">100%</span>
+              <input type="range" id="zoom-slider" min="20" max="400" value="100" />
+            </div>
+          </footer>
         </div>
-        <div class="status-right">
-          <span id="status-zoom-level">100%</span>
-          <input type="range" id="zoom-slider" min="20" max="400" value="100" />
-        </div>
-      </footer>
+      </div>
     </div>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>
-

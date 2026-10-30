@@ -1,4 +1,5 @@
 import { TabBar, TabItem } from "./components/TabBar";
+import { AppRail, RailAppMode } from "./components/AppRail";
 import { Ribbon, RibbonTabId } from "./components/Ribbon";
 import { FormulaBar } from "./components/FormulaBar";
 import { WordRuler } from "./components/WordRuler";
@@ -47,6 +48,7 @@ import { DiffPreviewModal } from "./components/DiffPreviewModal";
 import { pluginHost } from "./plugins/pluginHost";
 
 export class UnifiedShellApp {
+  private appRail?: AppRail;
   private tabBar!: TabBar;
   private ribbon!: Ribbon;
   private formulaBar!: FormulaBar;
@@ -97,12 +99,20 @@ export class UnifiedShellApp {
     // 0. Initialize Window Controls
     this.initWindowControls();
 
+    // 0.1 Initialize Left App Switcher Rail (48px)
+    const railContainer = document.getElementById("app-rail-container");
+    if (railContainer) {
+      this.appRail = new AppRail(railContainer, {
+        onSelectApp: (mode) => this.handleRailAppSelect(mode),
+      });
+    }
+
     // 1. Initialize Tab Bar
     this.tabBar = new TabBar("tab-bar-container");
     this.tabBar.setCallbacks({
       onTabChange: (tab) => this.handleTabChange(tab),
       onTabClose: (id) => this.handleTabClose(id),
-      onNewTab: () => this.handleNewTab(),
+      onNewTab: (docType) => this.handleNewTab(docType),
     });
 
     // 2. Initialize Ribbon
@@ -468,6 +478,8 @@ export class UnifiedShellApp {
   }
 
   public showHub() {
+    this.appRail?.setActiveApp("home");
+
     const appContainer = document.getElementById("app");
     if (appContainer) {
       appContainer.classList.add("shell-hub-mode");
@@ -477,8 +489,18 @@ export class UnifiedShellApp {
     if (viewport) {
       this.hubLauncher = new HubLauncher(viewport);
       this.hubLauncher.setCallbacks({
-        onLaunchApp: (appMode, filePath) => {
-          console.log(`Launched ${appMode} from Hub: ${filePath}`);
+        onLaunchApp: (appMode, _filePath) => {
+          const docType: DocumentType =
+            appMode === "writer"
+              ? "Word"
+              : appMode === "calc"
+              ? "Excel"
+              : appMode === "slides"
+              ? "PowerPoint"
+              : appMode === "pdf"
+              ? "PDF"
+              : "Notes";
+          this.switchToOrCreateApp(docType);
         },
       });
       this.hubLauncher.render();
@@ -752,6 +774,18 @@ export class UnifiedShellApp {
     }
 
     this.currentDocType = tab.docType;
+    const railMode: RailAppMode =
+      tab.docType === "Word"
+        ? "word"
+        : tab.docType === "Excel"
+        ? "excel"
+        : tab.docType === "PowerPoint"
+        ? "powerpoint"
+        : tab.docType === "PDF"
+        ? "pdf"
+        : "notes";
+    this.appRail?.setActiveApp(railMode);
+
     this.ribbon.setDocumentType(tab.docType);
     if (this.copilotSidebar) {
       const dt = tab.docType.toLowerCase();
@@ -1049,6 +1083,22 @@ export class UnifiedShellApp {
             }
           },
         });
+      } else if (tab.docType === "Notes") {
+        viewportContainer.innerHTML = `
+          <div class="notes-workspace" data-testid="notes-workspace" style="display: flex; width: 100%; height: 100%; background: var(--bg-surface, #ffffff); flex-direction: column;">
+            <div class="notes-toolbar" style="display: flex; align-items: center; justify-content: space-between; padding: 6px 16px; border-bottom: 1px solid var(--border-color, #e0e0e0); background: var(--bg-shell, #f3f3f3);">
+              <span style="font-weight: 600; font-size: 12px; color: var(--text-secondary, #616161);">Notepad & Notes Editor</span>
+              <span style="font-size: 11px; color: var(--text-muted, #8a8a8a);">UTF-8 • Plain Text / Markdown</span>
+            </div>
+            <textarea id="notes-editor-textarea" data-testid="notes-editor-textarea" style="flex: 1; width: 100%; height: 100%; border: none; outline: none; padding: 16px; font-family: 'Consolas', 'Courier New', monospace; font-size: 14px; background: transparent; color: inherit; resize: none; box-sizing: border-box;" placeholder="Type notes here..."></textarea>
+          </div>
+        `;
+        const textarea = document.getElementById("notes-editor-textarea") as HTMLTextAreaElement | null;
+        if (textarea) {
+          textarea.addEventListener("input", () => {
+            this.tabBar.setDirty(tab.id, true);
+          });
+        }
       }
     }
 
@@ -1059,6 +1109,8 @@ export class UnifiedShellApp {
         this.updateCalcStatusBar();
       } else if (tab.docType === "PDF") {
         docInfo.textContent = `Page ${pdfState.currentPage} of ${pdfState.pageCount}`;
+      } else if (tab.docType === "Notes") {
+        docInfo.textContent = "Notepad / Notes";
       } else {
         docInfo.textContent = tab.docType === "PowerPoint" ? "Slide 1 of 3" : "Page 1 of 1";
       }
@@ -1067,16 +1119,75 @@ export class UnifiedShellApp {
 
   private handleTabClose(id: string) {
     IPC.closeSession(id, false).catch((err) => console.error("Close error:", err));
+    if (this.tabBar.getTabs().length === 0) {
+      this.showHub();
+    }
   }
 
-  private handleNewTab() {
-    const newId = `tab-${Date.now()}`;
+  public handleNewTab(docType?: DocumentType) {
+    const type = docType || this.currentDocType || "Word";
+    const newId = `tab-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const count = this.tabBar.getTabs().filter((t) => t.docType === type).length + 1;
+    const defaultTitle =
+      type === "Word"
+        ? `Untitled ${count}.docx`
+        : type === "Excel"
+        ? `Book${count}.xlsx`
+        : type === "PowerPoint"
+        ? `Presentation${count}.pptx`
+        : type === "PDF"
+        ? `Document${count}.pdf`
+        : `Untitled${count}.txt`;
+
     this.tabBar.addTab({
       id: newId,
-      docType: this.currentDocType,
-      title: `New ${this.currentDocType}`,
+      docType: type,
+      title: defaultTitle,
       isDirty: false,
     });
+  }
+
+  public switchToOrCreateApp(docType: DocumentType) {
+    const existing = this.tabBar.getTabs().find((t) => t.docType === docType);
+    if (existing) {
+      this.tabBar.switchTab(existing.id);
+    } else {
+      this.handleNewTab(docType);
+    }
+    const railMode: RailAppMode =
+      docType === "Word"
+        ? "word"
+        : docType === "Excel"
+        ? "excel"
+        : docType === "PowerPoint"
+        ? "powerpoint"
+        : docType === "PDF"
+        ? "pdf"
+        : "notes";
+    this.appRail?.setActiveApp(railMode);
+  }
+
+  public handleRailAppSelect(mode: RailAppMode) {
+    if (mode === "home") {
+      this.showHub();
+      return;
+    }
+    const docType: DocumentType =
+      mode === "word"
+        ? "Word"
+        : mode === "excel"
+        ? "Excel"
+        : mode === "powerpoint"
+        ? "PowerPoint"
+        : mode === "pdf"
+        ? "PDF"
+        : "Notes";
+
+    this.switchToOrCreateApp(docType);
+  }
+
+  public getAppRail(): AppRail | undefined {
+    return this.appRail;
   }
 
   private updateSlideSorter() {
@@ -1492,9 +1603,7 @@ export class UnifiedShellApp {
         }
       }
     } else if (action === "SetFormField") {
-      if (this.currentDocType === "PDF") {
-        this.pdfViewerCanvas?.render();
-      }
+      this.pdfViewerCanvas?.render();
     } else if (action === "ToggleReflow") {
       this.reflowReader.toggle();
     } else if (action === "ToggleInk") {

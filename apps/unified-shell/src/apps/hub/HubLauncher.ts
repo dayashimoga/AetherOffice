@@ -7,7 +7,7 @@ import { IPC, AppInstance } from "../../ipc";
 
 export interface RecentFileItem {
   name: string;
-  appMode: "writer" | "calc" | "slides" | "pdf";
+  appMode: "writer" | "calc" | "slides" | "pdf" | "notes";
   path: string;
   lastOpened: string;
 }
@@ -15,14 +15,14 @@ export interface RecentFileItem {
 export interface TemplateItem {
   id: string;
   name: string;
-  appMode: "writer" | "calc" | "slides" | "pdf";
+  appMode: "writer" | "calc" | "slides" | "pdf" | "notes";
   icon: string;
   description: string;
   defaultFilename: string;
 }
 
 export interface HubLauncherCallbacks {
-  onLaunchApp?: (appMode: "writer" | "calc" | "slides" | "pdf", filePath?: string) => void;
+  onLaunchApp?: (appMode: "writer" | "calc" | "slides" | "pdf" | "notes", filePath?: string) => void;
   onSelectRecent?: (item: RecentFileItem) => void;
   onSelectTemplate?: (template: TemplateItem) => void;
 }
@@ -215,6 +215,25 @@ export class HubLauncher {
               <div class="hub-card-actions">
                 <button class="btn-launch" data-launch-app="pdf">
                   <span>Open PDF Studio</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Notes Card -->
+            <div class="hub-app-card" data-app="notes" data-testid="app-card-notes">
+              <div class="hub-card-header">
+                <span class="hub-card-icon">📝</span>
+                <div>
+                  <div class="hub-card-name">AetherNotes</div>
+                  <div class="hub-card-format">Notepad & Markdown (.txt, .md)</div>
+                </div>
+              </div>
+              <p class="hub-card-desc">
+                Ultra-fast plain text editor, Markdown live preview, line numbering, and quick notes.
+              </p>
+              <div class="hub-card-actions">
+                <button class="btn-launch" data-launch-app="notes">
+                  <span>New Note</span>
                 </button>
               </div>
             </div>
@@ -459,7 +478,7 @@ export class HubLauncher {
     });
   }
 
-  public async launchApp(appMode: "writer" | "calc" | "slides" | "pdf", filePath?: string): Promise<AppInstance | null> {
+  public async launchApp(appMode: "writer" | "calc" | "slides" | "pdf" | "notes", filePath?: string): Promise<AppInstance | null> {
     try {
       const inst = await IPC.launchStandaloneApp(appMode, filePath);
       if (filePath) {
