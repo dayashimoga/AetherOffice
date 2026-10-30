@@ -1,0 +1,13 @@
+[package]
+name = "data-connectors"
+version = "0.1.0"
+edition = "2021"
+description = "High-performance streaming data connectors and ingestion engine for Calc"
+
+[dependencies]
+excel-engine = { path = "../excel-engine" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+rayon.workspace = true
+

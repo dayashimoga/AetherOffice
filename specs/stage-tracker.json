@@ -737,9 +737,9 @@
                           "title":  "Streaming Ingestion Connectors (Apache Arrow, Parquet, CSV, SQLite \u0026 REST/JSON)",
                           "crate":  "data-connectors",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-18/subphase-18.1.1.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-30T04:42:28Z"
                       },
                       {
                           "id":  "18.1.2",
