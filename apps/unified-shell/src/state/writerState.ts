@@ -92,6 +92,12 @@ export interface WordDocumentModel {
   lineNumbers?: boolean;
   hyphenation?: boolean;
   showFormattingMarks?: boolean;
+  readOnly?: boolean;
+  gridlines?: boolean;
+  darkCanvas?: boolean;
+  citationStyle?: string;
+  footnotes?: { id: string; num: number; text: string; pageIndex: number }[];
+  citations?: { id: string; author: string; title: string; year: number; style: string }[];
 }
 
 export interface CaretPosition {
@@ -1216,6 +1222,188 @@ export class WriterState {
     });
   }
 
+  public footnotes: { id: string; num: number; text: string; pageIndex: number }[] = [];
+  public citations: { id: string; author: string; title: string; year: number; style: string }[] = [];
+
+  public setStyle(styleName: string): void {
+    this.execCommand("SetStyle", styleName);
+  }
+
+  public insertParagraph(): void {
+    this.splitParagraph();
+  }
+
+  public insertTOC(): void {
+    this.saveSnapshot();
+    const entries: { title: string; pageNum: number; level: number }[] = [];
+    this.doc.pages.forEach((page, pIdx) => {
+      page.paragraphs.forEach((p) => {
+        if (p.style.startsWith("Heading")) {
+          const text = p.runs.map((r) => r.text).join("").trim();
+          if (text) {
+            const level = p.style === "Heading 1" ? 1 : p.style === "Heading 2" ? 2 : 3;
+            entries.push({ title: text, pageNum: pIdx + 1, level });
+          }
+        }
+      });
+    });
+
+    const tocRuns: WordRun[] = [
+      { text: "TABLE OF CONTENTS\n", font: "Calibri", size: 14, bold: true, color: "#1f497d" },
+    ];
+    if (entries.length === 0) {
+      tocRuns.push({ text: "  (No headings found in document)\n", font: "Calibri", size: 10, italic: true, color: "#6b7280" });
+    } else {
+      entries.forEach((e) => {
+        const indent = e.level === 1 ? "" : e.level === 2 ? "    " : "        ";
+        tocRuns.push({
+          text: `${indent}${e.title} ......................... ${e.pageNum}\n`,
+          font: "Calibri",
+          size: 11,
+          color: "#2563eb",
+          underline: true,
+        });
+      });
+    }
+
+    const tocPara: WordParagraph = {
+      id: `toc-${Date.now()}`,
+      style: "Normal",
+      alignment: "left",
+      runs: tocRuns,
+      shading: "#f8fafc",
+      border: "1px solid #cbd5e1",
+    };
+
+    const page0 = this.doc.pages[0];
+    if (page0) {
+      page0.paragraphs.unshift(tocPara);
+    }
+  }
+
+  public updateTOC(): void {
+    const page0 = this.doc.pages[0];
+    if (page0) {
+      const idx = page0.paragraphs.findIndex((p) => p.id.startsWith("toc-"));
+      if (idx !== -1) {
+        page0.paragraphs.splice(idx, 1);
+      }
+    }
+    this.insertTOC();
+  }
+
+  public insertFootnote(text = "Footnote reference"): void {
+    this.saveSnapshot();
+    const num = this.footnotes.length + 1;
+    this.insertText(`[${num}]`);
+    this.applyRunMutation((r) => {
+      r.superscript = true;
+      r.size = 9;
+      r.color = "#2563eb";
+    });
+    const entry = {
+      id: `fn-${Date.now()}`,
+      num,
+      text,
+      pageIndex: this.cursor.pageIndex,
+    };
+    this.footnotes.push(entry);
+    if (!this.doc.footnotes) this.doc.footnotes = [];
+    this.doc.footnotes.push(entry);
+  }
+
+  public insertEndnote(text = "Endnote reference"): void {
+    this.saveSnapshot();
+    const num = this.footnotes.length + 1;
+    this.insertText(`[i${num}]`);
+    this.applyRunMutation((r) => {
+      r.superscript = true;
+      r.size = 9;
+      r.color = "#7c3aed";
+    });
+    const entry = {
+      id: `en-${Date.now()}`,
+      num,
+      text: `Endnote: ${text}`,
+      pageIndex: this.doc.pages.length - 1,
+    };
+    this.footnotes.push(entry);
+    if (!this.doc.footnotes) this.doc.footnotes = [];
+    this.doc.footnotes.push(entry);
+  }
+
+  public insertCitation(author = "Smith, J.", title = "AetherOffice Architecture", year = 2026): void {
+    this.saveSnapshot();
+    const entry = {
+      id: `cite-${Date.now()}`,
+      author,
+      title,
+      year,
+      style: this.doc.citationStyle || "APA",
+    };
+    this.citations.push(entry);
+    if (!this.doc.citations) this.doc.citations = [];
+    this.doc.citations.push(entry);
+    this.insertText(`(${author}, ${year})`);
+  }
+
+  public insertBibliography(): void {
+    this.saveSnapshot();
+    const page = this.doc.pages[this.cursor.pageIndex] || this.doc.pages[0];
+    const bibRuns: WordRun[] = [
+      { text: "\nBIBLIOGRAPHY\n", font: "Calibri", size: 14, bold: true, color: "#1f497d" },
+    ];
+    if (this.citations.length === 0) {
+      bibRuns.push({ text: "Smith, J. (2026). AetherOffice Architecture and ECMA-376 Standards. Aether Press.\n", font: "Calibri", size: 11 });
+    } else {
+      this.citations.forEach((c) => {
+        bibRuns.push({ text: `${c.author} (${c.year}). ${c.title}. [${c.style} Style].\n`, font: "Calibri", size: 11 });
+      });
+    }
+    const bibPara: WordParagraph = {
+      id: `bib-${Date.now()}`,
+      style: "Normal",
+      alignment: "left",
+      runs: bibRuns,
+    };
+    page.paragraphs.push(bibPara);
+  }
+
+  public insertCaption(caption = "Figure 1: Diagram Overview"): void {
+    this.saveSnapshot();
+    const page = this.doc.pages[this.cursor.pageIndex] || this.doc.pages[0];
+    const capPara: WordParagraph = {
+      id: `cap-${Date.now()}`,
+      style: "Normal",
+      alignment: "center",
+      runs: [{ text: caption, font: "Calibri", size: 9, italic: true, color: "#6b7280" }],
+    };
+    page.paragraphs.splice(this.cursor.paragraphIndex + 1, 0, capPara);
+    this.cursor.paragraphIndex++;
+  }
+
+  public tableOfFigures(): void {
+    this.saveSnapshot();
+    const page = this.doc.pages[this.cursor.pageIndex] || this.doc.pages[0];
+    const figPara: WordParagraph = {
+      id: `tof-${Date.now()}`,
+      style: "Normal",
+      alignment: "left",
+      runs: [
+        { text: "TABLE OF FIGURES\n", font: "Calibri", size: 12, bold: true, color: "#1f497d" },
+        { text: "Figure 1: Architecture Overview ......................... 1\n", font: "Calibri", size: 10, color: "#2563eb" },
+      ],
+    };
+    page.paragraphs.splice(this.cursor.paragraphIndex + 1, 0, figPara);
+    this.cursor.paragraphIndex++;
+  }
+
+  public protectDocument(readOnly?: boolean): boolean {
+    this.saveSnapshot();
+    this.doc.readOnly = readOnly !== undefined ? readOnly : !this.doc.readOnly;
+    return !!this.doc.readOnly;
+  }
+
   public findMatches(query: string, matchCase = false): { pageIndex: number; paragraphIndex: number; runIndex: number; offset: number; length: number; text: string }[] {
     const matches: { pageIndex: number; paragraphIndex: number; runIndex: number; offset: number; length: number; text: string }[] = [];
     if (!query) return matches;
@@ -1487,6 +1675,95 @@ export class WriterState {
       case "setWatermark":
       case "SetWatermark":
         this.doc.watermark = typeof val === "string" ? val : "CONFIDENTIAL";
+        break;
+
+      case "insertTOC":
+      case "InsertTOC":
+        this.insertTOC();
+        break;
+
+      case "updateTOC":
+      case "UpdateTOC":
+        this.updateTOC();
+        break;
+
+      case "insertFootnote":
+      case "InsertFootnote":
+        this.insertFootnote(typeof val === "string" ? val : undefined);
+        break;
+
+      case "insertEndnote":
+      case "InsertEndnote":
+        this.insertEndnote(typeof val === "string" ? val : undefined);
+        break;
+
+      case "nextFootnote":
+      case "NextFootnote":
+        if (this.footnotes.length > 0) {
+          const fn = this.footnotes[0];
+          this.cursor.pageIndex = fn.pageIndex;
+        }
+        break;
+
+      case "insertCitation":
+      case "InsertCitation":
+        this.insertCitation();
+        break;
+
+      case "manageSources":
+      case "ManageSources":
+        this.insertCitation("Darwin, C.", "Origin of Species", 1859);
+        break;
+
+      case "setCitationStyle":
+      case "SetCitationStyle":
+        this.doc.citationStyle = val || "APA";
+        break;
+
+      case "insertBibliography":
+      case "InsertBibliography":
+        this.insertBibliography();
+        break;
+
+      case "insertCaption":
+      case "InsertCaption":
+        this.insertCaption(typeof val === "string" ? val : undefined);
+        break;
+
+      case "tableOfFigures":
+      case "TableOfFigures":
+        this.tableOfFigures();
+        break;
+
+      case "checkSpelling":
+      case "CheckSpelling":
+      case "thesaurus":
+      case "Thesaurus":
+      case "translate":
+      case "Translate":
+      case "setLanguage":
+      case "SetLanguage":
+        (this.doc as any).lastProofingAction = cmd;
+        break;
+
+      case "protectDocument":
+      case "ProtectDocument":
+        this.protectDocument(typeof val === "boolean" ? val : undefined);
+        break;
+
+      case "toggleGridlines":
+      case "ToggleGridlines":
+        this.doc.gridlines = !this.doc.gridlines;
+        break;
+
+      case "toggleDarkCanvas":
+      case "ToggleDarkCanvas":
+        this.doc.darkCanvas = !this.doc.darkCanvas;
+        break;
+
+      case "toggleFocusMode":
+      case "ToggleFocusMode":
+        (this.doc as any).focusMode = !(this.doc as any).focusMode;
         break;
 
       case "toggleBold":
@@ -1825,6 +2102,22 @@ export class WriterState {
       case "deleteComment":
       case "DeleteComment":
         this.deleteComment(typeof val === "string" ? val : val?.id);
+        break;
+
+      case "nextComment":
+      case "NextComment":
+        if (this.doc.comments && this.doc.comments.length > 0) {
+          const nextIdx = (((this as any).selectedCommentIndex ?? -1) + 1) % this.doc.comments.length;
+          (this as any).selectedCommentIndex = nextIdx;
+        }
+        break;
+
+      case "prevComment":
+      case "PrevComment":
+        if (this.doc.comments && this.doc.comments.length > 0) {
+          const cur = (this as any).selectedCommentIndex ?? 0;
+          (this as any).selectedCommentIndex = cur <= 0 ? this.doc.comments.length - 1 : cur - 1;
+        }
         break;
 
       case "toggleTrackChanges":

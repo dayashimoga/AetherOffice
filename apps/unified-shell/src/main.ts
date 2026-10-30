@@ -1553,6 +1553,38 @@ export class UnifiedShellApp {
       this.reflowReader.toggle();
       return;
     }
+    if (action === "ToggleFocusMode") {
+      const ribbonContainer = document.getElementById("ribbon-container");
+      if (ribbonContainer) {
+        ribbonContainer.style.display = ribbonContainer.style.display === "none" ? "block" : "none";
+      }
+      return;
+    }
+    if (action === "ReadAloudPlay") {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        const text = writerState.getTextContent() || "Document is empty";
+        const utterance = new SpeechSynthesisUtterance(text);
+        window.speechSynthesis.speak(utterance);
+      }
+      return;
+    }
+    if (action === "ReadAloudPause") {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        } else if (window.speechSynthesis.speaking) {
+          window.speechSynthesis.pause();
+        }
+      }
+      return;
+    }
+    if (action === "ReadAloudStop") {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+      return;
+    }
 
     const active = this.tabBar.getActiveTab();
     if (!active) return;
@@ -1571,6 +1603,15 @@ export class UnifiedShellApp {
           const leftMargin = payload === "narrow" ? 48 : payload === "moderate" ? 72 : payload === "wide" ? 144 : 96;
           this.wordRuler.setMargins(leftMargin, leftMargin, 0);
           this.writerCanvas?.setMargins(leftMargin, leftMargin);
+        } else if (action === "SetZoom" || action === "Zoom100" || action === "ZoomOnePage" || action === "ZoomMultiplePages" || action === "ZoomPageWidth") {
+          const zoomLevel = document.getElementById("status-zoom-level");
+          if (zoomLevel) {
+            zoomLevel.textContent = `${Math.round(writerState.zoom * 100)}%`;
+          }
+          const zoomSlider = document.getElementById("zoom-slider") as HTMLInputElement | null;
+          if (zoomSlider) {
+            zoomSlider.value = String(Math.round(writerState.zoom * 100));
+          }
         }
       }
       this.tabBar.setDirty(active.id, true);

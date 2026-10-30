@@ -803,6 +803,78 @@ export class WriterCanvas {
         pageEl.appendChild(wm);
       }
 
+      if (this.state.doc.darkCanvas) {
+        pageEl.style.backgroundColor = "#1e293b";
+        pageEl.style.color = "#f8fafc";
+      }
+
+      if (this.state.doc.gridlines) {
+        const gridOverlay = document.createElement("div");
+        gridOverlay.className = "word-gridlines-overlay";
+        gridOverlay.setAttribute("data-testid", "word-gridlines-overlay");
+        gridOverlay.style.position = "absolute";
+        gridOverlay.style.top = `${this.marginY * this.state.zoom}px`;
+        gridOverlay.style.left = `${this.marginX * this.state.zoom}px`;
+        gridOverlay.style.width = `${(this.pageWidth - this.marginX * 2) * this.state.zoom}px`;
+        gridOverlay.style.height = `${(this.pageHeight - this.marginY * 2) * this.state.zoom}px`;
+        gridOverlay.style.backgroundImage =
+          "linear-gradient(to right, rgba(203, 213, 225, 0.4) 1px, transparent 1px), linear-gradient(to bottom, rgba(203, 213, 225, 0.4) 1px, transparent 1px)";
+        gridOverlay.style.backgroundSize = `${18 * this.state.zoom}px ${18 * this.state.zoom}px`;
+        gridOverlay.style.pointerEvents = "none";
+        gridOverlay.style.zIndex = "4";
+        pageEl.appendChild(gridOverlay);
+      }
+
+      const pageFootnotes = (this.state.doc.footnotes || []).filter((fn) => fn.pageIndex === pIdx);
+      if (pageFootnotes.length > 0) {
+        const fnContainer = document.createElement("div");
+        fnContainer.className = "word-page-footnotes";
+        fnContainer.setAttribute("data-testid", "word-page-footnotes");
+        fnContainer.style.position = "absolute";
+        fnContainer.style.bottom = `${this.marginY * 0.35 * this.state.zoom}px`;
+        fnContainer.style.left = `${this.marginX * this.state.zoom}px`;
+        fnContainer.style.right = `${this.marginX * this.state.zoom}px`;
+        fnContainer.style.borderTop = "1px solid #cbd5e1";
+        fnContainer.style.paddingTop = "4px";
+        fnContainer.style.fontSize = `${9 * this.state.zoom}pt`;
+        fnContainer.style.color = "#64748b";
+        pageFootnotes.forEach((fn) => {
+          const row = document.createElement("div");
+          row.textContent = `[${fn.num}] ${fn.text}`;
+          fnContainer.appendChild(row);
+        });
+        pageEl.appendChild(fnContainer);
+      }
+
+      if (this.state.doc.comments && this.state.doc.comments.length > 0) {
+        const commentsGutter = document.createElement("div");
+        commentsGutter.className = "word-comments-gutter";
+        commentsGutter.setAttribute("data-testid", "word-comments-gutter");
+        commentsGutter.style.position = "absolute";
+        commentsGutter.style.top = `${this.marginY * this.state.zoom}px`;
+        commentsGutter.style.right = "-220px";
+        commentsGutter.style.width = "200px";
+        commentsGutter.style.display = "flex";
+        commentsGutter.style.flexDirection = "column";
+        commentsGutter.style.gap = "8px";
+        this.state.doc.comments.forEach((c) => {
+          const card = document.createElement("div");
+          card.className = "word-comment-card";
+          card.setAttribute("data-testid", "word-comment-card");
+          card.setAttribute("data-comment-id", c.id);
+          card.style.backgroundColor = "#fff";
+          card.style.border = "1px solid #cbd5e1";
+          card.style.borderRadius = "4px";
+          card.style.padding = "6px 8px";
+          card.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+          card.style.fontSize = "11px";
+          card.style.color = "#334155";
+          card.innerHTML = `<strong>${c.author || "Reviewer"}</strong>: <div>${c.text}</div>`;
+          commentsGutter.appendChild(card);
+        });
+        pageEl.appendChild(commentsGutter);
+      }
+
       // 1. Header Zone
       const headerEl = document.createElement("div");
       headerEl.className = "word-page-header";
@@ -923,7 +995,7 @@ export class WriterCanvas {
       // 4. ContentEditable Body (Subphase 29.1.1)
       const bodyEl = document.createElement("div");
       bodyEl.className = "word-page-body";
-      bodyEl.contentEditable = "true";
+      bodyEl.contentEditable = this.state.doc.readOnly ? "false" : "true";
       bodyEl.setAttribute("data-page-index", String(pIdx));
       bodyEl.setAttribute("data-testid", "word-page-body");
       bodyEl.setAttribute("spellcheck", "false");
@@ -939,7 +1011,10 @@ export class WriterCanvas {
       bodyEl.style.fontFamily = "Calibri, sans-serif";
       bodyEl.style.lineHeight = "1.5";
       bodyEl.style.boxSizing = "border-box";
-      bodyEl.style.cursor = "text";
+      bodyEl.style.cursor = this.state.doc.readOnly ? "default" : "text";
+      if (this.state.doc.darkCanvas) {
+        bodyEl.style.color = "#f8fafc";
+      }
       bodyEl.style.whiteSpace = "pre-wrap";
       bodyEl.style.wordBreak = "break-word";
       bodyEl.style.padding = "4px";
