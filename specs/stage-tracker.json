@@ -682,9 +682,9 @@
                           "title":  "Dynamic UI Ribbon \u0026 Sidebar Injection API",
                           "crate":  "unified-shell",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-16/subphase-16.1.2.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-30T03:08:43Z"
                       },
                       {
                           "id":  "16.1.3",

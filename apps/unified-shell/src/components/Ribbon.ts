@@ -4,6 +4,8 @@ import { WriterRibbon } from "./ribbon/WriterRibbon";
 import { CalcRibbon } from "./ribbon/CalcRibbon";
 import { SlidesRibbon } from "./ribbon/SlidesRibbon";
 import { PdfRibbon } from "./ribbon/PdfRibbon";
+import { ContextualRibbonRouter } from "./ribbon/ContextualRibbonRouter";
+import { pluginHost, PluginHost } from "../plugins/pluginHost";
 
 export type RibbonTabId = string;
 
@@ -23,12 +25,23 @@ export class Ribbon {
   private calcRibbon = new CalcRibbon();
   private slidesRibbon = new SlidesRibbon();
   private pdfRibbon = new PdfRibbon();
+  private router: ContextualRibbonRouter;
 
-  constructor(containerId: string) {
+  constructor(containerId: string, host: PluginHost = pluginHost) {
     const el = document.getElementById(containerId);
     if (!el) throw new Error(`Ribbon container #${containerId} not found`);
     this.container = el;
+    this.router = new ContextualRibbonRouter(host);
+
+    host.onLifecycle(() => {
+      this.render();
+    });
+
     this.render();
+  }
+
+  public getRouter(): ContextualRibbonRouter {
+    return this.router;
   }
 
   public getWriterRibbon(): WriterRibbon {
@@ -106,7 +119,7 @@ export class Ribbon {
   }
 
   public getVisibleTabs(): string[] {
-    return this.getActiveAppRibbon().getTabs();
+    return this.router.getVisibleTabs(this.docType, this.getActiveAppRibbon().getTabs());
   }
 
   private render() {
@@ -155,7 +168,7 @@ export class Ribbon {
       if (this.keytipsActive) {
         const badge = document.createElement("span");
         badge.className = "ribbon-keytip-badge";
-        badge.textContent = appRibbon.getKeytip(tab);
+        badge.textContent = this.router.getKeytip(this.docType, tab, appRibbon);
         tabBtn.appendChild(badge);
       }
 
@@ -169,7 +182,13 @@ export class Ribbon {
     body.className = "ribbon-tools-body";
     body.id = "ribbon-tools-body";
 
-    appRibbon.renderTab(activeTab, body, (action, payload) => this.emit(action, payload));
+    this.router.renderTab(
+      this.docType,
+      activeTab,
+      body,
+      appRibbon,
+      (action, payload) => this.emit(action, payload)
+    );
 
     this.container.appendChild(body);
   }

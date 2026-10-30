@@ -36,6 +36,8 @@ import { AnimationPane } from "./components/AnimationPane";
 import { PresentationPlayer } from "./components/PresentationPlayer";
 import { PdfWorkspace } from "./apps/pdf/PdfWorkspace";
 import { CollabBar } from "./components/CollabBar";
+import { PluginSidebar } from "./components/PluginSidebar";
+import { pluginHost } from "./plugins/pluginHost";
 
 export class UnifiedShellApp {
   private tabBar!: TabBar;
@@ -71,6 +73,7 @@ export class UnifiedShellApp {
   private presentationPlayer?: PresentationPlayer;
   private pdfWorkspace?: PdfWorkspace;
   private collabBar!: CollabBar;
+  private pluginSidebar!: PluginSidebar;
 
   constructor(autoBoot = true) {
     this.init(autoBoot);
@@ -182,6 +185,22 @@ export class UnifiedShellApp {
     // 4. Initialize Sidebars
     this.navPane = new NavigationPane("sidebar-container");
     this.slideSorter = new SlideSorter("sidebar-container");
+    this.pluginSidebar = new PluginSidebar("sidebar-container");
+    pluginHost.onLifecycle((event, _id, payload) => {
+      if (event === "sidebar-toggled") {
+        const paneId = (payload as { paneId?: string })?.paneId;
+        if (paneId) {
+          const pane =
+            pluginHost.getSidebarPanes(this.currentDocType).find((p) => p.id === paneId) ||
+            pluginHost.getSidebarPanes().find((p) => p.id === paneId);
+          if (pane) {
+            this.pluginSidebar.show(pane);
+          }
+        } else {
+          this.pluginSidebar.hide();
+        }
+      }
+    });
     this.slideSorter.setCallbacks({
       onSelectSlide: (id) => {
         this.slideStageCanvas?.selectSlide(id - 1);
@@ -383,6 +402,24 @@ export class UnifiedShellApp {
 
   public getNavPane(): NavigationPane | undefined {
     return this.navPane;
+  }
+
+  public getPluginSidebar(): PluginSidebar {
+    return this.pluginSidebar;
+  }
+
+  public togglePluginSidebar(paneId: string): void {
+    if (this.pluginSidebar.getActivePaneId() === paneId) {
+      this.pluginSidebar.hide();
+    } else {
+      const pane =
+        pluginHost.getSidebarPanes(this.currentDocType).find((p) => p.id === paneId) ||
+        pluginHost.getSidebarPanes().find((p) => p.id === paneId);
+      if (pane) {
+        this.pluginSidebar.show(pane);
+        pluginHost.setActiveSidebarPane(paneId);
+      }
+    }
   }
 
   public updateNavigationOutline() {
@@ -929,6 +966,11 @@ export class UnifiedShellApp {
       if (subHeader) {
         subHeader.style.display = subHeader.style.display === "none" ? "flex" : "none";
       }
+      return;
+    }
+    if (action.startsWith("TogglePluginSidebar:")) {
+      const paneId = action.substring("TogglePluginSidebar:".length);
+      this.togglePluginSidebar(paneId);
       return;
     }
     if (action === "ToggleNavPane") {
