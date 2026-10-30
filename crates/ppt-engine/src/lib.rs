@@ -10,6 +10,7 @@
 pub mod animation;
 pub mod cascade;
 pub mod drawingml;
+pub mod media;
 pub mod model;
 pub mod morph;
 pub mod package;
@@ -28,6 +29,10 @@ pub use drawingml::{
     get_preset_geometry, list_preset_names, CustomGeometry, CustomPath, DrawingPath, GeomGuide,
     GeometryCompiler, GuideContext, PathCommand, PathFillMode, PathInstruction, Point2D,
     PresetDefinition,
+};
+pub use media::{
+    MediaAsset, MediaBounds, MediaEngine, MediaFormat, MediaNode, MediaType,
+    AUDIO_RELATIONSHIP_TYPE, MEDIA_RELATIONSHIP_TYPE, VIDEO_RELATIONSHIP_TYPE,
 };
 pub use model::*;
 pub use morph::{

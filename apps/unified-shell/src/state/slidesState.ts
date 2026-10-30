@@ -123,6 +123,15 @@ export interface SlideShape {
   underline?: boolean;
   imageUrl?: string;
   imageAlt?: string;
+  mediaType?: "video" | "audio";
+  mediaUrl?: string;
+  mediaFormat?: string;
+  posterUrl?: string;
+  autoPlay?: boolean;
+  loopPlayback?: boolean;
+  volume?: number;
+  isMuted?: boolean;
+  isPlaying?: boolean;
   tableData?: string[][];
   tableHeaders?: string[];
   zIndex?: number;
@@ -1331,6 +1340,45 @@ export class SlidesState {
     return shape;
   }
 
+  public insertMedia(
+    type: "video" | "audio",
+    url = type === "video" ? "sample_video.mp4" : "sample_audio.mp3",
+    x = 180,
+    y = 120,
+    w = type === "video" ? 480 : 280,
+    h = type === "video" ? 270 : 60
+  ): SlideShape {
+    this.commitSnapshot();
+    const slide = this.slides[this.currentSlideIndex];
+    if (!slide) throw new Error("No active slide");
+
+    const isVideo = type === "video";
+    const shape: SlideShape = {
+      id: `sh_${++this.nextShapeCounter}`,
+      type: "rect",
+      x,
+      y,
+      w,
+      h,
+      fill: isVideo ? "#0f172a" : "#f1f5f9",
+      stroke: "#64748b",
+      strokeWidth: 1,
+      rotation: 0,
+      mediaType: type,
+      mediaUrl: url,
+      mediaFormat: url.split(".").pop() || (isVideo ? "mp4" : "mp3"),
+      posterUrl: isVideo ? "poster_frame.png" : undefined,
+      autoPlay: false,
+      loopPlayback: false,
+      volume: 1.0,
+      isMuted: false,
+      isPlaying: false,
+    };
+    slide.shapes.push(shape);
+    this.selectedShapeId = shape.id;
+    return shape;
+  }
+
   public insertTable(
     rows = 3,
     cols = 3,
@@ -1374,6 +1422,7 @@ export class SlidesState {
     this.selectedShapeId = shape.id;
     return shape;
   }
+
 
   public alignSelectedShape(
     alignment: "left" | "center" | "right" | "top" | "middle" | "bottom"
@@ -1800,6 +1849,12 @@ export class SlidesState {
       case "InsertImage":
       case "InsertPicture":
         this.insertImage(typeof payload === "string" ? payload : undefined);
+        return true;
+      case "InsertVideo":
+        this.insertMedia("video", typeof payload === "string" ? payload : "sample_video.mp4");
+        return true;
+      case "InsertAudio":
+        this.insertMedia("audio", typeof payload === "string" ? payload : "sample_audio.mp3");
         return true;
       case "InsertTable":
         if (payload && typeof payload === "object") {

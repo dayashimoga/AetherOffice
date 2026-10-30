@@ -34,6 +34,7 @@ import { SpeakerNotesPane } from "./components/SpeakerNotesPane";
 import { FormatBackgroundDialog } from "./components/FormatBackgroundDialog";
 import { AnimationPane } from "./components/AnimationPane";
 import { PresentationPlayer } from "./components/PresentationPlayer";
+import { SlideMediaOverlay } from "./components/SlideMediaOverlay";
 import { PdfWorkspace } from "./apps/pdf/PdfWorkspace";
 import { CollabBar } from "./components/CollabBar";
 import { PluginSidebar } from "./components/PluginSidebar";
@@ -74,6 +75,7 @@ export class UnifiedShellApp {
   private speakerNotesPane?: SpeakerNotesPane;
   private animationPane?: AnimationPane;
   private presentationPlayer?: PresentationPlayer;
+  private slideMediaOverlay?: SlideMediaOverlay;
   private pdfWorkspace?: PdfWorkspace;
   private collabBar!: CollabBar;
   private pluginSidebar!: PluginSidebar;
@@ -621,6 +623,10 @@ export class UnifiedShellApp {
     return this.presentationPlayer;
   }
 
+  public getSlideMediaOverlay(): SlideMediaOverlay | undefined {
+    return this.slideMediaOverlay;
+  }
+
   public getPdfWorkspace(): PdfWorkspace | undefined {
     return this.pdfWorkspace;
   }
@@ -700,29 +706,34 @@ export class UnifiedShellApp {
         onSelectSlide: (id) => {
           slidesState.selectSlide(id - 1);
           this.slideStageCanvas?.render();
+          this.slideMediaOverlay?.refresh();
           this.updateSlideSorter();
         },
         onReorder: (fromIdx, toIdx) => {
           slidesState.reorderSlide(fromIdx, toIdx);
           this.slideStageCanvas?.render();
+          this.slideMediaOverlay?.refresh();
           this.updateSlideSorter();
           this.tabBar.setDirty(tab.id, true);
         },
         onAddSlide: () => {
           slidesState.addSlide();
           this.slideStageCanvas?.render();
+          this.slideMediaOverlay?.refresh();
           this.updateSlideSorter();
           this.tabBar.setDirty(tab.id, true);
         },
         onDuplicateSlide: (idx) => {
           slidesState.duplicateSlide(idx);
           this.slideStageCanvas?.render();
+          this.slideMediaOverlay?.refresh();
           this.updateSlideSorter();
           this.tabBar.setDirty(tab.id, true);
         },
         onDeleteSlide: (idx) => {
           slidesState.deleteSlide(idx);
           this.slideStageCanvas?.render();
+          this.slideMediaOverlay?.refresh();
           this.updateSlideSorter();
           this.tabBar.setDirty(tab.id, true);
         },
@@ -734,12 +745,14 @@ export class UnifiedShellApp {
         onMoveUp: (idx) => {
           slidesState.moveSlideUp(idx);
           this.slideStageCanvas?.render();
+          this.slideMediaOverlay?.refresh();
           this.updateSlideSorter();
           this.tabBar.setDirty(tab.id, true);
         },
         onMoveDown: (idx) => {
           slidesState.moveSlideDown(idx);
           this.slideStageCanvas?.render();
+          this.slideMediaOverlay?.refresh();
           this.updateSlideSorter();
           this.tabBar.setDirty(tab.id, true);
         },
@@ -786,6 +799,10 @@ export class UnifiedShellApp {
       this.calcGridCanvas = undefined;
       this.sheetTabBar = undefined;
       this.slideStageCanvas = undefined;
+      if (this.slideMediaOverlay) {
+        this.slideMediaOverlay.clear();
+        this.slideMediaOverlay = undefined;
+      }
       this.pdfViewerCanvas = undefined;
 
       if (tab.docType === "Word") {
@@ -877,6 +894,7 @@ export class UnifiedShellApp {
       } else if (tab.docType === "PowerPoint") {
         this.slideStageCanvas = new SlideStageCanvas(viewportContainer, slidesState);
         this.slideStageCanvas.setOnDirty(() => this.tabBar.setDirty(tab.id, true));
+        this.slideMediaOverlay = new SlideMediaOverlay(viewportContainer, slidesState);
         this.speakerNotesPane = new SpeakerNotesPane(viewportContainer, slidesState);
         this.speakerNotesPane.setOnDirty(() => this.tabBar.setDirty(tab.id, true));
         this.animationPane = new AnimationPane("animation-pane-container", slidesState);
@@ -895,12 +913,14 @@ export class UnifiedShellApp {
           this.presentationPlayer.setCallbacks({
             onExit: () => {
               this.slideStageCanvas?.render();
+              this.slideMediaOverlay?.refresh();
               this.updateSlideSorter();
               this.speakerNotesPane?.refresh();
               this.animationPane?.refresh();
             },
             onSlideChange: (idx) => {
               this.slideStageCanvas?.render();
+              this.slideMediaOverlay?.refresh();
               this.updateSlideSorter();
               this.speakerNotesPane?.refresh();
               this.animationPane?.refresh();
@@ -1147,6 +1167,7 @@ export class UnifiedShellApp {
         const changed = slidesState.execCommand(action, payload);
         if (changed) {
           this.slideStageCanvas?.render();
+          this.slideMediaOverlay?.refresh();
           this.updateSlideSorter();
           this.speakerNotesPane?.refresh();
           this.animationPane?.refresh();
@@ -1378,6 +1399,7 @@ export class UnifiedShellApp {
         if (this.currentDocType === "PowerPoint") {
           slidesState.undo();
           this.slideStageCanvas?.render();
+          this.slideMediaOverlay?.refresh();
         } else if (this.currentDocType === "PDF") {
           pdfState.undo();
           this.pdfWorkspace?.render();
@@ -1392,6 +1414,7 @@ export class UnifiedShellApp {
         if (this.currentDocType === "PowerPoint") {
           slidesState.redo();
           this.slideStageCanvas?.render();
+          this.slideMediaOverlay?.refresh();
         } else if (this.currentDocType === "PDF") {
           pdfState.redo();
           this.pdfWorkspace?.render();

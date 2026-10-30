@@ -451,6 +451,28 @@ impl PresentationPackage {
         let resolver = InheritanceResolver::new(Some(&self.presentation), master, layout, theme);
         Ok(resolver.resolve_slide(slide))
     }
+
+    /// Extracts embedded audio and video media assets linked from a slide.
+    pub fn extract_slide_media(&self, slide_part_name: &str) -> Vec<crate::media::MediaAsset> {
+        let mut assets = Vec::new();
+        if let Some(rels) = self.part_relationships.get(slide_part_name) {
+            let media_map = crate::media::MediaEngine::extract_media_relationships(rels);
+            for (_r_id, (m_type, target)) in media_map {
+                let resolved_path = resolve_target_path(slide_part_name, &target);
+                if let Some(part) = self.unparsed_store.get(&resolved_path) {
+                    let ext = resolved_path.split('.').next_back().unwrap_or("");
+                    let format = crate::media::MediaFormat::from_extension(ext);
+                    assets.push(crate::media::MediaAsset {
+                        part_path: resolved_path,
+                        media_type: m_type,
+                        format,
+                        data: part.content.clone(),
+                    });
+                }
+            }
+        }
+        assets
+    }
 }
 
 // =========================================================================
