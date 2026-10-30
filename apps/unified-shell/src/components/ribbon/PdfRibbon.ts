@@ -233,6 +233,7 @@ export class PdfRibbon implements AppRibbonComponent {
     pageRow1.appendChild(createRibbonButton("Rotate 90° CW", "↷ Rotate Right", () => emit("RotatePageCW"), false, "pdf-btn-rotate-cw"));
     pageRow1.appendChild(createRibbonButton("Delete Page", "🗑️ Delete Page", () => emit("DeletePage"), false, "pdf-btn-delete-page"));
     pageRow1.appendChild(createRibbonButton("Insert Page", "➕ Insert Page", () => emit("InsertBlankPage"), false, "pdf-btn-add-page"));
+    pageRow1.appendChild(createRibbonButton("Duplicate Page", "📋 Duplicate", () => emit("DuplicatePage"), false, "pdf-btn-duplicate-page"));
     pageGroup.appendChild(pageRow1);
 
     const pageRow2 = document.createElement("div");
@@ -240,10 +241,28 @@ export class PdfRibbon implements AppRibbonComponent {
     pageRow2.appendChild(createRibbonButton("Move Page Up", "▲ Move Up", () => emit("MovePageUp"), false, "pdf-btn-move-page-up"));
     pageRow2.appendChild(createRibbonButton("Move Page Down", "▼ Move Down", () => emit("MovePageDown"), false, "pdf-btn-move-page-down"));
     pageRow2.appendChild(createRibbonButton("Extract Pages", "📤 Extract", () => emit("ExtractPage"), false, "pdf-btn-extract-page"));
+    pageRow2.appendChild(createRibbonButton("Split PDF", "✂️ Split PDF", () => emit("SplitPdf"), false, "pdf-btn-split-pdf"));
     pageRow2.appendChild(createRibbonButton("Merge PDF", "📑 Merge PDF", () => emit("MergePdf"), false, "pdf-btn-merge-pdf"));
     pageRow2.appendChild(createRibbonButton("Create Blank PDF", "📄 Blank PDF", () => emit("CreateBlankPdf"), false, "pdf-btn-create-blank"));
     pageGroup.appendChild(pageRow2);
     body.appendChild(pageGroup);
+
+    // 2. Page Size & Dimensions
+    const sizeGroup = createRibbonGroup("Page Size");
+    const sizeRow1 = document.createElement("div");
+    sizeRow1.className = "ribbon-group-row";
+    sizeRow1.appendChild(createRibbonButton("Letter (8.5×11\")", "📐 Letter", () => emit("SetPageSize", "Letter"), false, "pdf-btn-page-size-letter"));
+    sizeRow1.appendChild(createRibbonButton("A4 (210×297mm)", "📐 A4", () => emit("SetPageSize", "A4"), false, "pdf-btn-page-size-a4"));
+    sizeRow1.appendChild(createRibbonButton("Legal (8.5×14\")", "📐 Legal", () => emit("SetPageSize", "Legal"), false, "pdf-btn-page-size-legal"));
+    sizeGroup.appendChild(sizeRow1);
+
+    const sizeRow2 = document.createElement("div");
+    sizeRow2.className = "ribbon-group-row";
+    sizeRow2.appendChild(createRibbonButton("A3", "📐 A3", () => emit("SetPageSize", "A3"), false, "pdf-btn-page-size-a3"));
+    sizeRow2.appendChild(createRibbonButton("A5", "📐 A5", () => emit("SetPageSize", "A5"), false, "pdf-btn-page-size-a5"));
+    sizeRow2.appendChild(createRibbonButton("Resize Page...", "⚙️ Custom Size", () => emit("ResizePageModal"), false, "pdf-btn-resize-page"));
+    sizeGroup.appendChild(sizeRow2);
+    body.appendChild(sizeGroup);
   }
 
   private renderSignProtectTab(body: HTMLElement, emit: RibbonActionEmitter) {
@@ -262,8 +281,9 @@ export class PdfRibbon implements AppRibbonComponent {
     const secGroup = createRibbonGroup("Security");
     const secRow = document.createElement("div");
     secRow.className = "ribbon-group-row";
-    secRow.appendChild(createRibbonButton("Password Protect", "🔒 Encrypt Password", () => emit("EncryptPassword")));
-    secRow.appendChild(createRibbonButton("Remove Security", "🔓 Remove Security", () => emit("RemoveSecurity")));
+    secRow.appendChild(createRibbonButton("Password Protect", "🔒 Encrypt Password", () => emit("EncryptPassword"), false, "pdf-btn-encrypt"));
+    secRow.appendChild(createRibbonButton("Remove Security", "🔓 Decrypt Password", () => emit("DecryptPassword"), false, "pdf-btn-decrypt"));
+    secRow.appendChild(createRibbonButton("Compress PDF", "🗜️ Compress", () => emit("CompressPdf"), false, "pdf-btn-compress"));
     secRow.appendChild(createRibbonButton("Restrict Editing", "Restrict Editing", () => emit("RestrictEditing")));
     secGroup.appendChild(secRow);
     body.appendChild(secGroup);

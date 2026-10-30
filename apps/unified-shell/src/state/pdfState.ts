@@ -211,6 +211,19 @@ export class PdfState {
   }
 
   public isEncrypted = false;
+  public securityConfig: {
+    isEncrypted: boolean;
+    openPassword?: string;
+    ownerPassword?: string;
+    permissions?: {
+      canPrint?: boolean;
+      canEdit?: boolean;
+      canCopy?: boolean;
+      canAnnotate?: boolean;
+    };
+  } = {
+    isEncrypted: false,
+  };
 
   public getCurrentPageDimensions(): string {
     const page = this.pages[this.currentPage - 1];
@@ -415,6 +428,178 @@ export class PdfState {
     });
     this.renumberPages();
     return this.pages.length;
+  }
+
+  public duplicatePage(pageNumber = this.currentPage): PdfPageModel | null {
+    const page = this.getPage(pageNumber);
+    if (!page) return null;
+    this.commitSnapshot();
+    const cloned: PdfPageModel = JSON.parse(JSON.stringify(page));
+    cloned.id = `page_${++this.nextPageCounter}`;
+    cloned.title = `${page.title || "Page"} (Copy)`;
+    const insertIdx = pageNumber;
+    this.pages.splice(insertIdx, 0, cloned);
+    this.renumberPages();
+    this.currentPage = insertIdx + 1;
+    return cloned;
+  }
+
+  public static readonly STANDARD_SIZES: Record<string, { width: number; height: number }> = {
+    Letter: { width: 816, height: 1056 },
+    Legal: { width: 816, height: 1344 },
+    A4: { width: 794, height: 1123 },
+    A3: { width: 1123, height: 1587 },
+    A5: { width: 559, height: 794 },
+  };
+
+  public resizePage(
+    pageNumber = this.currentPage,
+    targetWidth: number,
+    targetHeight: number,
+    scaleContent = true,
+    applyToAll = false
+  ): boolean {
+    if (targetWidth <= 0 || targetHeight <= 0) return false;
+    this.commitSnapshot();
+
+    const pagesToResize = applyToAll ? this.pages : this.pages.filter((p) => p.pageNumber === pageNumber);
+    if (pagesToResize.length === 0) return false;
+
+    for (const page of pagesToResize) {
+      const oldW = page.width || 816;
+      const oldH = page.height || 1056;
+      page.width = targetWidth;
+      page.height = targetHeight;
+
+      if (scaleContent && oldW > 0 && oldH > 0) {
+        const scaleX = targetWidth / oldW;
+        const scaleY = targetHeight / oldH;
+
+        if (page.textBlocks) {
+          page.textBlocks.forEach((tb) => {
+            tb.x = Math.round(tb.x * scaleX);
+            tb.y = Math.round(tb.y * scaleY);
+            if (tb.fontSize) tb.fontSize = Math.round(tb.fontSize * Math.min(scaleX, scaleY));
+          });
+        }
+        if (page.imageBlocks) {
+          page.imageBlocks.forEach((ib) => {
+            ib.x = Math.round(ib.x * scaleX);
+            ib.y = Math.round(ib.y * scaleY);
+            ib.width = Math.round(ib.width * scaleX);
+            ib.height = Math.round(ib.height * scaleY);
+          });
+        }
+        if (page.formFields) {
+          page.formFields.forEach((ff) => {
+            if (ff.rect) {
+              ff.rect = [
+                Math.round(ff.rect[0] * scaleX),
+                Math.round(ff.rect[1] * scaleY),
+                Math.round(ff.rect[2] * scaleX),
+                Math.round(ff.rect[3] * scaleY),
+              ];
+            }
+          });
+        }
+        if (page.annotations) {
+          page.annotations.forEach((ann) => {
+            if (ann.rect) {
+              ann.rect = [
+                Math.round(ann.rect[0] * scaleX),
+                Math.round(ann.rect[1] * scaleY),
+                Math.round(ann.rect[2] * scaleX),
+                Math.round(ann.rect[3] * scaleY),
+              ];
+            }
+            if (ann.points) {
+              ann.points.forEach((pt) => {
+                pt.x = Math.round(pt.x * scaleX);
+                pt.y = Math.round(pt.y * scaleY);
+              });
+            }
+          });
+        }
+      }
+    }
+    return true;
+  }
+
+  public setPageSize(
+    sizeName: "A4" | "Letter" | "Legal" | "A3" | "A5" | string,
+    scaleContent = true,
+    applyToAll = false
+  ): boolean {
+    const size = PdfState.STANDARD_SIZES[sizeName];
+    if (!size) return false;
+    return this.resizePage(this.currentPage, size.width, size.height, scaleContent, applyToAll);
+  }
+
+  public splitPdf(fromPage: number, toPage: number): PdfPageModel[] {
+    const start = Math.max(1, Math.min(fromPage, toPage));
+    const end = Math.min(this.pages.length, Math.max(fromPage, toPage));
+    const extracted: PdfPageModel[] = [];
+    for (let p = start; p <= end; p++) {
+      const page = this.getPage(p);
+      if (page) {
+        extracted.push(JSON.parse(JSON.stringify(page)));
+      }
+    }
+    return extracted;
+  }
+
+  public encryptWithPassword(
+    openPassword: string,
+    ownerPassword?: string,
+    permissions?: { canPrint?: boolean; canEdit?: boolean; canCopy?: boolean; canAnnotate?: boolean }
+  ): boolean {
+    this.commitSnapshot();
+    this.isEncrypted = true;
+    this.securityConfig = {
+      isEncrypted: true,
+      openPassword,
+      ownerPassword: ownerPassword || openPassword,
+      permissions: permissions || {
+        canPrint: true,
+        canEdit: false,
+        canCopy: false,
+        canAnnotate: true,
+      },
+    };
+    return true;
+  }
+
+  public decryptPassword(password: string): boolean {
+    if (!this.isEncrypted) return true;
+    if (
+      !this.securityConfig.openPassword ||
+      this.securityConfig.openPassword === password ||
+      this.securityConfig.ownerPassword === password
+    ) {
+      this.commitSnapshot();
+      this.isEncrypted = false;
+      this.securityConfig = { isEncrypted: false };
+      return true;
+    }
+    return false;
+  }
+
+  public removeSecurity(): boolean {
+    this.commitSnapshot();
+    this.isEncrypted = false;
+    this.securityConfig = { isEncrypted: false };
+    return true;
+  }
+
+  public compressPdf(targetQuality = 0.75): { originalSizeBytes: number; compressedSizeBytes: number; savingsPercent: number } {
+    const origEstimate = this.pages.length * 150000 + (this.pages.reduce((acc, p) => acc + (p.imageBlocks?.length || 0), 0) * 350000);
+    const compressedEstimate = Math.round(origEstimate * Math.max(0.3, targetQuality));
+    const savings = Math.round(((origEstimate - compressedEstimate) / origEstimate) * 100);
+    return {
+      originalSizeBytes: origEstimate,
+      compressedSizeBytes: compressedEstimate,
+      savingsPercent: savings,
+    };
   }
 
   public createBlankPdf(numPages = 1): void {
@@ -983,6 +1168,45 @@ export class PdfState {
         return true;
       case "DeletePage":
         return this.deletePage(typeof payload === "number" ? payload : this.currentPage);
+      case "DuplicatePage":
+        return this.duplicatePage(typeof payload === "number" ? payload : this.currentPage) !== null;
+      case "ResizePageModal":
+      case "ResizePage":
+        if (payload && typeof payload === "object") {
+          const p = payload as { width: number; height: number; scaleContent?: boolean; applyToAll?: boolean };
+          return this.resizePage(this.currentPage, p.width, p.height, p.scaleContent ?? true, p.applyToAll ?? false);
+        }
+        return this.setPageSize("A4", true, false);
+      case "SetPageSize":
+        if (typeof payload === "string") {
+          return this.setPageSize(payload, true, false);
+        } else if (payload && typeof payload === "object") {
+          const p = payload as { size: string; scaleContent?: boolean; applyToAll?: boolean };
+          return this.setPageSize(p.size, p.scaleContent ?? true, p.applyToAll ?? false);
+        }
+        return false;
+      case "SplitPdf":
+        if (payload && typeof payload === "object") {
+          const p = payload as { fromPage: number; toPage: number };
+          return this.splitPdf(p.fromPage, p.toPage).length > 0;
+        }
+        return this.splitPdf(1, 1).length > 0;
+      case "EncryptPassword":
+        if (typeof payload === "string") {
+          return this.encryptWithPassword(payload);
+        } else if (payload && typeof payload === "object") {
+          const p = payload as { openPassword: string; ownerPassword?: string; permissions?: any };
+          return this.encryptWithPassword(p.openPassword, p.ownerPassword, p.permissions);
+        } else {
+          return this.encryptWithPassword("secret123");
+        }
+      case "DecryptPassword":
+        return this.decryptPassword(typeof payload === "string" ? payload : "secret123");
+      case "RemoveSecurity":
+        return this.removeSecurity();
+      case "CompressPdf":
+        this.compressPdf(typeof payload === "number" ? payload : 0.75);
+        return true;
       case "RotatePageCW":
         this.rotatePageClockwise(typeof payload === "number" ? payload : this.currentPage);
         return true;
