@@ -1143,6 +1143,10 @@ export class UnifiedShellApp {
         ? `Document${count}.pdf`
         : `Untitled${count}.txt`;
 
+    if (type === "Word") {
+      writerState.resetToBlank(defaultTitle);
+    }
+
     this.tabBar.addTab({
       id: newId,
       docType: type,
@@ -1304,8 +1308,10 @@ export class UnifiedShellApp {
     if (!active) return;
 
     if (this.currentDocType === "Word") {
-      if (action === "InsertBlankPage" || action === "InsertPageBreak") {
-        this.writerCanvas?.insertPageBreak();
+      if (action === "InsertBlankPage" || action === "InsertPageBreak" || action === "InsertNewPage") {
+        this.writerCanvas?.insertNewPage();
+      } else if (action === "DeleteEmptyPage") {
+        this.writerCanvas?.deleteEmptyPage();
       } else {
         writerState.execCommand(action, payload);
         this.writerCanvas?.render();

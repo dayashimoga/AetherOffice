@@ -102,6 +102,19 @@ export class WriterCanvas {
     this.render();
   }
 
+  public insertNewPage() {
+    this.insertPageBreak();
+  }
+
+  public deleteEmptyPage(pageIndex?: number): boolean {
+    const res = this.state.deleteEmptyPage(pageIndex);
+    if (res) {
+      this.emitDocChange("DeleteEmptyPage");
+      this.render();
+    }
+    return res;
+  }
+
   public destroy() {
     if (this.caretTimer) clearInterval(this.caretTimer);
   }
@@ -734,6 +747,10 @@ export class WriterCanvas {
 
       headerEl.appendChild(headerTitle);
       headerEl.appendChild(headerPageNum);
+      headerEl.onclick = (e) => {
+        e.stopPropagation();
+        this.activateHeaderEditing(headerEl, pIdx);
+      };
       headerEl.ondblclick = (e) => {
         e.stopPropagation();
         this.activateHeaderEditing(headerEl, pIdx);
@@ -797,6 +814,10 @@ export class WriterCanvas {
 
       footerEl.appendChild(footerTitle);
       footerEl.appendChild(footerPageNum);
+      footerEl.onclick = (e) => {
+        e.stopPropagation();
+        this.activateFooterEditing(footerEl, pIdx);
+      };
       footerEl.ondblclick = (e) => {
         e.stopPropagation();
         this.activateFooterEditing(footerEl, pIdx);
@@ -1227,12 +1248,20 @@ export class WriterCanvas {
       }
     });
 
-    // 5. "+ New Page" Action Button at Bottom
+    // 5. "+ New Page" & "Delete Empty Page" Action Buttons at Bottom of Pages
+    const pageActionsContainer = document.createElement("div");
+    pageActionsContainer.className = "word-page-bottom-actions";
+    pageActionsContainer.style.display = "flex";
+    pageActionsContainer.style.alignItems = "center";
+    pageActionsContainer.style.gap = "8px";
+    pageActionsContainer.style.margin = "12px 0 32px 0";
+
     const addPageBtn = document.createElement("button");
     addPageBtn.className = "btn-add-page";
-    addPageBtn.textContent = "➕ Blank Page";
+    addPageBtn.setAttribute("data-testid", "btn-add-new-page");
+    addPageBtn.innerHTML = "<span>➕</span> <strong>Blank Page / New Page</strong>";
+    addPageBtn.title = "Add a new blank page (Ctrl+Enter)";
     addPageBtn.style.padding = "8px 18px";
-    addPageBtn.style.margin = "8px 0 24px 0";
     addPageBtn.style.backgroundColor = "#ffffff";
     addPageBtn.style.border = "1px solid #d1d5db";
     addPageBtn.style.borderRadius = "4px";
@@ -1241,11 +1270,41 @@ export class WriterCanvas {
     addPageBtn.style.fontSize = "12px";
     addPageBtn.style.color = "#374151";
     addPageBtn.style.boxShadow = "0 1px 3px rgba(0,0,0,0.08)";
-    addPageBtn.onclick = () => this.insertPageBreak();
-    pagesContainer.appendChild(addPageBtn);
+    addPageBtn.onclick = () => this.insertNewPage();
+    pageActionsContainer.appendChild(addPageBtn);
+
+    if (this.state.doc.pages.length > 1) {
+      const delPageBtn = document.createElement("button");
+      delPageBtn.className = "btn-delete-empty-page";
+      delPageBtn.setAttribute("data-testid", "btn-delete-empty-page");
+      delPageBtn.innerHTML = "<span>🗑️</span> <strong>Delete Empty Page</strong>";
+      delPageBtn.title = "Delete current page if empty";
+      delPageBtn.style.padding = "8px 18px";
+      delPageBtn.style.backgroundColor = "#ffffff";
+      delPageBtn.style.border = "1px solid #d1d5db";
+      delPageBtn.style.borderRadius = "4px";
+      delPageBtn.style.cursor = "pointer";
+      delPageBtn.style.fontWeight = "600";
+      delPageBtn.style.fontSize = "12px";
+      delPageBtn.style.color = "#dc2626";
+      delPageBtn.style.boxShadow = "0 1px 3px rgba(0,0,0,0.08)";
+      delPageBtn.onclick = () => this.deleteEmptyPage();
+      pageActionsContainer.appendChild(delPageBtn);
+    }
+
+    pagesContainer.appendChild(pageActionsContainer);
 
     this.container.appendChild(pagesContainer);
     this.updateStatus();
+
+    // Auto-focus active page canvas so user can type immediately
+    if (this.canvas) {
+      try {
+        this.canvas.focus();
+      } catch {
+        // Ignored in test envs
+      }
+    }
   }
 
   private renderCaretOnly() {

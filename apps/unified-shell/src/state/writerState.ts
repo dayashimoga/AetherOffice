@@ -105,7 +105,7 @@ export function comparePositions(a: CaretPosition, b: CaretPosition): number {
 export class WriterState {
   doc: WordDocumentModel = {
     id: "doc-1",
-    title: "Document 1.docx",
+    title: "Untitled 1.docx",
     pageOrientation: "portrait",
     margins: "normal",
     pageSize: "letter",
@@ -115,93 +115,9 @@ export class WriterState {
         paragraphs: [
           {
             id: "p1",
-            style: "Heading1",
-            alignment: "left",
-            runs: [{ text: "", bold: true, size: 24, color: "#1f497d" }],
-          },
-          {
-            id: "p2",
             style: "Normal",
             alignment: "left",
-            runs: [
-              {
-                text: "OpenOfficeRS is a unified, high-performance office suite engineered from the ground up in idiomatic Rust and TypeScript. It delivers 100% ECMA-376 / ISO-29500 zero-loss roundtrip fidelity.",
-                size: 11,
-                font: "Calibri",
-              },
-            ],
-          },
-          {
-            id: "p3",
-            style: "Heading2",
-            alignment: "left",
-            runs: [{ text: "Core Architecture & Design Principles", bold: true, size: 16, color: "#2e75b6" }],
-          },
-          {
-            id: "p4",
-            style: "Normal",
-            alignment: "left",
-            runs: [
-              {
-                text: "The word processor engine utilizes a piece-tree rope memory model for O(log N) keystroke insertion, Knuth-Plass total-fit dynamic programming line breaking, and subpixel HarfBuzz text shaping.",
-                size: 11,
-                font: "Calibri",
-              },
-            ],
-          },
-          {
-            id: "p5",
-            style: "Normal",
-            alignment: "left",
-            runs: [
-              {
-                text: "Viewport rendering targets a strict 120 FPS latency budget (< 8.33 ms frame time) with tile virtualization and automatic GPU display list culling.",
-                italic: true,
-                size: 11,
-                font: "Calibri",
-              },
-            ],
-          },
-        ],
-      },
-      {
-        pageNumber: 2,
-        paragraphs: [
-          {
-            id: "p6",
-            style: "Heading1",
-            alignment: "left",
-            runs: [{ text: "", bold: true, size: 24, color: "#1f497d" }],
-          },
-          {
-            id: "p7",
-            style: "Normal",
-            alignment: "left",
-            runs: [
-              {
-                text: "All memory allocations are strictly bounded under Global Engineering Contract v1.0. Cold startup finishes under 150 ms on desktop and 300 ms on mobile devices.",
-                size: 11,
-                font: "Calibri",
-              },
-            ],
-          },
-          {
-            id: "p8",
-            style: "Heading2",
-            alignment: "left",
-            runs: [{ text: "", bold: true, size: 16, color: "#2e75b6" }],
-          },
-          {
-            id: "p9",
-            style: "Normal",
-            alignment: "left",
-            runs: [
-              {
-                text: "The unified shell seamlessly transforms across Desktop (>= 1024px multi-tab workspace), Tablet (768-1023px touch ribbon & stylus ink overlay), and Mobile (< 768px Reflow Reader & bottom sheets).",
-                size: 11,
-                font: "Calibri",
-              },
-            ],
+            runs: [{ text: "", font: "Calibri", size: 11 }],
           },
         ],
       },
@@ -230,6 +146,7 @@ export class WriterState {
     return this.doc.pages.flatMap((p) => p.paragraphs);
   }
   private history: string[] = [];
+  private redoStack: string[] = [];
 
   constructor() {
     this.saveSnapshot();
@@ -238,16 +155,30 @@ export class WriterState {
   public saveSnapshot() {
     if (this.history.length > 50) this.history.shift();
     this.history.push(JSON.stringify(this.doc));
+    this.redoStack = [];
   }
 
   public undo() {
     if (this.history.length > 1) {
-      this.history.pop();
+      const current = this.history.pop()!;
+      this.redoStack.push(current);
       const prev = this.history[this.history.length - 1];
       if (prev) {
         this.doc = JSON.parse(prev);
       }
     }
+  }
+
+  public redo() {
+    if (this.redoStack.length > 0) {
+      const next = this.redoStack.pop()!;
+      this.history.push(next);
+      this.doc = JSON.parse(next);
+    }
+  }
+
+  public getWordCount(): number {
+    return this.getTotalWords();
   }
 
   public setZoom(zoom: number) {
@@ -534,6 +465,64 @@ export class WriterState {
     this.cursor.offset = 0;
     this.clearSelection();
     this.saveSnapshot();
+  }
+
+  public resetToBlank(title: string = "Untitled.docx"): void {
+    this.doc = {
+      id: `doc-${Date.now()}`,
+      title,
+      pageOrientation: "portrait",
+      margins: "normal",
+      pageSize: "letter",
+      pages: [
+        {
+          pageNumber: 1,
+          paragraphs: [
+            {
+              id: "p1",
+              style: "Normal",
+              alignment: "left",
+              runs: [{ text: "", font: "Calibri", size: 11 }],
+            },
+          ],
+        },
+      ],
+    };
+    this.cursor = { pageIndex: 0, paragraphIndex: 0, runIndex: 0, offset: 0 };
+    this.clearSelection();
+    this.saveSnapshot();
+  }
+
+  public insertNewPage(): void {
+    this.insertPageBreak();
+  }
+
+  public deleteEmptyPage(pageIndex?: number): boolean {
+    const idx = pageIndex !== undefined ? pageIndex : this.cursor.pageIndex;
+    if (this.doc.pages.length <= 1 || idx < 0 || idx >= this.doc.pages.length) {
+      return false;
+    }
+    const page = this.doc.pages[idx];
+    const isEmpty = page.paragraphs.every(
+      (p) => !p.table && !p.image && !p.shape && p.runs.every((r) => !r.text || r.text.trim() === "")
+    );
+    if (isEmpty) {
+      this.saveSnapshot();
+      this.doc.pages.splice(idx, 1);
+      this.doc.pages.forEach((p, i) => {
+        p.pageNumber = i + 1;
+      });
+      if (this.cursor.pageIndex >= this.doc.pages.length) {
+        this.cursor.pageIndex = this.doc.pages.length - 1;
+      }
+      const curPage = this.doc.pages[this.cursor.pageIndex];
+      this.cursor.paragraphIndex = Math.min(this.cursor.paragraphIndex, curPage.paragraphs.length - 1);
+      const curPara = curPage.paragraphs[this.cursor.paragraphIndex];
+      this.cursor.runIndex = Math.min(this.cursor.runIndex, curPara.runs.length - 1);
+      this.cursor.offset = Math.min(this.cursor.offset, curPara.runs[this.cursor.runIndex].text.length);
+      return true;
+    }
+    return false;
   }
 
   public insertPageBreak(): void {
@@ -1396,11 +1385,19 @@ export class WriterState {
         this.setZoom(1.25);
         break;
 
+      case "insertNewPage":
+      case "InsertNewPage":
       case "insertBlankPage":
       case "InsertBlankPage":
       case "insertPageBreak":
       case "InsertPageBreak": {
         this.insertPageBreak();
+        break;
+      }
+
+      case "deleteEmptyPage":
+      case "DeleteEmptyPage": {
+        this.deleteEmptyPage();
         break;
       }
 
@@ -1440,6 +1437,10 @@ export class WriterState {
 
       case "undo":
         this.undo();
+        break;
+
+      case "redo":
+        this.redo();
         break;
 
       case "zoomIn":

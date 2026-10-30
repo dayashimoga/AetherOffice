@@ -57,6 +57,13 @@ export class WriterRibbon implements AppRibbonComponent {
   }
 
   private renderHomeTab(body: HTMLElement, emit: RibbonActionEmitter) {
+    // 0. Quick Pages Group
+    const quickPagesGroup = createRibbonGroup("Pages");
+    quickPagesGroup.appendChild(
+      createRibbonButton("+ New Page", "➕ Page", () => emit("InsertNewPage"), false, "btn-home-new-page")
+    );
+    body.appendChild(quickPagesGroup);
+
     // 1. Clipboard Group
     const clipGroup = createRibbonGroup("Clipboard");
     clipGroup.appendChild(
@@ -168,9 +175,11 @@ export class WriterRibbon implements AppRibbonComponent {
     const pagesGroup = createRibbonGroup("Pages");
     const pagesRow = document.createElement("div");
     pagesRow.className = "ribbon-group-row";
+    pagesRow.appendChild(createRibbonButton("+ New Page", "➕ Page", () => emit("InsertNewPage"), false, "btn-insert-new-page"));
+    pagesRow.appendChild(createRibbonButton("Blank Page", "📃 Blank", () => emit("InsertBlankPage"), false, "btn-insert-blank-page"));
+    pagesRow.appendChild(createRibbonButton("Page Break", "✂️ Break", () => emit("InsertPageBreak"), false, "btn-insert-page-break"));
+    pagesRow.appendChild(createRibbonButton("Delete Page", "🗑️ Page", () => emit("DeleteEmptyPage"), false, "btn-delete-empty-page"));
     pagesRow.appendChild(createRibbonButton("Cover Page", "📄 Cover", () => emit("InsertCoverPage")));
-    pagesRow.appendChild(createRibbonButton("Blank Page", "📃 Blank", () => emit("InsertBlankPage")));
-    pagesRow.appendChild(createRibbonButton("Page Break", "✂️ Break", () => emit("InsertPageBreak")));
     pagesGroup.appendChild(pagesRow);
     body.appendChild(pagesGroup);
 
