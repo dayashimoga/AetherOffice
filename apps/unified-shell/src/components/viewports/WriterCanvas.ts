@@ -4,6 +4,7 @@ import {
   writerState,
   comparePositions,
 } from "../../state/writerState";
+import { collabState } from "../../state/collabState";
 
 export interface LayoutLine {
   pageIndex: number;
@@ -61,6 +62,7 @@ export class WriterCanvas {
     this.container.style.padding = "24px 0";
 
     this.startCaretBlink();
+    collabState.subscribe(() => this.render());
     this.render();
   }
 
@@ -1110,6 +1112,86 @@ export class WriterCanvas {
         if (this.caretVisible && caretRenderCoords && caretRenderCoords.canvasIndex === pIdx) {
           ctx.fillStyle = "#000000";
           ctx.fillRect(caretRenderCoords.x, caretRenderCoords.y, 2, caretRenderCoords.height);
+        }
+
+        // 7. Remote Peer Awareness (Subphase 14.2.2)
+        const remotePeers = collabState.getPeers();
+        for (const peer of remotePeers) {
+          const peerColor = peer.color_hex || "#1E88E5";
+
+          // Remote Selection Highlight
+          if (peer.selection && peer.selection.text_start != null && peer.selection.text_end != null) {
+            const selStart = Math.min(peer.selection.text_start, peer.selection.text_end);
+            const selEnd = Math.max(peer.selection.text_start, peer.selection.text_end);
+            if (selStart < selEnd) {
+              ctx.save();
+              ctx.fillStyle = peerColor + "40"; // 25% opacity tint
+              for (const l of pageLayout.lines) {
+                const lineStartOffset = l.startOffsetInRun;
+                const lineEndOffset = l.endOffsetInRun;
+                if (lineEndOffset <= selStart || lineStartOffset >= selEnd) continue;
+                const startCol = Math.max(0, selStart - lineStartOffset);
+                const endCol = Math.min(l.text.length, selEnd - lineStartOffset);
+                if (startCol < endCol) {
+                  let leftX = l.x;
+                  for (let i = 0; i < startCol; i++) leftX += l.charAdvances[i] || 0;
+                  let width = 0;
+                  for (let i = startCol; i < endCol; i++) width += l.charAdvances[i] || 0;
+                  ctx.fillRect(leftX, l.y, Math.max(2, width), l.height);
+                }
+              }
+              ctx.restore();
+            }
+          }
+
+          // Remote Caret and Name Tag
+          if (peer.cursor && peer.cursor.text_offset != null) {
+            const offset = peer.cursor.text_offset;
+            for (const l of pageLayout.lines) {
+              if (offset >= l.startOffsetInRun && offset <= l.endOffsetInRun) {
+                const col = offset - l.startOffsetInRun;
+                let caretX = l.x;
+                for (let i = 0; i < col; i++) caretX += l.charAdvances[i] || 0;
+                const caretY = l.y;
+                const caretH = l.height;
+
+                // Vertical remote caret line
+                ctx.fillStyle = peerColor;
+                ctx.fillRect(caretX, caretY, 2, caretH);
+
+                // Floating name badge
+                ctx.save();
+                ctx.font = "bold 10px sans-serif";
+                const nameText = peer.username || "Anonymous";
+                const textWidth = ctx.measureText(nameText).width;
+                const badgeW = textWidth + 8;
+                const badgeH = 16;
+                const badgeX = caretX - 2;
+                const badgeY = caretY - badgeH - 2;
+
+                ctx.fillStyle = peerColor;
+                ctx.beginPath();
+                if (ctx.roundRect) {
+                  ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 3);
+                } else {
+                  ctx.rect(badgeX, badgeY, badgeW, badgeH);
+                }
+                ctx.fill();
+
+                // Small triangular pointer
+                ctx.beginPath();
+                ctx.moveTo(caretX, caretY - 2);
+                ctx.lineTo(caretX + 4, caretY - 2);
+                ctx.lineTo(caretX, caretY);
+                ctx.fill();
+
+                ctx.fillStyle = "#ffffff";
+                ctx.fillText(nameText, badgeX + 4, badgeY + 12);
+                ctx.restore();
+                break;
+              }
+            }
+          }
         }
       }
     });

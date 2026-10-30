@@ -79,6 +79,23 @@ body, html {
   border-color: var(--primary-accent);
 }
 
+/* 1.1 Real-Time Collaboration Header & Avatars */
+.collab-presence-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px;
+}
+
+.collab-avatar-chip:hover {
+  transform: translateY(-1px) scale(1.05);
+  transition: transform 0.12s ease;
+}
+
+.btn-collab-share:hover {
+  filter: brightness(0.96);
+}
+
 .window-controls {
   display: flex;
 }

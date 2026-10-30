@@ -20,6 +20,7 @@ describe("Native File Backstage Menu & Disk I/O (GEC-v2.0 Subphase 8.2.1)", () =
       moveTo: vi.fn(),
       lineTo: vi.fn(),
       stroke: vi.fn(),
+      fill: vi.fn(),
       save: vi.fn(),
       restore: vi.fn(),
       scale: vi.fn(),

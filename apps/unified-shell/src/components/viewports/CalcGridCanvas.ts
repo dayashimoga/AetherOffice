@@ -1,4 +1,5 @@
 import { CalcState, calcState, RangeStats, formatCellValue } from "../../state/calcState";
+import { collabState } from "../../state/collabState";
 
 export class CalcGridCanvas {
   private container: HTMLElement;
@@ -81,6 +82,7 @@ export class CalcGridCanvas {
     this.attachEvents();
     this.attachEditorEvents();
     this.resize();
+    collabState.subscribe(() => this.render());
     this.render();
   }
 
@@ -750,8 +752,8 @@ export class CalcGridCanvas {
 
   public render() {
     const rect = this.canvas.getBoundingClientRect();
-    const w = rect.width;
-    const h = rect.height;
+    const w = rect.width > 0 ? rect.width : (this.canvas.width || 800);
+    const h = rect.height > 0 ? rect.height : (this.canvas.height || 600);
     if (w <= 0 || h <= 0) return;
 
     const ctx = this.ctx;
@@ -844,8 +846,12 @@ export class CalcGridCanvas {
         if (cellData && (!this.isEditing || coord !== this.state.selectedCell)) {
           ctx.save();
           ctx.beginPath();
-          ctx.rect(x + 2, y, colWidth - 4, rowHeight);
-          ctx.clip();
+          if (ctx.rect) {
+            ctx.rect(x + 2, y, colWidth - 4, rowHeight);
+          }
+          if (ctx.clip) {
+            ctx.clip();
+          }
 
           ctx.fillStyle = condStyle?.color || cellData.color || "#1b1b1b";
           const fontStyle = cellData.italic ? "italic " : "";
@@ -976,6 +982,79 @@ export class CalcGridCanvas {
         ctx.fillRect(selX + selW - 3, selY + selH - 3, 6, 6);
       }
     });
+
+    // 4b. Render Remote Peer Selections & Active Cells (Subphase 14.2.2)
+    const remotePeers = collabState.getPeers();
+    for (const peer of remotePeers) {
+      const peerColor = peer.color_hex || "#E53935";
+
+      // Remote Multi-Cell Selection Range Box
+      if (
+        peer.selection &&
+        peer.selection.grid_start_row != null &&
+        peer.selection.grid_start_col != null &&
+        peer.selection.grid_end_row != null &&
+        peer.selection.grid_end_col != null
+      ) {
+        const minCol = Math.min(peer.selection.grid_start_col, peer.selection.grid_end_col);
+        const maxCol = Math.max(peer.selection.grid_start_col, peer.selection.grid_end_col);
+        const minRow = Math.min(peer.selection.grid_start_row, peer.selection.grid_end_row);
+        const maxRow = Math.max(peer.selection.grid_start_row, peer.selection.grid_end_row);
+
+        const selX = this.headerWidth + this.state.getColOffset(minCol) - this.scrollX;
+        const selY = this.headerHeight + this.state.getRowOffset(minRow) - this.scrollY;
+        let selW = 0;
+        for (let c = minCol; c <= maxCol; c++) selW += this.state.getColWidth(c);
+        let selH = 0;
+        for (let r = minRow; r <= maxRow; r++) selH += this.state.getRowHeight(r);
+
+        ctx.save();
+        ctx.fillStyle = peerColor + "20"; // 12% tint
+        ctx.fillRect(selX, selY, selW, selH);
+        ctx.strokeStyle = peerColor;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(selX, selY, selW, selH);
+        ctx.restore();
+      }
+
+      // Remote Active Cell & Floating Username Badge
+      if (peer.cursor && peer.cursor.grid_row != null && peer.cursor.grid_col != null) {
+        const r = peer.cursor.grid_row;
+        const c = peer.cursor.grid_col;
+        const cellX = this.headerWidth + this.state.getColOffset(c) - this.scrollX;
+        const cellY = this.headerHeight + this.state.getRowOffset(r) - this.scrollY;
+        const cellW = this.state.getColWidth(c);
+        const cellH = this.state.getRowHeight(r);
+
+        ctx.save();
+        ctx.strokeStyle = peerColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(cellX, cellY, cellW, cellH);
+
+        // Badge pill in top-right of cell
+        ctx.font = "bold 9px sans-serif";
+        const nameText = peer.username || "Peer";
+        const textW = ctx.measureText(nameText).width;
+        const badgeW = textW + 8;
+        const badgeH = 14;
+        const badgeX = cellX + cellW - badgeW;
+        const badgeY = cellY - badgeH;
+
+        ctx.fillStyle = peerColor;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 2);
+        } else {
+          ctx.rect(badgeX, badgeY, badgeW, badgeH);
+        }
+        ctx.fill();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(nameText, badgeX + 4, badgeY + 10);
+        ctx.restore();
+      }
+    }
 
     // 5. Render Auto-Fill Preview Box
     if (this.state.autoFillPreview) {
@@ -1110,7 +1189,9 @@ export class CalcGridCanvas {
       ctx.lineTo(this.headerWidth - 2, this.headerHeight - 10);
       ctx.lineTo(this.headerWidth - 2, this.headerHeight - 2);
       ctx.fillStyle = "#979593";
-      ctx.fill();
+      if (ctx.fill) {
+        ctx.fill();
+      }
     }
   }
 }

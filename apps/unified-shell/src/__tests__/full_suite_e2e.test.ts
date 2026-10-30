@@ -28,6 +28,7 @@ describe("Comprehensive Automated E2E UI Test Suite Across All 5 Apps (GEC-v2.0 
       save: () => {},
       restore: () => {},
       clip: () => {},
+      rect: () => {},
       scale: () => {},
       setTransform: () => {},
       translate: () => {},

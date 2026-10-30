@@ -77,9 +77,46 @@ export interface DocumentMetadata {
   last_modified_str: string;
 }
 
+export interface CursorCoord {
+  text_offset?: number | null;
+  grid_row?: number | null;
+  grid_col?: number | null;
+}
+
+export interface SelectionSpan {
+  text_start?: number | null;
+  text_end?: number | null;
+  grid_start_row?: number | null;
+  grid_start_col?: number | null;
+  grid_end_row?: number | null;
+  grid_end_col?: number | null;
+}
+
+export interface PeerPresence {
+  client_id: number;
+  username: string;
+  color_hex: string;
+  active_document: string;
+  active_tab: string;
+  cursor?: CursorCoord | null;
+  selection?: SelectionSpan | null;
+  last_seen_ms: number;
+}
+
+export interface CollabSessionInfo {
+  session_id: string;
+  client_id: number;
+  username: string;
+  app_mode: string;
+  status: string;
+  transport_mode: string;
+  peers: PeerPresence[];
+}
+
 // Fallback when running outside Tauri desktop container (e.g. Vite dev preview / unit tests)
 const hasTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 const mockInstances: AppInstance[] = [];
+let mockCollabSession: CollabSessionInfo | null = null;
 
 async function invokeTauri<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (hasTauri) {
@@ -189,6 +226,32 @@ async function invokeTauri<T>(cmd: string, args?: Record<string, unknown>): Prom
         last_modified_str: "Just now",
       } as unknown as T;
     }
+    if (cmd === "collab_join_session") {
+      const sessId = (args?.session_id as string) || "collab-room-1";
+      const user = (args?.username as string) || "LocalUser";
+      const mode = (args?.app_mode as string) || "writer";
+      const tmode = (args?.transport_mode as string) || "webrtc";
+      mockCollabSession = {
+        session_id: sessId,
+        client_id: 101,
+        username: user,
+        app_mode: mode,
+        status: "Connected",
+        transport_mode: tmode === "websocket" ? "WebSocketRelay" : "WebRtcDataChannel",
+        peers: [],
+      };
+      return mockCollabSession as unknown as T;
+    }
+    if (cmd === "collab_leave_session") {
+      mockCollabSession = null;
+      return true as unknown as T;
+    }
+    if (cmd === "collab_broadcast_delta") {
+      return true as unknown as T;
+    }
+    if (cmd === "collab_get_peers") {
+      return (mockCollabSession?.peers || []) as unknown as T;
+    }
     return {} as T;
   }
 }
@@ -196,6 +259,7 @@ async function invokeTauri<T>(cmd: string, args?: Record<string, unknown>): Prom
 export const IPC = {
   _resetMockState: (): void => {
     mockInstances.length = 0;
+    mockCollabSession = null;
   },
   getBootConfig: (): Promise<BootConfig> =>
     invokeTauri("get_boot_config"),
@@ -236,5 +300,37 @@ export const IPC = {
 
   dispatchUiAction: (sessionId: string, action: UiActionEvent): Promise<UiDispatchResult> =>
     invokeTauri("dispatch_ui_action", { session_id: sessionId, action }),
+
+  collabJoinSession: (
+    sessionId: string,
+    username: string,
+    appMode: string,
+    roomKey?: string,
+    transportMode?: string
+  ): Promise<CollabSessionInfo> =>
+    invokeTauri("collab_join_session", {
+      session_id: sessionId,
+      username,
+      app_mode: appMode,
+      room_key: roomKey,
+      transport_mode: transportMode,
+    }),
+
+  collabLeaveSession: (sessionId: string, reason?: string): Promise<boolean> =>
+    invokeTauri("collab_leave_session", { session_id: sessionId, reason }),
+
+  collabBroadcastDelta: (
+    sessionId: string,
+    deltaType: string,
+    deltaJson: string
+  ): Promise<boolean> =>
+    invokeTauri("collab_broadcast_delta", {
+      session_id: sessionId,
+      delta_type: deltaType,
+      delta_json: deltaJson,
+    }),
+
+  collabGetPeers: (sessionId: string): Promise<PeerPresence[]> =>
+    invokeTauri("collab_get_peers", { session_id: sessionId }),
 };
 

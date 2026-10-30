@@ -35,6 +35,7 @@ import { FormatBackgroundDialog } from "./components/FormatBackgroundDialog";
 import { AnimationPane } from "./components/AnimationPane";
 import { PresentationPlayer } from "./components/PresentationPlayer";
 import { PdfWorkspace } from "./apps/pdf/PdfWorkspace";
+import { CollabBar } from "./components/CollabBar";
 
 export class UnifiedShellApp {
   private tabBar!: TabBar;
@@ -69,6 +70,7 @@ export class UnifiedShellApp {
   private animationPane?: AnimationPane;
   private presentationPlayer?: PresentationPlayer;
   private pdfWorkspace?: PdfWorkspace;
+  private collabBar!: CollabBar;
 
   constructor(autoBoot = true) {
     this.init(autoBoot);
@@ -255,6 +257,9 @@ export class UnifiedShellApp {
       onAltKeytip: (code) => this.handleAltKeytip(code),
     });
 
+    // 8. Initialize Real-Time Collaboration Header Presence
+    this.collabBar = new CollabBar("collab-presence-bar", "writer");
+
     if (autoBoot) {
       void this.initBoot();
     }
@@ -272,6 +277,9 @@ export class UnifiedShellApp {
   public applyBootConfig(bootConfig: BootConfig) {
     const mode = bootConfig.app_mode || "writer";
     const initialFile = bootConfig.initial_file;
+    if (this.collabBar) {
+      this.collabBar.setAppMode(mode);
+    }
 
     switch (mode) {
       case "writer": {
