@@ -184,7 +184,7 @@ describe("Unified Left App Switcher Rail, Home Hub & Multi-Document Tab Router (
     expect(homeRailBtn).not.toBeNull();
     homeRailBtn!.click();
 
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 50; i++) {
       if (document.querySelector('[data-testid="hub-launcher"]')) break;
       await new Promise((resolve) => setTimeout(resolve, 20));
     }

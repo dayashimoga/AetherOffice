@@ -100,6 +100,32 @@ body, html {
   color: var(--text-primary);
 }
 
+.quick-access-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+}
+
+.quick-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 2px 5px;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  transition: background-color 0.15s ease;
+}
+
+.quick-btn:hover {
+  background-color: var(--hover-bg);
+  border-color: var(--border-subtle);
+}
+
 .search-box input {
   width: 320px;
   padding: 4px 10px;

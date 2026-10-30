@@ -112,14 +112,18 @@ export class HubLauncher {
   }
 
   public async render(): Promise<void> {
-    // Fetch currently running standalone instances
+    this.renderView();
+
     try {
       this.activeInstances = await IPC.listAppInstances();
+      this.renderView();
     } catch (e) {
       console.warn("Unable to fetch running instances:", e);
       this.activeInstances = [];
     }
+  }
 
+  public renderView(): void {
     const recentFiles = this.getRecentFiles();
 
     this.container.innerHTML = `

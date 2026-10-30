@@ -27,6 +27,7 @@ export interface BackstageMenuCallbacks {
   onCloseSession?: () => void;
   onOpenPlugins?: () => void;
   onInspectDocument?: () => void;
+  onPrint?: () => void;
 }
 
 export class BackstageMenu {
@@ -535,7 +536,11 @@ export class BackstageMenu {
     const btnPrint = this.overlay.querySelector<HTMLButtonElement>("#btn-submit-print");
     if (btnPrint) {
       btnPrint.addEventListener("click", () => {
-        window.print();
+        if (this.callbacks.onPrint) {
+          this.callbacks.onPrint();
+        } else {
+          window.print();
+        }
         this.hide();
       });
     }

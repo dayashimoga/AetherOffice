@@ -49,19 +49,8 @@ import { CopilotSidebar } from "./components/CopilotSidebar";
 import { DiffPreviewModal } from "./components/DiffPreviewModal";
 import { themeManager } from "./components/ThemeManager";
 import { OpenDocumentsDrawer } from "./components/OpenDocumentsDrawer";
-
-export function downloadFile(content: BlobPart, filename: string, mimeType = "application/octet-stream"): void {
-  if (typeof window === "undefined" || !document) return;
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+import { fileIoService, downloadFile } from "./services/fileIoService";
+export { downloadFile, fileIoService };
 import { pluginHost } from "./plugins/pluginHost";
 
 export class UnifiedShellApp {
@@ -215,6 +204,19 @@ export class UnifiedShellApp {
       titleActions.insertBefore(allFilesBtn, titleActions.firstChild);
     }
 
+    const btnQuickOpen = document.getElementById("btn-quick-open");
+    if (btnQuickOpen) {
+      btnQuickOpen.onclick = () => this.openFilePickerOrBackstage();
+    }
+    const btnQuickSave = document.getElementById("btn-quick-save");
+    if (btnQuickSave) {
+      btnQuickSave.onclick = () => void this.saveActiveDocument();
+    }
+    const btnQuickPrint = document.getElementById("btn-quick-print");
+    if (btnQuickPrint) {
+      btnQuickPrint.onclick = () => this.handlePrint();
+    }
+
     // 1. Initialize Tab Bar
     this.tabBar = new TabBar("tab-bar-container");
     if (this.appFilter) {
@@ -283,6 +285,9 @@ export class UnifiedShellApp {
       },
       onExport: async (format, outputPath) => {
         await this.handleExport(format, outputPath);
+      },
+      onPrint: () => {
+        this.handlePrint();
       },
       onCloseSession: () => {
         const active = this.tabBar.getActiveTab();
@@ -1442,6 +1447,30 @@ export class UnifiedShellApp {
       this.toggleBackstage();
       return;
     }
+    if (action === "Print" || action === "PrintDocument") {
+      this.handlePrint();
+      return;
+    }
+    if (action === "Save" || action === "SaveDocument") {
+      const active = this.tabBar.getActiveTab();
+      if (active) {
+        this.tabBar.setDirty(active.id, false);
+        const docInfo = document.getElementById("status-doc-info");
+        if (docInfo) {
+          docInfo.textContent = `Saved: ${active.title}`;
+        }
+      }
+      void this.saveActiveDocument();
+      return;
+    }
+    if (action === "SaveAs" || action === "SaveAsDocument") {
+      this.openBackstageSaveAs();
+      return;
+    }
+    if (action === "Open" || action === "OpenDocument") {
+      this.openFilePickerOrBackstage();
+      return;
+    }
     if (action === "Find") {
       this.showFindReplace("find");
       return;
@@ -1986,7 +2015,7 @@ export class UnifiedShellApp {
         this.openFilePickerOrBackstage();
         break;
       case "Print":
-        window.print();
+        this.handlePrint();
         break;
       case "New":
         this.handleNewTab();
@@ -2052,45 +2081,23 @@ export class UnifiedShellApp {
     this.backstageMenu.setActiveNav("SaveAs");
   }
 
+  public handlePrint(): void {
+    const active = this.tabBar.getActiveTab();
+    fileIoService.printDocument(active?.docType || this.currentDocType, active?.title || "Document");
+  }
+
   public async saveActiveDocument(filePath?: string): Promise<string> {
     const active = this.tabBar.getActiveTab();
     if (!active) return "";
-    const targetPath = filePath || active.file_path || active.title;
+    const targetPath = filePath !== undefined ? filePath : active.file_path;
 
-    let savedPath = targetPath;
-    try {
-      const res = await IPC.saveDocument(active.id, filePath);
-      if (res) {
-        savedPath = res;
-      }
-    } catch (e) {
-      console.warn("Tauri IPC saveDocument fallback:", e);
-    }
-
-    const hasTauri =
-      typeof window !== "undefined" &&
-      Boolean((window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__);
-    if (!hasTauri) {
-      let content = "";
-      let mime = "text/plain";
-      if (active.docType === "Notes") {
-        content = notesState.getContent();
-        mime = targetPath.endsWith(".md") ? "text/markdown" : "text/plain";
-      } else if (active.docType === "Excel") {
-        content = calcState.exportCSV();
-        mime = "text/csv";
-      } else if (active.docType === "Word") {
-        content = writerState.getTextContent();
-        mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-      } else if (active.docType === "PowerPoint") {
-        content = JSON.stringify(slidesState.slides, null, 2);
-        mime = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-      } else if (active.docType === "PDF") {
-        content = "%PDF-1.4\n%OpenOfficeRS PDF Document\n";
-        mime = "application/pdf";
-      }
-      downloadFile(content, targetPath.split(/[/\\]/).pop() || active.title, mime);
-    }
+    const savedPath = await fileIoService.saveDocument(
+      active.id,
+      active.docType,
+      active.title,
+      targetPath,
+      Boolean(filePath && filePath !== active.file_path)
+    );
 
     this.tabBar.updateTab(active.id, {
       isDirty: false,
@@ -2177,49 +2184,12 @@ export class UnifiedShellApp {
   ): Promise<string> {
     const active = this.tabBar.getActiveTab();
     if (!active) return "";
-    const baseName = (active.file_path || active.title).replace(/\.[^/.]+$/, "");
-    const targetName = outputPath || `${baseName}.${format}`;
-    const filename = targetName.split(/[/\\]/).pop() || `${baseName}.${format}`;
-
-    if (format === "pdf") {
-      try {
-        await IPC.exportPdf(active.id, targetName);
-      } catch (e) {
-        console.warn("IPC exportPdf fallback:", e);
-      }
-      const hasTauri =
-        typeof window !== "undefined" &&
-        Boolean((window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__);
-      if (!hasTauri) {
-        downloadFile("%PDF-1.4\n%OpenOfficeRS Exported Document\n", filename, "application/pdf");
-      }
-    } else if (format === "csv") {
-      const csv = calcState.exportCSV();
-      downloadFile(csv, filename, "text/csv");
-    } else if (format === "txt") {
-      const txt = active.docType === "Notes" ? notesState.getContent() : writerState.getTextContent();
-      downloadFile(txt, filename, "text/plain");
-    } else if (format === "md") {
-      const md = notesState.getContent();
-      downloadFile(md, filename, "text/markdown");
-    } else if (format === "html") {
-      const body =
-        active.docType === "Notes"
-          ? notesState.renderMarkdownToHtml(notesState.getContent())
-          : writerState
-              .getTextContent()
-              .split("\n")
-              .map((l) => `<p>${l}</p>`)
-              .join("");
-      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${active.title}</title></head><body>${body}</body></html>`;
-      downloadFile(html, filename, "text/html");
-    }
-
+    const result = await fileIoService.exportDocument(active.id, active.docType, active.title, format, outputPath);
     const docInfo = document.getElementById("status-doc-info");
     if (docInfo) {
-      docInfo.textContent = `Exported: ${filename}`;
+      docInfo.textContent = `Exported: ${result.split(/[/\\]/).pop()}`;
     }
-    return targetName;
+    return result;
   }
 
   private handleAltKeytip(code: string) {
