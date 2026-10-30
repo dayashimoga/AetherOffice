@@ -763,6 +763,7 @@ export class PresentationPlayer {
   private createControlBtn(text: string, title: string, className: string, onClick: () => void): HTMLButtonElement {
     const btn = document.createElement("button");
     btn.className = `pres-btn ${className}`;
+    btn.setAttribute("data-testid", className);
     btn.textContent = text;
     btn.title = title;
     btn.style.backgroundColor = "transparent";

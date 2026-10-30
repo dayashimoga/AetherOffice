@@ -92,17 +92,17 @@ export class SlidesRibbon implements AppRibbonComponent {
     const slidesGroup = createRibbonGroup("Slides");
     const slidesRow = document.createElement("div");
     slidesRow.className = "ribbon-group-row";
-    slidesRow.appendChild(createRibbonButton("New Slide", "➕ New Slide", () => emit("NewSlide")));
-    slidesRow.appendChild(createRibbonButton("Layout", "▦ Layout", () => emit("SlideLayout")));
-    slidesRow.appendChild(createRibbonButton("Reset", "🔄 Reset", () => emit("ResetSlide")));
-    slidesRow.appendChild(createRibbonButton("Delete Slide", "🗑️ Delete", () => emit("DeleteSlide")));
+    slidesRow.appendChild(createRibbonButton("New Slide", "➕ New Slide", () => emit("NewSlide"), false, "slides-btn-new-slide"));
+    slidesRow.appendChild(createRibbonButton("Layout", "▦ Layout", () => emit("SlideLayout"), false, "slides-btn-layout"));
+    slidesRow.appendChild(createRibbonButton("Reset", "🔄 Reset", () => emit("ResetSlide"), false, "slides-btn-reset"));
+    slidesRow.appendChild(createRibbonButton("Delete Slide", "🗑️ Delete", () => emit("DeleteSlide"), false, "slides-btn-delete-slide"));
     slidesGroup.appendChild(slidesRow);
 
     const slidesRow2 = document.createElement("div");
     slidesRow2.className = "ribbon-group-row";
-    slidesRow2.appendChild(createRibbonButton("Duplicate", "📋 Duplicate", () => emit("DuplicateSlide")));
-    slidesRow2.appendChild(createRibbonButton("Move Up", "⬆️ Move Up", () => emit("MoveSlideUp")));
-    slidesRow2.appendChild(createRibbonButton("Move Down", "⬇️ Move Down", () => emit("MoveSlideDown")));
+    slidesRow2.appendChild(createRibbonButton("Duplicate", "📋 Duplicate", () => emit("DuplicateSlide"), false, "slides-btn-dup-slide"));
+    slidesRow2.appendChild(createRibbonButton("Move Up", "⬆️ Move Up", () => emit("MoveSlideUp"), false, "slides-btn-move-up"));
+    slidesRow2.appendChild(createRibbonButton("Move Down", "⬇️ Move Down", () => emit("MoveSlideDown"), false, "slides-btn-move-down"));
     slidesGroup.appendChild(slidesRow2);
     body.appendChild(slidesGroup);
 
@@ -124,12 +124,12 @@ export class SlidesRibbon implements AppRibbonComponent {
 
     const fontRow2 = document.createElement("div");
     fontRow2.className = "ribbon-group-row";
-    fontRow2.appendChild(createRibbonButton("Bold", "B", () => emit("ToggleBold"), true));
-    fontRow2.appendChild(createRibbonButton("Italic", "I", () => emit("ToggleItalic"), true));
-    fontRow2.appendChild(createRibbonButton("Underline", "U", () => emit("ToggleUnderline"), true));
-    fontRow2.appendChild(createRibbonButton("Strikethrough", "S", () => emit("ToggleStrikethrough"), true));
-    fontRow2.appendChild(createRibbonButton("Font Color", "🎨 Color", () => emit("SetFontColor", "#c43e1c")));
-    fontRow2.appendChild(createRibbonButton("Clear Formatting", "🧹 Clear", () => emit("ClearFormatting")));
+    fontRow2.appendChild(createRibbonButton("Bold", "B", () => emit("ToggleBold"), true, "slides-btn-bold"));
+    fontRow2.appendChild(createRibbonButton("Italic", "I", () => emit("ToggleItalic"), true, "slides-btn-italic"));
+    fontRow2.appendChild(createRibbonButton("Underline", "U", () => emit("ToggleUnderline"), true, "slides-btn-underline"));
+    fontRow2.appendChild(createRibbonButton("Strikethrough", "S", () => emit("ToggleStrikethrough"), true, "slides-btn-strike"));
+    fontRow2.appendChild(createRibbonButton("Font Color", "🎨 Color", () => emit("SetFontColor", "#c43e1c"), false, "slides-btn-font-color"));
+    fontRow2.appendChild(createRibbonButton("Clear Formatting", "🧹 Clear", () => emit("ClearFormatting"), false, "slides-btn-clear-format"));
     fontGroup.appendChild(fontRow2);
     body.appendChild(fontGroup);
 
@@ -137,10 +137,10 @@ export class SlidesRibbon implements AppRibbonComponent {
     const paraGroup = createRibbonGroup("Paragraph");
     const paraRow1 = document.createElement("div");
     paraRow1.className = "ribbon-group-row";
-    paraRow1.appendChild(createRibbonButton("Align Left", "Left", () => emit("AlignLeft")));
-    paraRow1.appendChild(createRibbonButton("Center", "Center", () => emit("AlignCenter")));
-    paraRow1.appendChild(createRibbonButton("Align Right", "Right", () => emit("AlignRight")));
-    paraRow1.appendChild(createRibbonButton("Justify", "Justify", () => emit("AlignJustify")));
+    paraRow1.appendChild(createRibbonButton("Align Left", "Left", () => emit("AlignLeft"), false, "slides-btn-align-left"));
+    paraRow1.appendChild(createRibbonButton("Center", "Center", () => emit("AlignCenter"), false, "slides-btn-align-center"));
+    paraRow1.appendChild(createRibbonButton("Align Right", "Right", () => emit("AlignRight"), false, "slides-btn-align-right"));
+    paraRow1.appendChild(createRibbonButton("Justify", "Justify", () => emit("AlignJustify"), false, "slides-btn-align-justify"));
     paraGroup.appendChild(paraRow1);
 
     const paraRow2 = document.createElement("div");
@@ -156,26 +156,26 @@ export class SlidesRibbon implements AppRibbonComponent {
     const drawGroup = createRibbonGroup("Drawing");
     const drawRow1 = document.createElement("div");
     drawRow1.className = "ribbon-group-row";
-    drawRow1.appendChild(createRibbonButton("Rectangle", "⬛ Rect", () => emit("InsertShape", "rect")));
-    drawRow1.appendChild(createRibbonButton("Rounded", "▢ Round", () => emit("InsertShape", "roundRect")));
-    drawRow1.appendChild(createRibbonButton("Oval", "⚪ Oval", () => emit("InsertShape", "ellipse")));
-    drawRow1.appendChild(createRibbonButton("Triangle", "▲ Tri", () => emit("InsertShape", "triangle")));
-    drawRow1.appendChild(createRibbonButton("Arrow", "➔ Arrow", () => emit("InsertShape", "arrow")));
-    drawRow1.appendChild(createRibbonButton("Star", "★ Star", () => emit("InsertShape", "star")));
-    drawRow1.appendChild(createRibbonButton("Callout", "💬 Callout", () => emit("InsertShape", "callout")));
-    drawRow1.appendChild(createRibbonButton("Diamond", "🔶 Diamond", () => emit("InsertShape", "diamond")));
-    drawRow1.appendChild(createRibbonButton("Heart", "❤️ Heart", () => emit("InsertShape", "heart")));
+    drawRow1.appendChild(createRibbonButton("Rectangle", "⬛ Rect", () => emit("InsertShape", "rect"), false, "slides-shape-rect"));
+    drawRow1.appendChild(createRibbonButton("Rounded", "▢ Round", () => emit("InsertShape", "roundRect"), false, "slides-shape-round-rect"));
+    drawRow1.appendChild(createRibbonButton("Oval", "⚪ Oval", () => emit("InsertShape", "ellipse"), false, "slides-shape-circle"));
+    drawRow1.appendChild(createRibbonButton("Triangle", "▲ Tri", () => emit("InsertShape", "triangle"), false, "slides-shape-triangle"));
+    drawRow1.appendChild(createRibbonButton("Arrow", "➔ Arrow", () => emit("InsertShape", "arrow"), false, "slides-shape-arrow"));
+    drawRow1.appendChild(createRibbonButton("Star", "★ Star", () => emit("InsertShape", "star"), false, "slides-shape-star"));
+    drawRow1.appendChild(createRibbonButton("Callout", "💬 Callout", () => emit("InsertShape", "callout"), false, "slides-shape-callout"));
+    drawRow1.appendChild(createRibbonButton("Diamond", "🔶 Diamond", () => emit("InsertShape", "diamond"), false, "slides-shape-diamond"));
+    drawRow1.appendChild(createRibbonButton("Heart", "❤️ Heart", () => emit("InsertShape", "heart"), false, "slides-shape-heart"));
     drawGroup.appendChild(drawRow1);
 
     const drawRow2 = document.createElement("div");
     drawRow2.className = "ribbon-group-row";
-    drawRow2.appendChild(createRibbonButton("Blue Fill", "🟦 Blue", () => emit("SetFillColor", "#2563eb")));
-    drawRow2.appendChild(createRibbonButton("Red Fill", "🟥 Red", () => emit("SetFillColor", "#c43e1c")));
-    drawRow2.appendChild(createRibbonButton("Green Fill", "🟩 Green", () => emit("SetFillColor", "#10b981")));
-    drawRow2.appendChild(createRibbonButton("Yellow Fill", "🟨 Yellow", () => emit("SetFillColor", "#eab308")));
-    drawRow2.appendChild(createRibbonButton("Dark Fill", "⬛ Dark", () => emit("SetFillColor", "#1e293b")));
-    drawRow2.appendChild(createRibbonButton("White Fill", "⬜ White", () => emit("SetFillColor", "#ffffff")));
-    drawRow2.appendChild(createRibbonButton("Outline", "✏️ Outline", () => emit("SetShapeOutline", "#000000")));
+    drawRow2.appendChild(createRibbonButton("Blue Fill", "🟦 Blue", () => emit("SetFillColor", "#2563eb"), false, "slides-fill-blue"));
+    drawRow2.appendChild(createRibbonButton("Red Fill", "🟥 Red", () => emit("SetFillColor", "#c43e1c"), false, "slides-fill-red"));
+    drawRow2.appendChild(createRibbonButton("Green Fill", "🟩 Green", () => emit("SetFillColor", "#10b981"), false, "slides-fill-green"));
+    drawRow2.appendChild(createRibbonButton("Yellow Fill", "🟨 Yellow", () => emit("SetFillColor", "#eab308"), false, "slides-fill-yellow"));
+    drawRow2.appendChild(createRibbonButton("Dark Fill", "⬛ Dark", () => emit("SetFillColor", "#1e293b"), false, "slides-fill-dark"));
+    drawRow2.appendChild(createRibbonButton("White Fill", "⬜ White", () => emit("SetFillColor", "#ffffff"), false, "slides-fill-white"));
+    drawRow2.appendChild(createRibbonButton("Outline", "✏️ Outline", () => emit("SetShapeOutline", "#000000"), false, "slides-btn-outline"));
     drawRow2.appendChild(
       createRibbonSelect([1, 2, 3, 4, 6], 2, (val) =>
         emit("SetOutlineWeight", parseFloat(val))
@@ -188,10 +188,10 @@ export class SlidesRibbon implements AppRibbonComponent {
     const arrangeGroup = createRibbonGroup("Arrange");
     const arrangeRow1 = document.createElement("div");
     arrangeRow1.className = "ribbon-group-row";
-    arrangeRow1.appendChild(createRibbonButton("Bring to Front", "⬆ Front", () => emit("BringToFront")));
-    arrangeRow1.appendChild(createRibbonButton("Send to Back", "⬇ Back", () => emit("SendToBack")));
-    arrangeRow1.appendChild(createRibbonButton("Duplicate", "📋 Dup", () => emit("DuplicateShape")));
-    arrangeRow1.appendChild(createRibbonButton("Delete", "🗑 Del", () => emit("DeleteShape")));
+    arrangeRow1.appendChild(createRibbonButton("Bring to Front", "⬆ Front", () => emit("BringToFront"), false, "slides-btn-bring-to-front"));
+    arrangeRow1.appendChild(createRibbonButton("Send to Back", "⬇ Back", () => emit("SendToBack"), false, "slides-btn-send-to-back"));
+    arrangeRow1.appendChild(createRibbonButton("Duplicate", "📋 Dup", () => emit("DuplicateShape"), false, "slides-btn-dup-shape"));
+    arrangeRow1.appendChild(createRibbonButton("Delete", "🗑 Del", () => emit("DeleteShape"), false, "slides-btn-del-shape"));
     arrangeGroup.appendChild(arrangeRow1);
 
     const arrangeRow2 = document.createElement("div");
@@ -221,14 +221,14 @@ export class SlidesRibbon implements AppRibbonComponent {
   private renderInsertTab(body: HTMLElement, emit: RibbonActionEmitter) {
     // 1. Slides
     const slidesGroup = createRibbonGroup("Slides");
-    slidesGroup.appendChild(createRibbonButton("New Slide", "➕ New Slide", () => emit("NewSlide")));
+    slidesGroup.appendChild(createRibbonButton("New Slide", "➕ New Slide", () => emit("NewSlide"), false, "slides-btn-insert-slide"));
     slidesGroup.appendChild(createRibbonButton("Reuse Slides", "🔄 Reuse", () => emit("ReuseSlides")));
     body.appendChild(slidesGroup);
 
     // 2. Tables
     const tblGroup = createRibbonGroup("Tables");
     tblGroup.appendChild(
-      createRibbonButton("Insert Table", "📊 Table", () => emit("InsertTable", { rows: 3, cols: 3 }))
+      createRibbonButton("Insert Table", "📊 Table", () => emit("InsertTable", { rows: 3, cols: 3 }), false, "slides-btn-insert-table")
     );
     body.appendChild(tblGroup);
 
@@ -236,7 +236,7 @@ export class SlidesRibbon implements AppRibbonComponent {
     const imgGroup = createRibbonGroup("Images");
     const imgRow = document.createElement("div");
     imgRow.className = "ribbon-group-row";
-    imgRow.appendChild(createRibbonButton("Pictures", "🖼️ Picture", () => emit("InsertPicture")));
+    imgRow.appendChild(createRibbonButton("Pictures", "🖼️ Picture", () => emit("InsertPicture"), false, "slides-btn-insert-picture"));
     imgRow.appendChild(createRibbonButton("Screenshot", "📸 Screenshot", () => emit("InsertScreenshot")));
     imgGroup.appendChild(imgRow);
     body.appendChild(imgGroup);
@@ -256,8 +256,8 @@ export class SlidesRibbon implements AppRibbonComponent {
     const mediaGroup = createRibbonGroup("Media");
     const mediaRow = document.createElement("div");
     mediaRow.className = "ribbon-group-row";
-    mediaRow.appendChild(createRibbonButton("Video", "🎬 Video", () => emit("InsertVideo")));
-    mediaRow.appendChild(createRibbonButton("Audio", "🔊 Audio", () => emit("InsertAudio")));
+    mediaRow.appendChild(createRibbonButton("Video", "🎬 Video", () => emit("InsertVideo"), false, "slides-btn-insert-video"));
+    mediaRow.appendChild(createRibbonButton("Audio", "🔊 Audio", () => emit("InsertAudio"), false, "slides-btn-insert-audio"));
     mediaRow.appendChild(createRibbonButton("Record Screen", "📹 Record", () => emit("RecordScreen")));
     mediaGroup.appendChild(mediaRow);
     body.appendChild(mediaGroup);
@@ -266,7 +266,7 @@ export class SlidesRibbon implements AppRibbonComponent {
     const textGroup = createRibbonGroup("Text");
     const textRow = document.createElement("div");
     textRow.className = "ribbon-group-row";
-    textRow.appendChild(createRibbonButton("Text Box", "🔤 Text Box", () => emit("InsertTextBox")));
+    textRow.appendChild(createRibbonButton("Text Box", "🔤 Text Box", () => emit("InsertTextBox"), false, "slides-btn-insert-textbox"));
     textRow.appendChild(createRibbonButton("WordArt", "🎨 WordArt", () => emit("InsertWordArt")));
     textRow.appendChild(createRibbonButton("Header & Footer", "Header/Footer", () => emit("InsertHeaderFooter")));
     textRow.appendChild(createRibbonButton("Slide Number", "# Slide No", () => emit("InsertSlideNumber")));
@@ -275,22 +275,22 @@ export class SlidesRibbon implements AppRibbonComponent {
   }
 
   private renderDesignTab(body: HTMLElement, emit: RibbonActionEmitter) {
-    // 1. Themes Group (8 Built-in Themes)
+    // 1. Themes Group (8 Curated Slide Themes)
     const themesGroup = createRibbonGroup("Themes");
     const themeRow1 = document.createElement("div");
     themeRow1.className = "ribbon-group-row";
-    themeRow1.appendChild(createRibbonButton("Office Default", "🎨 Office", () => emit("SetTheme", "OfficeDefault")));
-    themeRow1.appendChild(createRibbonButton("Dark Mode", "🌙 Dark", () => emit("SetTheme", "DarkMode")));
-    themeRow1.appendChild(createRibbonButton("Vibrant Coral", "🔥 Coral", () => emit("SetTheme", "VibrantCoral")));
-    themeRow1.appendChild(createRibbonButton("High Contrast", "⚡ Contrast", () => emit("SetTheme", "HighContrast")));
+    themeRow1.appendChild(createRibbonButton("Dark Slate", "🌙 Dark Slate", () => emit("SetTheme", "Dark Slate"), false, "slides-theme-dark-slate"));
+    themeRow1.appendChild(createRibbonButton("Ocean Blue", "🌊 Ocean Blue", () => emit("SetTheme", "Ocean Blue"), false, "slides-theme-ocean-blue"));
+    themeRow1.appendChild(createRibbonButton("Emerald", "🌲 Emerald", () => emit("SetTheme", "Emerald"), false, "slides-theme-emerald"));
+    themeRow1.appendChild(createRibbonButton("Sunset", "🌅 Sunset", () => emit("SetTheme", "Sunset"), false, "slides-theme-sunset"));
     themesGroup.appendChild(themeRow1);
 
     const themeRow2 = document.createElement("div");
     themeRow2.className = "ribbon-group-row";
-    themeRow2.appendChild(createRibbonButton("Emerald Forest", "🌲 Emerald", () => emit("SetTheme", "EmeraldForest")));
-    themeRow2.appendChild(createRibbonButton("Ocean Breeze", "🌊 Ocean", () => emit("SetTheme", "OceanBreeze")));
-    themeRow2.appendChild(createRibbonButton("Sunset Glow", "🌅 Sunset", () => emit("SetTheme", "SunsetGlow")));
-    themeRow2.appendChild(createRibbonButton("Slate Minimal", "🏛️ Slate", () => emit("SetTheme", "SlateMinimal")));
+    themeRow2.appendChild(createRibbonButton("Minimal White", "⚪ Minimal White", () => emit("SetTheme", "Minimal White"), false, "slides-theme-minimal-white"));
+    themeRow2.appendChild(createRibbonButton("Executive Navy", "🏛️ Executive Navy", () => emit("SetTheme", "Executive Navy"), false, "slides-theme-executive-navy"));
+    themeRow2.appendChild(createRibbonButton("Warm Sand", "🏜️ Warm Sand", () => emit("SetTheme", "Warm Sand"), false, "slides-theme-warm-sand"));
+    themeRow2.appendChild(createRibbonButton("Cyber Neon", "⚡ Cyber Neon", () => emit("SetTheme", "Cyber Neon"), false, "slides-theme-cyber-neon"));
     themesGroup.appendChild(themeRow2);
     body.appendChild(themesGroup);
 
@@ -309,9 +309,11 @@ export class SlidesRibbon implements AppRibbonComponent {
     const custGroup = createRibbonGroup("Customize");
     const custRow = document.createElement("div");
     custRow.className = "ribbon-group-row";
-    custRow.appendChild(createRibbonButton("Standard 4:3", "📐 Standard 4:3", () => emit("SetSlideSize", "4:3")));
-    custRow.appendChild(createRibbonButton("Widescreen 16:9", "📐 Widescreen 16:9", () => emit("SetSlideSize", "16:9")));
-    custRow.appendChild(createRibbonButton("Format Background", "🎨 Background", () => emit("FormatBackground")));
+    custRow.appendChild(createRibbonButton("Standard 4:3", "📐 Standard 4:3", () => emit("SetSlideSize", "4:3"), false, "slides-btn-size-4-3"));
+    custRow.appendChild(createRibbonButton("Widescreen 16:9", "📐 Widescreen 16:9", () => emit("SetSlideSize", "16:9"), false, "slides-btn-size-16-9"));
+    custRow.appendChild(createRibbonButton("Format Background", "🎨 Background", () => emit("FormatBackground"), false, "slides-btn-format-bg"));
+    custRow.appendChild(createRibbonButton("Solid Fill", "⬛ Solid", () => emit("SetSlideBackground", "#0f172a"), false, "slides-btn-solid-bg"));
+    custRow.appendChild(createRibbonButton("Gradient Fill", "🌈 Gradient", () => emit("SetSlideBackground", "linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%)"), false, "slides-btn-gradient-bg"));
     custGroup.appendChild(custRow);
     body.appendChild(custGroup);
   }
@@ -328,21 +330,23 @@ export class SlidesRibbon implements AppRibbonComponent {
     const transGroup = createRibbonGroup("Transition to This Slide");
     const transRow1 = document.createElement("div");
     transRow1.className = "ribbon-group-row";
-    ["None", "Morph", "Fade", "Push", "Wipe"].forEach((t) => {
-      transRow1.appendChild(createRibbonButton(t, t, () => emit("SetTransition", t)));
-    });
+    transRow1.appendChild(createRibbonButton("None", "None", () => emit("SetTransition", "None"), false, "slides-trans-none"));
+    transRow1.appendChild(createRibbonButton("Fade", "Fade", () => emit("SetTransition", "Fade"), false, "slides-trans-fade"));
+    transRow1.appendChild(createRibbonButton("Slide Left", "Slide Left", () => emit("SetTransition", "Slide Left"), false, "slides-trans-slide-left"));
+    transRow1.appendChild(createRibbonButton("Zoom", "Zoom", () => emit("SetTransition", "Zoom"), false, "slides-trans-zoom"));
+    transRow1.appendChild(createRibbonButton("Flip", "Flip", () => emit("SetTransition", "Flip"), false, "slides-trans-flip"));
     transGroup.appendChild(transRow1);
 
     const transRow2 = document.createElement("div");
     transRow2.className = "ribbon-group-row";
-    ["Split", "Reveal", "Random Bars", "Shape", "Cover"].forEach((t) => {
+    ["Push", "Wipe", "Split", "Reveal", "Shape", "Cover"].forEach((t) => {
       transRow2.appendChild(createRibbonButton(t, t, () => emit("SetTransition", t)));
     });
     transGroup.appendChild(transRow2);
 
     const transRow3 = document.createElement("div");
     transRow3.className = "ribbon-group-row";
-    ["Cube", "Flip", "Vortex", "Honeycomb", "Origami", "Ripple"].forEach((t) => {
+    ["Cube", "Vortex", "Honeycomb", "Origami", "Ripple"].forEach((t) => {
       transRow3.appendChild(createRibbonButton(t, `🎲 ${t}`, () => emit("SetTransition", t)));
     });
     transGroup.appendChild(transRow3);
@@ -390,14 +394,22 @@ export class SlidesRibbon implements AppRibbonComponent {
     const animGroup = createRibbonGroup("Animation");
     const animRow1 = document.createElement("div");
     animRow1.className = "ribbon-group-row";
-    ["Appear", "Fade In", "Fly In", "Zoom", "Bounce"].forEach((a) => {
-      const effectName = a === "Fade In" ? "fadeIn" : a === "Fly In" ? "flyIn" : a.toLowerCase();
-      animRow1.appendChild(createRibbonButton(a, `🟢 ${a}`, () => emit("SetAnimation", effectName)));
-    });
+    animRow1.appendChild(createRibbonButton("None", "None", () => emit("SetAnimation", "none"), false, "slides-anim-none"));
+    animRow1.appendChild(createRibbonButton("Fade In", "🟢 Fade In", () => emit("SetAnimation", "fadeIn"), false, "slides-anim-fade-in"));
+    animRow1.appendChild(createRibbonButton("Fly Up", "🟢 Fly Up", () => emit("SetAnimation", "flyUp"), false, "slides-anim-fly-up"));
+    animRow1.appendChild(createRibbonButton("Pop", "🟢 Pop", () => emit("SetAnimation", "pop"), false, "slides-anim-pop"));
+    animRow1.appendChild(createRibbonButton("Spin", "🟡 Spin", () => emit("SetAnimation", "spin"), false, "slides-anim-spin"));
     animGroup.appendChild(animRow1);
 
     const animRow2 = document.createElement("div");
     animRow2.className = "ribbon-group-row";
+    animRow2.appendChild(createRibbonButton("Appear", "🟢 Appear", () => emit("SetAnimation", "appear")));
+    animRow2.appendChild(createRibbonButton("Pulse", "🟡 Pulse", () => emit("SetAnimation", "pulse")));
+    animRow2.appendChild(createRibbonButton("Motion Path", "➰ Motion", () => emit("AddMotionPath")));
+    animRow2.appendChild(createRibbonButton("Fade Out", "🔴 Fade Out", () => emit("SetAnimation", "fadeOut")));
+    animRow2.appendChild(createRibbonButton("Fly Out", "🔴 Fly Out", () => emit("SetAnimation", "flyOut")));
+    animGroup.appendChild(animRow2);
+    body.appendChild(animGroup);
     animRow2.appendChild(createRibbonButton("Pulse", "🟡 Pulse", () => emit("SetAnimation", "pulse")));
     animRow2.appendChild(createRibbonButton("Spin", "🟡 Spin", () => emit("SetAnimation", "spin")));
     animRow2.appendChild(createRibbonButton("Motion Path", "➰ Motion", () => emit("AddMotionPath")));
@@ -443,10 +455,10 @@ export class SlidesRibbon implements AppRibbonComponent {
     const showRow = document.createElement("div");
     showRow.className = "ribbon-group-row";
     showRow.appendChild(
-      createRibbonButton("From Beginning", "▶️ Beginning (F5)", () => emit("StartShowBeginning"))
+      createRibbonButton("From Beginning", "▶️ Beginning (F5)", () => emit("StartShowBeginning"), false, "slides-btn-show-begin")
     );
     showRow.appendChild(
-      createRibbonButton("From Current Slide", "⏩ Current (Shift+F5)", () => emit("StartShowCurrent"))
+      createRibbonButton("From Current Slide", "⏩ Current (Shift+F5)", () => emit("StartShowCurrent"), false, "slides-btn-show-curr")
     );
     showRow.appendChild(createRibbonButton("Present Online", "🌐 Online", () => emit("PresentOnline")));
     showGroup.appendChild(showRow);
@@ -468,10 +480,10 @@ export class SlidesRibbon implements AppRibbonComponent {
     const monRow = document.createElement("div");
     monRow.className = "ribbon-group-row";
     monRow.appendChild(
-      createRibbonButton("Presenter View", "🖥️ Presenter View", () => emit("StartPresenterView"))
+      createRibbonButton("Presenter View", "🖥️ Presenter View", () => emit("StartPresenterView"), false, "slides-btn-presenter-view")
     );
     monRow.appendChild(
-      createRibbonButton("Presenter Studio", "🎛️ Studio Dual-Screen", () => emit("StartDualScreenPresenter"))
+      createRibbonButton("Presenter Studio", "🎛️ Studio Dual-Screen", () => emit("StartDualScreenPresenter"), false, "slides-btn-presenter-studio")
     );
     monRow.appendChild(
       createRibbonButton("Use Presenter View", "☑ Presenter View", () => emit("TogglePresenterView"), true)

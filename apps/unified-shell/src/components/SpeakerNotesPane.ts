@@ -17,6 +17,7 @@ export class SpeakerNotesPane {
 
     this.rootEl = document.createElement("div");
     this.rootEl.className = "speaker-notes-pane";
+    this.rootEl.setAttribute("data-testid", "speaker-notes-pane");
     this.rootEl.style.width = "960px";
     this.rootEl.style.margin = "0 auto 24px auto";
     this.rootEl.style.backgroundColor = "#ffffff";
@@ -30,6 +31,7 @@ export class SpeakerNotesPane {
     // Header bar
     this.headerEl = document.createElement("div");
     this.headerEl.className = "speaker-notes-header";
+    this.headerEl.setAttribute("data-testid", "speaker-notes-header");
     this.headerEl.style.display = "flex";
     this.headerEl.style.justifyContent = "space-between";
     this.headerEl.style.alignItems = "center";
@@ -66,6 +68,7 @@ export class SpeakerNotesPane {
 
     this.textarea = document.createElement("textarea");
     this.textarea.className = "speaker-notes-textarea";
+    this.textarea.setAttribute("data-testid", "speaker-notes-textarea");
     this.textarea.placeholder = "Click to add speaker notes for presenter view...";
     this.textarea.style.width = "100%";
     this.textarea.style.height = "70px";

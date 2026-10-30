@@ -20,7 +20,15 @@ export type ThemePresetName =
   | "EmeraldForest"
   | "OceanBreeze"
   | "SunsetGlow"
-  | "SlateMinimal";
+  | "SlateMinimal"
+  | "ExecutiveNavy"
+  | "WarmSand"
+  | "CyberNeon"
+  | "MinimalWhite"
+  | "DarkSlate"
+  | "OceanBlue"
+  | "Emerald"
+  | "Sunset";
 
 export type SlideLayoutType =
   | "title"
@@ -132,6 +140,7 @@ export interface SlideShape {
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
+  textAlign?: "left" | "center" | "right" | "justify";
   imageUrl?: string;
   imageAlt?: string;
   mediaType?: "video" | "audio";
@@ -710,9 +719,9 @@ export class SlidesState {
 
   // --- Master Theme Switcher ---
 
-  public setTheme(theme: ThemePresetName) {
+  public setTheme(theme: ThemePresetName | string) {
     this.commitSnapshot();
-    this.currentTheme = theme;
+    const norm = theme.toLowerCase().replace(/[\s_-]/g, "");
 
     let textColor = "#1e293b";
     let primaryAccent = "#2563eb";
@@ -720,58 +729,130 @@ export class SlidesState {
     let bg = "#ffffff";
     let fontFamily = "Aptos, Calibri, sans-serif";
 
-    switch (theme) {
-      case "DarkMode":
+    switch (norm) {
+      case "darkslate":
+        this.currentTheme = "DarkSlate";
         textColor = "#f8fafc";
         primaryAccent = "#6366f1";
         secondaryAccent = "#06b6d4";
         bg = "#0f172a";
         fontFamily = "Segoe UI, sans-serif";
         break;
-      case "VibrantCoral":
-        textColor = "#18181b";
-        primaryAccent = "#c43e1c";
-        secondaryAccent = "#0d9488";
-        bg = "#fff7ed";
-        fontFamily = "Calibri, sans-serif";
-        break;
-      case "HighContrast":
-        textColor = "#ffffff";
-        primaryAccent = "#ffff00";
-        secondaryAccent = "#00ffff";
-        bg = "#000000";
+      case "darkmode":
+        this.currentTheme = "DarkMode";
+        textColor = "#f8fafc";
+        primaryAccent = "#6366f1";
+        secondaryAccent = "#06b6d4";
+        bg = "#0f172a";
         fontFamily = "Segoe UI, sans-serif";
         break;
-      case "EmeraldForest":
-        textColor = "#064e3b";
-        primaryAccent = "#059669";
-        secondaryAccent = "#d97706";
-        bg = "#f0fdf4";
-        fontFamily = "Georgia, serif";
-        break;
-      case "OceanBreeze":
-        textColor = "#0c4a6e";
-        primaryAccent = "#0284c7";
-        secondaryAccent = "#14b8a6";
-        bg = "#f0f9ff";
-        fontFamily = "Arial, sans-serif";
-        break;
-      case "SunsetGlow":
-        textColor = "#701a75";
-        primaryAccent = "#e11d48";
-        secondaryAccent = "#f59e0b";
-        bg = "#fdf2f8";
-        fontFamily = "Century Gothic, sans-serif";
-        break;
-      case "SlateMinimal":
+      case "slateminimal":
+        this.currentTheme = "SlateMinimal";
         textColor = "#334155";
         primaryAccent = "#475569";
         secondaryAccent = "#3b82f6";
         bg = "#f8fafc";
         fontFamily = "Segoe UI, sans-serif";
         break;
-      case "OfficeDefault":
+      case "oceanblue":
+        this.currentTheme = "OceanBlue";
+        textColor = "#0c4a6e";
+        primaryAccent = "#0284c7";
+        secondaryAccent = "#14b8a6";
+        bg = "#f0f9ff";
+        fontFamily = "Arial, sans-serif";
+        break;
+      case "oceanbreeze":
+        this.currentTheme = "OceanBreeze";
+        textColor = "#0c4a6e";
+        primaryAccent = "#0284c7";
+        secondaryAccent = "#14b8a6";
+        bg = "#f0f9ff";
+        fontFamily = "Arial, sans-serif";
+        break;
+      case "emerald":
+        this.currentTheme = "Emerald";
+        textColor = "#064e3b";
+        primaryAccent = "#059669";
+        secondaryAccent = "#d97706";
+        bg = "#f0fdf4";
+        fontFamily = "Georgia, serif";
+        break;
+      case "emeraldforest":
+        this.currentTheme = "EmeraldForest";
+        textColor = "#064e3b";
+        primaryAccent = "#059669";
+        secondaryAccent = "#d97706";
+        bg = "#f0fdf4";
+        fontFamily = "Georgia, serif";
+        break;
+      case "sunset":
+        this.currentTheme = "Sunset";
+        textColor = "#701a75";
+        primaryAccent = "#e11d48";
+        secondaryAccent = "#f59e0b";
+        bg = "#fdf2f8";
+        fontFamily = "Century Gothic, sans-serif";
+        break;
+      case "sunsetglow":
+        this.currentTheme = "SunsetGlow";
+        textColor = "#701a75";
+        primaryAccent = "#e11d48";
+        secondaryAccent = "#f59e0b";
+        bg = "#fdf2f8";
+        fontFamily = "Century Gothic, sans-serif";
+        break;
+      case "vibrantcoral":
+        this.currentTheme = "VibrantCoral";
+        textColor = "#18181b";
+        primaryAccent = "#c43e1c";
+        secondaryAccent = "#0d9488";
+        bg = "#fff7ed";
+        fontFamily = "Calibri, sans-serif";
+        break;
+      case "executivenavy":
+        this.currentTheme = "ExecutiveNavy";
+        textColor = "#f8fafc";
+        primaryAccent = "#1e3a8a";
+        secondaryAccent = "#38bdf8";
+        bg = "#0a1128";
+        fontFamily = "Segoe UI, sans-serif";
+        break;
+      case "warmsand":
+        this.currentTheme = "WarmSand";
+        textColor = "#451a03";
+        primaryAccent = "#d97706";
+        secondaryAccent = "#b45309";
+        bg = "#fef3c7";
+        fontFamily = "Georgia, serif";
+        break;
+      case "cyberneon":
+        this.currentTheme = "CyberNeon";
+        textColor = "#00ffcc";
+        primaryAccent = "#ff007f";
+        secondaryAccent = "#00e5ff";
+        bg = "#000000";
+        fontFamily = "Consolas, monospace";
+        break;
+      case "highcontrast":
+        this.currentTheme = "HighContrast";
+        textColor = "#00ffcc";
+        primaryAccent = "#ff007f";
+        secondaryAccent = "#00e5ff";
+        bg = "#000000";
+        fontFamily = "Consolas, monospace";
+        break;
+      case "minimalwhite":
+        this.currentTheme = "MinimalWhite";
+        textColor = "#1e293b";
+        primaryAccent = "#2563eb";
+        secondaryAccent = "#10b981";
+        bg = "#ffffff";
+        fontFamily = "Aptos, Calibri, sans-serif";
+        break;
+      case "officedefault":
       default:
+        this.currentTheme = "OfficeDefault";
         textColor = "#1e293b";
         primaryAccent = "#2563eb";
         secondaryAccent = "#10b981";
@@ -832,22 +913,35 @@ export class SlidesState {
   // --- Slide Transitions ---
 
   public setTransition(
-    effect: TransitionEffect,
+    effect: TransitionEffect | string,
     duration = 1.0,
     direction: TransitionDirection = "right",
     applyToAll = false
   ): void {
+    const norm = String(effect).toLowerCase().replace(/[\s_-]/g, "");
+    let actualEffect: TransitionEffect = effect as TransitionEffect;
+    let actualDirection: TransitionDirection = direction;
+
+    if (norm === "slideleft") {
+      actualEffect = "Push";
+      actualDirection = "left";
+    } else if (norm === "zoom") {
+      actualEffect = "Shape";
+    } else if (norm === "flip") {
+      actualEffect = "Flip";
+    }
+
     this.commitSnapshot();
-    const config: SlideTransitionConfig = { effect, duration, direction };
+    const config: SlideTransitionConfig = { effect: actualEffect, duration, direction: actualDirection };
     if (applyToAll) {
       this.slides.forEach((s) => {
-        s.transition = effect;
+        s.transition = actualEffect;
         s.transitionConfig = { ...config };
       });
     } else {
       const slide = this.slides[this.currentSlideIndex];
       if (slide) {
-        slide.transition = effect;
+        slide.transition = actualEffect;
         slide.transitionConfig = { ...config };
       }
     }
@@ -916,7 +1010,7 @@ export class SlidesState {
 
   public addAnimation(
     shapeId: string,
-    effect: AnimationEffect,
+    effect: AnimationEffect | string,
     type?: AnimationType,
     trigger: AnimationTrigger = "click",
     duration = 0.5,
@@ -927,18 +1021,23 @@ export class SlidesState {
     const shape = slide.shapes.find((s) => s.id === shapeId);
     if (!shape) return null;
 
+    let eff = effect as AnimationEffect;
+    const norm = String(effect).toLowerCase().replace(/[\s_-]/g, "");
+    if (norm === "flyup") eff = "flyIn";
+    else if (norm === "pop") eff = "zoom";
+
     if (!slide.animations) {
       slide.animations = [];
     }
 
     this.commitSnapshot();
-    const animType = type || getAnimationType(effect);
+    const animType = type || getAnimationType(eff);
     const order = slide.animations.length + 1;
     const newAnim: SlideAnimation = {
       id: `anim_${++this.nextAnimCounter}`,
       shapeId,
       type: animType,
-      effect,
+      effect: eff,
       trigger,
       duration: Math.max(0.1, duration),
       delay: Math.max(0, delay),
@@ -1649,6 +1748,14 @@ export class SlidesState {
     return true;
   }
 
+  public setTextAlign(align: "left" | "center" | "right" | "justify"): boolean {
+    const sh = this.getSelectedShape();
+    if (!sh) return false;
+    this.commitSnapshot();
+    sh.textAlign = align;
+    return true;
+  }
+
   public execCommand(action: string, payload?: unknown): boolean {
     switch (action) {
       case "SetTheme":
@@ -1719,6 +1826,13 @@ export class SlidesState {
         const eff = (typeof payload === "string" ? payload : "fadeIn") as AnimationEffect;
         const sel = this.getSelectedShape();
         if (sel) {
+          if (String(eff).toLowerCase() === "none") {
+            const slide = this.slides[this.currentSlideIndex];
+            if (slide && slide.animations) {
+              slide.animations = slide.animations.filter((a) => a.shapeId !== sel.id);
+            }
+            return true;
+          }
           this.addAnimation(sel.id, eff);
           return true;
         }
@@ -1792,11 +1906,21 @@ export class SlidesState {
       case "ToggleLaser":
         this.toggleLaser();
         return true;
-      case "InsertShape":
-        this.addShape(
-          typeof payload === "string" ? (payload as PresetShapeKind) : "rect"
-        );
+      case "InsertShape": {
+        const raw = typeof payload === "string" ? payload.toLowerCase().replace(/[\s_-]/g, "") : "rect";
+        let kind: PresetShapeKind = "rect";
+        if (raw === "roundrect" || raw === "rounded" || raw === "roundedrect" || raw === "roundedrectangle") kind = "roundRect";
+        else if (raw === "ellipse" || raw === "circle" || raw === "oval") kind = "ellipse";
+        else if (raw === "triangle") kind = "triangle";
+        else if (raw === "arrow") kind = "arrow";
+        else if (raw === "star") kind = "star";
+        else if (raw === "diamond") kind = "diamond";
+        else if (raw === "callout") kind = "callout";
+        else if (raw === "heart") kind = "heart";
+        else if (raw === "text" || raw === "textbox") kind = "text";
+        this.addShape(kind);
         return true;
+      }
       case "InsertTextBox":
         this.addShape("text");
         return true;
@@ -1845,12 +1969,37 @@ export class SlidesState {
         if (typeof payload === "string") {
           this.setSlideBackground(payload);
           return true;
+        } else if (payload && typeof payload === "object") {
+          const p = payload as { background?: string; bg?: string; applyToAll?: boolean };
+          const bg = p.background || p.bg;
+          if (bg) {
+            this.setSlideBackground(bg, !!p.applyToAll);
+            return true;
+          }
         }
         return false;
       case "InsertImage":
-      case "InsertPicture":
-        this.insertImage(typeof payload === "string" ? payload : undefined);
+      case "InsertPicture": {
+        let url: string | undefined;
+        let x = 200;
+        let y = 150;
+        let w = 280;
+        let h = 180;
+        if (typeof payload === "string") {
+          url = payload;
+        } else if (payload && typeof payload === "object") {
+          const p = payload as any;
+          url = p.url || p.src || undefined;
+          if (p.x !== undefined) x = p.x;
+          if (p.y !== undefined) y = p.y;
+          if (p.width !== undefined) w = p.width;
+          else if (p.w !== undefined) w = p.w;
+          if (p.height !== undefined) h = p.height;
+          else if (p.h !== undefined) h = p.h;
+        }
+        this.insertImage(url, x, y, w, h);
         return true;
+      }
       case "InsertVideo":
         this.insertMedia("video", typeof payload === "string" ? payload : "sample_video.mp4");
         return true;
@@ -1872,11 +2021,16 @@ export class SlidesState {
         }
         return false;
       case "AlignLeft":
+        this.setTextAlign("left");
         return this.alignSelectedShape("left");
       case "AlignCenter":
+        this.setTextAlign("center");
         return this.alignSelectedShape("center");
       case "AlignRight":
+        this.setTextAlign("right");
         return this.alignSelectedShape("right");
+      case "AlignJustify":
+        return this.setTextAlign("justify");
       case "AlignTop":
         return this.alignSelectedShape("top");
       case "AlignMiddle":

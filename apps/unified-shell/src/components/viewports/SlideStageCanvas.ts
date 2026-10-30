@@ -1014,18 +1014,21 @@ export class SlideStageCanvas {
             const fontStyle = `${sh.italic ? "italic " : ""}${sh.bold ? "bold " : ""}${sh.fontSize || 28}px ${sh.fontFamily || "Aptos, Calibri, sans-serif"}`;
             ctx.font = fontStyle;
             ctx.fillStyle = sh.textColor || "#1e293b";
-            ctx.textAlign = "left";
+            const align = sh.textAlign || "left";
+            ctx.textAlign = align === "justify" ? "left" : align;
             ctx.textBaseline = "top";
             const lines = sh.text.split("\n");
             const lineHeight = (sh.fontSize || 28) * 1.35;
             lines.forEach((line, i) => {
-              ctx.fillText(line, sh.x + 8, sh.y + 8 + i * lineHeight);
+              const posX = align === "center" ? sh.x + sh.w / 2 : align === "right" ? sh.x + sh.w - 8 : sh.x + 8;
+              ctx.fillText(line, posX, sh.y + 8 + i * lineHeight);
               if (sh.underline) {
                 const metrics = ctx.measureText ? ctx.measureText(line) : { width: 50 };
                 const underY = sh.y + 8 + i * lineHeight + (sh.fontSize || 28);
+                const lineStart = align === "center" ? sh.x + sh.w / 2 - metrics.width / 2 : align === "right" ? sh.x + sh.w - 8 - metrics.width : sh.x + 8;
                 ctx.beginPath();
-                ctx.moveTo(sh.x + 8, underY);
-                ctx.lineTo(sh.x + 8 + metrics.width, underY);
+                ctx.moveTo(lineStart, underY);
+                ctx.lineTo(lineStart + metrics.width, underY);
                 ctx.strokeStyle = sh.textColor || "#1e293b";
                 ctx.lineWidth = 1.5;
                 ctx.stroke();
@@ -1041,13 +1044,15 @@ export class SlideStageCanvas {
         const fontStyle = `${sh.italic ? "italic " : ""}${sh.bold ? "bold " : ""}${sh.fontSize || 16}px ${sh.fontFamily || "Aptos, Calibri, sans-serif"}`;
         ctx.font = fontStyle;
         ctx.fillStyle = sh.textColor || "#ffffff";
-        ctx.textAlign = "center";
+        const align = sh.textAlign || "center";
+        ctx.textAlign = align === "justify" ? "center" : align;
         ctx.textBaseline = "middle";
         const lines = sh.text.split("\n");
         const lineHeight = (sh.fontSize || 16) * 1.3;
         const startY = sh.y + sh.h / 2 - ((lines.length - 1) * lineHeight) / 2;
         lines.forEach((line, i) => {
-          ctx.fillText(line, sh.x + sh.w / 2, startY + i * lineHeight);
+          const posX = align === "left" ? sh.x + 8 : align === "right" ? sh.x + sh.w - 8 : sh.x + sh.w / 2;
+          ctx.fillText(line, posX, startY + i * lineHeight);
         });
         ctx.restore();
       }
