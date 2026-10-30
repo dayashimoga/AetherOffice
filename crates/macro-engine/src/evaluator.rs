@@ -1,5 +1,7 @@
 use crate::ast::*;
 use crate::error::MacroError;
+use crate::sandbox::MacroSandbox;
+use crate::security::Capability;
 use crate::virtual_dom::{RangeAddress, VbaValue, VirtualOfficeDom};
 use std::collections::HashMap;
 
@@ -11,14 +13,20 @@ enum ScopeValue {
 
 pub struct VbaEvaluator<'a> {
     pub dom: &'a mut VirtualOfficeDom,
+    pub sandbox: MacroSandbox,
     variables: HashMap<String, ScopeValue>,
     with_context: Option<RangeAddress>,
 }
 
 impl<'a> VbaEvaluator<'a> {
     pub fn new(dom: &'a mut VirtualOfficeDom) -> Self {
+        Self::with_sandbox(dom, MacroSandbox::default())
+    }
+
+    pub fn with_sandbox(dom: &'a mut VirtualOfficeDom, sandbox: MacroSandbox) -> Self {
         Self {
             dom,
+            sandbox,
             variables: HashMap::new(),
             with_context: None,
         }
@@ -66,6 +74,7 @@ impl<'a> VbaEvaluator<'a> {
     }
 
     pub fn execute_statement(&mut self, stmt: &VbaStatement) -> Result<(), MacroError> {
+        self.sandbox.consume_gas(1)?;
         match stmt {
             VbaStatement::Dim { name, .. } => {
                 self.variables
@@ -174,7 +183,12 @@ impl<'a> VbaEvaluator<'a> {
                         }
                     }
                     VbaExpr::Variable(name) => {
-                        if name.eq_ignore_ascii_case("msgbox") {
+                        let lower = name.to_ascii_lowercase();
+                        if lower == "shell" {
+                            self.sandbox
+                                .check_capability(Capability::SystemCommand, "Shell")?;
+                            Ok(())
+                        } else if lower == "msgbox" {
                             // Mock MsgBox execution
                             if let Some(first_arg) = args.first() {
                                 let _msg = self.eval_expr(first_arg)?;
@@ -241,6 +255,7 @@ impl<'a> VbaEvaluator<'a> {
                         break;
                     }
 
+                    self.sandbox.consume_gas(1)?;
                     self.variables.insert(
                         counter_key.clone(),
                         ScopeValue::Val(VbaValue::Integer(current)),
@@ -279,9 +294,8 @@ impl<'a> VbaEvaluator<'a> {
                     return Ok(());
                 }
 
-                let mut iterations = 0;
-                while iterations < 100_000 {
-                    iterations += 1;
+                loop {
+                    self.sandbox.consume_gas(1)?;
                     for s in body {
                         self.execute_statement(s)?;
                     }
@@ -295,9 +309,8 @@ impl<'a> VbaEvaluator<'a> {
             }
 
             VbaStatement::WhileWend { condition, body } => {
-                let mut iterations = 0;
-                while iterations < 100_000 {
-                    iterations += 1;
+                loop {
+                    self.sandbox.consume_gas(1)?;
                     if !self.eval_expr(condition)?.as_bool() {
                         break;
                     }
@@ -478,6 +491,7 @@ impl<'a> VbaEvaluator<'a> {
     }
 
     pub fn eval_expr(&mut self, expr: &VbaExpr) -> Result<VbaValue, MacroError> {
+        self.sandbox.consume_gas(1)?;
         match expr {
             VbaExpr::Literal(lit) => match lit {
                 VbaLiteral::Empty => Ok(VbaValue::Empty),
@@ -722,6 +736,40 @@ impl<'a> VbaEvaluator<'a> {
             VbaExpr::IndexOrCall { callee, args } => {
                 if let VbaExpr::Variable(name) = callee.as_ref() {
                     let lower = name.to_ascii_lowercase();
+
+                    if lower == "shell" {
+                        self.sandbox
+                            .check_capability(Capability::SystemCommand, "Shell")?;
+                        return Ok(VbaValue::Integer(1000));
+                    }
+
+                    if lower == "environ" {
+                        self.sandbox
+                            .check_capability(Capability::Environment, "Environ")?;
+                        return Ok(VbaValue::String("SIMULATED_ENV".to_string()));
+                    }
+
+                    if lower == "createobject" {
+                        let prog_id = if let Some(first) = args.first() {
+                            self.eval_expr(first)?.to_display_string()
+                        } else {
+                            String::new()
+                        };
+                        let p_lower = prog_id.to_ascii_lowercase();
+                        let cap = if p_lower.contains("shell") {
+                            Capability::SystemCommand
+                        } else if p_lower.contains("http") || p_lower.contains("xmlhttp") {
+                            Capability::Network
+                        } else if p_lower.contains("filesystemobject") || p_lower.contains("stream")
+                        {
+                            Capability::FileIo
+                        } else {
+                            Capability::SystemCommand
+                        };
+                        self.sandbox
+                            .check_capability(cap, &format!("CreateObject({prog_id})"))?;
+                        return Ok(VbaValue::String(format!("COMObject:{prog_id}")));
+                    }
 
                     if lower == "cells" && args.len() == 2 {
                         let r = self.eval_expr(&args[0])?.as_i64().unwrap_or(1) as u32;

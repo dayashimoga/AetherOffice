@@ -35,6 +35,15 @@ pub enum MacroError {
     #[error("Virtual Office DOM error: {0}")]
     DomError(String),
 
+    #[error("Execution gas limit exhausted: {0}")]
+    GasExhausted(String),
+
+    #[error("Capability permission denied: {0}")]
+    PermissionDenied(String),
+
+    #[error("Security violation detected: {0}")]
+    SecurityViolation(String),
+
     #[error("I/O error: {0}")]
     IoError(String),
 }

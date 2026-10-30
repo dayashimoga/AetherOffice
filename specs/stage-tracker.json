@@ -649,9 +649,9 @@
                           "title":  "WebAssembly Isolation Sandbox \u0026 Capability Gatekeeper",
                           "crate":  "macro-engine",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-15/subphase-15.2.1.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-30T02:34:15Z"
                       },
                       {
                           "id":  "15.2.2",

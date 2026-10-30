@@ -7,6 +7,8 @@ pub mod lexer;
 pub mod ole_cfb;
 pub mod ovba_decompress;
 pub mod parser;
+pub mod sandbox;
+pub mod security;
 pub mod vba_project;
 pub mod virtual_dom;
 
@@ -22,6 +24,11 @@ pub use ovba_decompress::{
     compress_vba_stream, copy_token_offset_bit_count, decompress_vba_stream,
 };
 pub use parser::VbaParser;
+pub use sandbox::MacroSandbox;
+pub use security::{
+    AuditLogEntry, Capability, PermissionStatus, RiskLevel, SecurityAuditLog, SecurityAuditReport,
+    SecurityFinding, SecurityScanner, Severity,
+};
 pub use vba_project::{VbaModule, VbaModuleType, VbaProject};
 pub use virtual_dom::{
     RangeAddress, VbaValue, VirtualApplication, VirtualCell, VirtualOfficeDom, VirtualWorkbook,
