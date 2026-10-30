@@ -1,3 +1,5 @@
+import { SlideLayoutType } from "../state/slidesState";
+
 export interface SlideThumbnail {
   id: number;
   slideNumber: number;
@@ -13,17 +15,23 @@ export class SlideSorter {
   private onSelectSlideCallback?: (id: number) => void;
   private onReorderCallback?: (fromIdx: number, toIdx: number) => void;
   private onAddSlideCallback?: () => void;
+  private onAddSlideWithLayoutCallback?: (layout: SlideLayoutType) => void;
   private onDuplicateSlideCallback?: (idx: number) => void;
   private onDeleteSlideCallback?: (idx: number) => void;
   private onToggleHideCallback?: (idx: number) => void;
   private onMoveUpCallback?: (idx: number) => void;
   private onMoveDownCallback?: (idx: number) => void;
+  private isLayoutMenuOpen = false;
 
   constructor(containerId: string) {
     const el = document.getElementById(containerId);
     if (!el) throw new Error(`SlideSorter container #${containerId} not found`);
     this.container = el;
     this.render();
+  }
+
+  public getIsLayoutMenuOpen(): boolean {
+    return this.isLayoutMenuOpen;
   }
 
   public setSlides(slides: SlideThumbnail[], activeId?: number) {
@@ -36,6 +44,7 @@ export class SlideSorter {
     onSelectSlide?: (id: number) => void;
     onReorder?: (fromIdx: number, toIdx: number) => void;
     onAddSlide?: () => void;
+    onAddSlideWithLayout?: (layout: SlideLayoutType) => void;
     onDuplicateSlide?: (idx: number) => void;
     onDeleteSlide?: (idx: number) => void;
     onToggleHide?: (idx: number) => void;
@@ -45,11 +54,78 @@ export class SlideSorter {
     this.onSelectSlideCallback = callbacks.onSelectSlide;
     this.onReorderCallback = callbacks.onReorder;
     this.onAddSlideCallback = callbacks.onAddSlide;
+    this.onAddSlideWithLayoutCallback = callbacks.onAddSlideWithLayout;
     this.onDuplicateSlideCallback = callbacks.onDuplicateSlide;
     this.onDeleteSlideCallback = callbacks.onDeleteSlide;
     this.onToggleHideCallback = callbacks.onToggleHide;
     this.onMoveUpCallback = callbacks.onMoveUp;
     this.onMoveDownCallback = callbacks.onMoveDown;
+  }
+
+  public toggleLayoutMenu(parent: HTMLElement) {
+    const existing = parent.querySelector(".slide-sorter-layout-menu");
+    if (existing) {
+      existing.remove();
+      this.isLayoutMenuOpen = false;
+      return;
+    }
+
+    const menu = document.createElement("div");
+    menu.className = "slide-sorter-layout-menu";
+    menu.setAttribute("data-testid", "slide-sorter-layout-menu");
+    menu.style.position = "absolute";
+    menu.style.top = "100%";
+    menu.style.right = "8px";
+    menu.style.backgroundColor = "#ffffff";
+    menu.style.border = "1px solid #cbd5e1";
+    menu.style.borderRadius = "6px";
+    menu.style.boxShadow = "0 8px 16px rgba(0,0,0,0.15)";
+    menu.style.padding = "4px 0";
+    menu.style.zIndex = "1000";
+    menu.style.minWidth = "150px";
+
+    const layouts: { type: SlideLayoutType; label: string }[] = [
+      { type: "title", label: "Title Slide" },
+      { type: "titleAndContent", label: "Title & Content" },
+      { type: "twoContent", label: "Two Column" },
+      { type: "blank", label: "Blank" },
+    ];
+
+    layouts.forEach((l) => {
+      const item = document.createElement("button");
+      item.className = "slide-layout-menu-item";
+      item.setAttribute("data-layout", l.type);
+      item.setAttribute("data-testid", `slide-layout-item-${l.type}`);
+      item.style.display = "block";
+      item.style.width = "100%";
+      item.style.textAlign = "left";
+      item.style.padding = "6px 12px";
+      item.style.border = "none";
+      item.style.background = "transparent";
+      item.style.fontSize = "12px";
+      item.style.cursor = "pointer";
+      item.textContent = l.label;
+      item.onmouseover = () => {
+        item.style.backgroundColor = "#f1f5f9";
+      };
+      item.onmouseout = () => {
+        item.style.backgroundColor = "transparent";
+      };
+      item.onclick = (e) => {
+        e.stopPropagation();
+        menu.remove();
+        this.isLayoutMenuOpen = false;
+        if (this.onAddSlideWithLayoutCallback) {
+          this.onAddSlideWithLayoutCallback(l.type);
+        } else if (this.onAddSlideCallback) {
+          this.onAddSlideCallback();
+        }
+      };
+      menu.appendChild(item);
+    });
+
+    parent.appendChild(menu);
+    this.isLayoutMenuOpen = true;
   }
 
   private render() {
@@ -61,26 +137,54 @@ export class SlideSorter {
     header.style.display = "flex";
     header.style.justifyContent = "space-between";
     header.style.alignItems = "center";
+    header.style.position = "relative";
+    header.style.padding = "6px 8px";
 
     const titleSpan = document.createElement("span");
+    titleSpan.className = "slide-count-badge";
     titleSpan.textContent = `Slides (${this.slides.length})`;
     header.appendChild(titleSpan);
 
+    const btnGroup = document.createElement("div");
+    btnGroup.style.display = "flex";
+    btnGroup.style.alignItems = "center";
+    btnGroup.style.gap = "2px";
+
     const addBtn = document.createElement("button");
     addBtn.className = "btn-sidebar-add";
+    addBtn.setAttribute("data-testid", "btn-new-slide");
     addBtn.style.padding = "2px 8px";
     addBtn.style.fontSize = "12px";
+    addBtn.style.fontWeight = "500";
     addBtn.style.cursor = "pointer";
     addBtn.style.borderRadius = "4px";
     addBtn.style.border = "1px solid #cbd5e1";
     addBtn.style.background = "#f8fafc";
-    addBtn.textContent = "+ Slide";
+    addBtn.textContent = "+ New Slide";
     addBtn.onclick = (e) => {
       e.stopPropagation();
       if (this.onAddSlideCallback) this.onAddSlideCallback();
     };
-    header.appendChild(addBtn);
+    btnGroup.appendChild(addBtn);
 
+    const dropdownBtn = document.createElement("button");
+    dropdownBtn.className = "btn-sidebar-layout-dropdown";
+    dropdownBtn.setAttribute("data-testid", "btn-layout-dropdown");
+    dropdownBtn.style.padding = "2px 5px";
+    dropdownBtn.style.fontSize = "10px";
+    dropdownBtn.style.cursor = "pointer";
+    dropdownBtn.style.borderRadius = "4px";
+    dropdownBtn.style.border = "1px solid #cbd5e1";
+    dropdownBtn.style.background = "#f8fafc";
+    dropdownBtn.textContent = "▼";
+    dropdownBtn.title = "Choose Slide Layout";
+    dropdownBtn.onclick = (e) => {
+      e.stopPropagation();
+      this.toggleLayoutMenu(header);
+    };
+    btnGroup.appendChild(dropdownBtn);
+
+    header.appendChild(btnGroup);
     this.container.appendChild(header);
 
     const filmstrip = document.createElement("div");
@@ -182,6 +286,8 @@ export class SlideSorter {
       const upBtn = document.createElement("button");
       upBtn.title = "Move Slide Up";
       upBtn.textContent = "▲";
+      upBtn.setAttribute("data-action", "move-up");
+      upBtn.setAttribute("data-testid", `btn-move-up-${idx}`);
       upBtn.style.fontSize = "9px";
       upBtn.style.cursor = "pointer";
       upBtn.style.background = "transparent";
@@ -195,6 +301,8 @@ export class SlideSorter {
       const downBtn = document.createElement("button");
       downBtn.title = "Move Slide Down";
       downBtn.textContent = "▼";
+      downBtn.setAttribute("data-action", "move-down");
+      downBtn.setAttribute("data-testid", `btn-move-down-${idx}`);
       downBtn.style.fontSize = "9px";
       downBtn.style.cursor = "pointer";
       downBtn.style.background = "transparent";
@@ -208,6 +316,8 @@ export class SlideSorter {
       const dupBtn = document.createElement("button");
       dupBtn.title = "Duplicate Slide";
       dupBtn.textContent = "📋";
+      dupBtn.setAttribute("data-action", "duplicate");
+      dupBtn.setAttribute("data-testid", `btn-duplicate-${idx}`);
       dupBtn.style.fontSize = "9px";
       dupBtn.style.cursor = "pointer";
       dupBtn.style.background = "transparent";
@@ -221,6 +331,8 @@ export class SlideSorter {
       const hideBtn = document.createElement("button");
       hideBtn.title = slide.isHidden ? "Unhide Slide" : "Hide Slide";
       hideBtn.textContent = slide.isHidden ? "👁️‍🗨️" : "👁️";
+      hideBtn.setAttribute("data-action", "toggle-hide");
+      hideBtn.setAttribute("data-testid", `btn-toggle-hide-${idx}`);
       hideBtn.style.fontSize = "9px";
       hideBtn.style.cursor = "pointer";
       hideBtn.style.background = "transparent";
@@ -234,6 +346,8 @@ export class SlideSorter {
       const delBtn = document.createElement("button");
       delBtn.title = "Delete Slide";
       delBtn.textContent = "🗑️";
+      delBtn.setAttribute("data-action", "delete");
+      delBtn.setAttribute("data-testid", `btn-delete-${idx}`);
       delBtn.style.fontSize = "9px";
       delBtn.style.cursor = "pointer";
       delBtn.style.background = "transparent";

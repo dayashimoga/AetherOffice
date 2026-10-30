@@ -166,144 +166,94 @@ export class SlidesState {
     {
       id: "s1",
       title: "Title Slide",
+      layout: "title",
       shapes: [
         {
           id: "sh1",
           type: "text",
           x: 100,
-          y: 120,
+          y: 150,
           w: 760,
-          h: 70,
+          h: 80,
           fill: "transparent",
-          text: "OpenOfficeRS Presentation",
+          text: "Click to add title",
           textColor: "#1e293b",
-          fontSize: 38,
+          fontSize: 40,
+          bold: true,
           rotation: 0,
         },
         {
           id: "sh2",
-          type: "rect",
-          x: 100,
-          y: 200,
-          w: 360,
-          h: 6,
-          fill: "#c43e1c",
-          rotation: 0,
-        },
-        {
-          id: "sh3",
-          type: "roundRect",
-          x: 100,
-          y: 240,
-          w: 220,
-          h: 120,
-          fill: "#2563eb",
-          stroke: "#1d4ed8",
-          strokeWidth: 2,
-          rotation: 0,
-        },
-        {
-          id: "sh4",
-          type: "ellipse",
-          x: 360,
-          y: 240,
-          w: 140,
-          h: 120,
-          fill: "#10b981",
-          stroke: "#059669",
-          strokeWidth: 2,
-          rotation: 0,
-        },
-        {
-          id: "sh5",
-          type: "star",
-          x: 540,
-          y: 240,
-          w: 130,
-          h: 120,
-          fill: "#f59e0b",
-          stroke: "#d97706",
-          strokeWidth: 2,
-          rotation: 0,
-        },
-      ],
-    },
-    {
-      id: "s2",
-      title: "Problem Statement",
-      shapes: [
-        {
-          id: "sh2_1",
           type: "text",
-          x: 80,
-          y: 80,
-          w: 800,
+          x: 100,
+          y: 260,
+          w: 760,
           h: 60,
           fill: "transparent",
-          text: "Market Need & Clean-Room Architecture",
-          textColor: "#1e293b",
-          fontSize: 32,
-        },
-        {
-          id: "sh2_2",
-          type: "roundRect",
-          x: 80,
-          y: 180,
-          w: 380,
-          h: 220,
-          fill: "#f8fafc",
-          stroke: "#cbd5e1",
-          strokeWidth: 1.5,
-          text: "Legacy suites suffer from high idle memory (>180MB) and sluggish 60Hz viewport redraws.",
-          textColor: "#334155",
-          fontSize: 18,
-        },
-        {
-          id: "sh2_3",
-          type: "roundRect",
-          x: 500,
-          y: 180,
-          w: 380,
-          h: 220,
-          fill: "#f0fdf4",
-          stroke: "#86efac",
-          strokeWidth: 1.5,
-          text: "OpenOfficeRS delivers sub-millisecond Piece-Tree Word & 120 FPS WebGPU vector slides.",
-          textColor: "#166534",
-          fontSize: 18,
-        },
-      ],
-    },
-    {
-      id: "s3",
-      title: "Solution & Demo",
-      shapes: [
-        {
-          id: "sh3_1",
-          type: "text",
-          x: 80,
-          y: 80,
-          w: 800,
-          h: 60,
-          fill: "transparent",
-          text: "",
-          textColor: "#1e293b",
-          fontSize: 32,
-        },
-        {
-          id: "sh3_2",
-          type: "star",
-          x: 120,
-          y: 180,
-          w: 200,
-          h: 200,
-          fill: "#c43e1c",
-          stroke: "#991b1b",
-          strokeWidth: 2,
+          text: "Click to add subtitle",
+          textColor: "#64748b",
+          fontSize: 22,
+          rotation: 0,
         },
       ],
     },
   ];
+
+  public resetToBlank(_title = "Presentation 1.pptx") {
+    const isDark =
+      this.currentTheme === "DarkMode" || this.currentTheme === "HighContrast";
+    const textColor = isDark ? "#ffffff" : "#1e293b";
+    const subColor = isDark ? "#94a3b8" : "#64748b";
+
+    this.slides = [
+      {
+        id: "s1",
+        title: "Title Slide",
+        layout: "title",
+        shapes: [
+          {
+            id: "sh1",
+            type: "text",
+            x: 100,
+            y: 150,
+            w: 760,
+            h: 80,
+            fill: "transparent",
+            text: "Click to add title",
+            textColor,
+            fontSize: 40,
+            bold: true,
+            rotation: 0,
+          },
+          {
+            id: "sh2",
+            type: "text",
+            x: 100,
+            y: 260,
+            w: 760,
+            h: 60,
+            fill: "transparent",
+            text: "Click to add subtitle",
+            textColor: subColor,
+            fontSize: 22,
+            rotation: 0,
+          },
+        ],
+      },
+    ];
+    this.currentSlideIndex = 0;
+    this.selectedShapeId = null;
+    this.undoStack = [];
+    this.redoStack = [];
+    this.nextShapeCounter = 10;
+    this.nextSlideCounter = 1;
+    this.isShowActive = false;
+    this.isPresenterMode = false;
+    this.currentShowStep = 0;
+    this.isLaserActive = false;
+    this.laserPos = null;
+    this.selectedAnimationId = null;
+  }
 
   currentSlideIndex = 0;
   selectedShapeId: string | null = null;

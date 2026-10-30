@@ -68,6 +68,96 @@ describe("Interactive Slide Canvas: Drag, 8-Point Resize, Rotate & In-Place Text
     `;
 
     state = new SlidesState();
+    state.slides = [
+      {
+        id: "s1",
+        title: "Title Slide",
+        shapes: [
+          {
+            id: "sh1",
+            type: "text",
+            x: 100,
+            y: 120,
+            w: 760,
+            h: 70,
+            fill: "transparent",
+            text: "OpenOfficeRS Presentation",
+            textColor: "#1e293b",
+            fontSize: 38,
+            rotation: 0,
+          },
+          {
+            id: "sh2",
+            type: "rect",
+            x: 100,
+            y: 200,
+            w: 360,
+            h: 6,
+            fill: "#c43e1c",
+            rotation: 0,
+          },
+          {
+            id: "sh3",
+            type: "roundRect",
+            x: 100,
+            y: 240,
+            w: 220,
+            h: 120,
+            fill: "#2563eb",
+            stroke: "#1d4ed8",
+            strokeWidth: 2,
+            rotation: 0,
+          },
+          {
+            id: "sh4",
+            type: "ellipse",
+            x: 360,
+            y: 240,
+            w: 140,
+            h: 120,
+            fill: "#10b981",
+            stroke: "#059669",
+            strokeWidth: 2,
+            rotation: 0,
+          },
+          {
+            id: "sh5",
+            type: "star",
+            x: 540,
+            y: 240,
+            w: 130,
+            h: 120,
+            fill: "#f59e0b",
+            stroke: "#d97706",
+            strokeWidth: 2,
+            rotation: 0,
+          },
+        ],
+      },
+      {
+        id: "s2",
+        title: "Problem Statement",
+        shapes: [
+          {
+            id: "sh2_1",
+            type: "text",
+            x: 80,
+            y: 80,
+            w: 800,
+            h: 60,
+            fill: "transparent",
+            text: "Market Need & Clean-Room Architecture",
+            textColor: "#1e293b",
+            fontSize: 32,
+          },
+        ],
+      },
+      {
+        id: "s3",
+        title: "Solution & Demo",
+        shapes: [],
+      },
+    ];
     viewportContainer = document.getElementById("viewport-container")!;
     canvasComponent = new SlideStageCanvas(viewportContainer, state);
   });

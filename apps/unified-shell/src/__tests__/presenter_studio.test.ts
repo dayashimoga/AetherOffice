@@ -69,6 +69,10 @@ describe("Presenter Studio Dual-Screen Mode & Audience Annotation Laser (Subphas
     `;
 
     state = new SlidesState();
+    while (state.slides.length < 3) {
+      state.addSlide();
+    }
+    state.selectSlide(0);
     state.selectSlide(0);
     state.slides[0].notes = "Welcome to the presentation!\nKey point 1: High performance Rust.";
     state.slides[1].notes = "Architecture breakdown and benchmarks.";

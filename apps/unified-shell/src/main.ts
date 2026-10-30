@@ -452,6 +452,9 @@ export class UnifiedShellApp {
         const title = initialFile
           ? initialFile.split(/[/\\]/).pop() || "Presentation1.pptx"
           : "Presentation1.pptx";
+        if (!initialFile) {
+          slidesState.resetToBlank(title);
+        }
         this.tabBar.addTab({
           id: "tab-slides-1",
           docType: "PowerPoint",
@@ -875,6 +878,13 @@ export class UnifiedShellApp {
           this.updateSlideSorter();
           this.tabBar.setDirty(tab.id, true);
         },
+        onAddSlideWithLayout: (layout) => {
+          slidesState.addSlideWithLayout(layout);
+          this.slideStageCanvas?.render();
+          this.slideMediaOverlay?.refresh();
+          this.updateSlideSorter();
+          this.tabBar.setDirty(tab.id, true);
+        },
         onDuplicateSlide: (idx) => {
           slidesState.duplicateSlide(idx);
           this.slideStageCanvas?.render();
@@ -1124,7 +1134,10 @@ export class UnifiedShellApp {
       } else if (tab.docType === "Notes") {
         docInfo.textContent = "Notepad / Notes";
       } else {
-        docInfo.textContent = tab.docType === "PowerPoint" ? "Slide 1 of 3" : "Page 1 of 1";
+        docInfo.textContent =
+          tab.docType === "PowerPoint"
+            ? `Slide ${slidesState.currentSlideIndex + 1} of ${slidesState.slides.length}`
+            : "Page 1 of 1";
       }
     }
   }
@@ -1159,6 +1172,11 @@ export class UnifiedShellApp {
       this.calcGridCanvas?.render();
       this.sheetTabBar?.refresh();
       this.workbookSheetsPane?.refresh();
+    } else if (type === "PowerPoint") {
+      slidesState.resetToBlank(defaultTitle);
+      this.slideStageCanvas?.render();
+      this.slideMediaOverlay?.refresh();
+      this.updateSlideSorter();
     }
 
     this.tabBar.addTab({

@@ -75,6 +75,10 @@ describe("Slides Home, Insert & Design Ribbons: Shapes, Images, Tables, Themes &
     `;
 
     state = new SlidesState();
+    while (state.slides.length < 2) {
+      state.addSlide();
+    }
+    state.selectSlide(0);
     viewportContainer = document.getElementById("viewport-container")!;
     canvasComponent = new SlideStageCanvas(viewportContainer, state);
     notesPane = new SpeakerNotesPane(viewportContainer, state);

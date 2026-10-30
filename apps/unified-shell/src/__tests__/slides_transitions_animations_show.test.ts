@@ -43,6 +43,10 @@ describe("Slides Transitions, Animations & Fullscreen Slide Show Engine (GEC-v2.
     HTMLCanvasElement.prototype.getContext = (() => mockCtx) as any;
 
     state = new SlidesState();
+    while (state.slides.length < 3) {
+      state.addSlide();
+    }
+    state.selectSlide(0);
     // Clean document body
     document.body.innerHTML = `
       <div id="app" class="desktop-shell">
@@ -400,6 +404,10 @@ describe("Slides Transitions, Animations & Fullscreen Slide Show Engine (GEC-v2.
 
     beforeEach(() => {
       app = new UnifiedShellApp(false);
+      while (slidesState.slides.length < 3) {
+        slidesState.addSlide();
+      }
+      slidesState.selectSlide(0);
       app.getTabBar().addTab({
         id: "tab-slides-1",
         docType: "PowerPoint",

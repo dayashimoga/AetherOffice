@@ -39,6 +39,7 @@ export class SlideStageCanvas {
   private activeGuides: AlignmentGuide[] = [];
   private inlineEditor: HTMLTextAreaElement | null = null;
   private editingShapeId: string | null = null;
+  private hasMoved = false;
 
   constructor(container: HTMLElement, state: SlidesState = slidesState) {
     this.container = container;
@@ -215,16 +216,39 @@ export class SlideStageCanvas {
       this.handleMouseUp();
     });
 
-    // 4. Double Click: In-Place Text Editing
+    // 4. Click: In-Place Text Editing on Text/Placeholder click
+    this.canvas.addEventListener("click", (e: MouseEvent) => {
+      const pt = this.getCanvasPoint(e);
+      this.handleClick(pt);
+    });
+
+    // 5. Double Click: In-Place Text Editing
     this.canvas.addEventListener("dblclick", (e: MouseEvent) => {
       const pt = this.getCanvasPoint(e);
       this.handleDblClick(pt);
     });
 
-    // 5. Keyboard Shortcuts on Canvas
+    // 6. Keyboard Shortcuts on Canvas
     this.canvas.addEventListener("keydown", (e: KeyboardEvent) => {
       const selected = this.state.getSelectedShape();
       if (!selected) return;
+
+      if (!this.inlineEditor && !e.ctrlKey && !e.altKey && !e.metaKey && (e.key.length === 1 || e.key === "Enter")) {
+        e.preventDefault();
+        const editor = this.startInlineEditing(selected);
+        if (
+          selected.text === "Click to add title" ||
+          selected.text === "Click to add subtitle" ||
+          selected.text === "Click to add text"
+        ) {
+          editor.value = e.key === "Enter" ? "" : e.key;
+          selected.text = editor.value;
+        } else if (e.key.length === 1) {
+          editor.value += e.key;
+          selected.text = editor.value;
+        }
+        return;
+      }
 
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
@@ -261,6 +285,7 @@ export class SlideStageCanvas {
   }
 
   public handleMouseDown(pt: { x: number; y: number }, _shiftKey = false) {
+    this.hasMoved = false;
     // If we're currently inline editing, finish it first
     if (this.inlineEditor) {
       this.finishInlineEditing();
@@ -364,8 +389,9 @@ export class SlideStageCanvas {
     }
   }
 
-  public startInlineEditing(shape: SlideShape) {
+  public startInlineEditing(shape: SlideShape): HTMLTextAreaElement {
     this.finishInlineEditing();
+    this.state.commitSnapshot();
 
     const editor = document.createElement("textarea");
     editor.className = "slide-inline-text-editor";
@@ -422,6 +448,7 @@ export class SlideStageCanvas {
     editor.focus();
     editor.select();
     this.render();
+    return editor;
   }
 
   public finishInlineEditing(targetShape?: SlideShape, text?: string) {
@@ -435,7 +462,6 @@ export class SlideStageCanvas {
     }
     this.inlineEditor = null;
     this.editingShapeId = null;
-    this.state.commitSnapshot();
     this.render();
     if (this.onDirtyCallback) this.onDirtyCallback();
   }
@@ -453,6 +479,32 @@ export class SlideStageCanvas {
 
   public simulateMouseUp() {
     this.handleMouseUp();
+  }
+
+  public handleClick(pt: { x: number; y: number }) {
+    if (this.hasMoved) return;
+    const slide = this.state.slides[this.state.currentSlideIndex];
+    if (!slide) return;
+
+    let hitShape: SlideShape | null = null;
+    for (let i = slide.shapes.length - 1; i >= 0; i--) {
+      const sh = slide.shapes[i];
+      if (pt.x >= sh.x && pt.x <= sh.x + sh.w && pt.y >= sh.y && pt.y <= sh.y + sh.h) {
+        hitShape = sh;
+        break;
+      }
+    }
+
+    if (hitShape && (hitShape.type === "text" || hitShape.text !== undefined)) {
+      this.state.selectShape(hitShape.id);
+      this.startInlineEditing(hitShape);
+    }
+  }
+
+  public simulateClick(x: number, y: number) {
+    this.handleMouseDown({ x, y });
+    this.handleMouseUp();
+    this.handleClick({ x, y });
   }
 
   public simulateDblClick(x: number, y: number) {
@@ -479,6 +531,7 @@ export class SlideStageCanvas {
   }
 
   public handleDragMove(pt: { x: number; y: number }, shiftKey: boolean) {
+    this.hasMoved = true;
     const selected = this.state.getSelectedShape();
     if (!selected || !this.dragMode) return;
 
