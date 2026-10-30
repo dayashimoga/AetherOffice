@@ -190,6 +190,13 @@ export class CalcRibbon implements AppRibbonComponent {
     editRow.appendChild(createRibbonButton("Find & Select", "🔍 Find", () => emit("Find")));
     editGroup.appendChild(editRow);
     body.appendChild(editGroup);
+
+    // 6. Copilot (Subphase 20.1.3)
+    const copilotGroup = createRibbonGroup("Copilot");
+    copilotGroup.appendChild(
+      createRibbonButton("Aether Copilot", "✨ Copilot", () => emit("ToggleCopilot"), false, "calc-btn-copilot")
+    );
+    body.appendChild(copilotGroup);
   }
 
   private renderInsertTab(body: HTMLElement, emit: RibbonActionEmitter) {
@@ -404,6 +411,13 @@ export class CalcRibbon implements AppRibbonComponent {
     noteGroup.appendChild(createRibbonButton("New Note", "💬 New Note", () => emit("NewNote")));
     noteGroup.appendChild(createRibbonButton("Show All Notes", "Show All Notes", () => emit("ShowAllNotes"), true));
     body.appendChild(noteGroup);
+
+    // 4. Copilot (Subphase 20.1.3)
+    const copilotReviewGroup = createRibbonGroup("Copilot");
+    copilotReviewGroup.appendChild(
+      createRibbonButton("Aether Copilot", "✨ Copilot", () => emit("ToggleCopilot"), false, "calc-btn-copilot-review")
+    );
+    body.appendChild(copilotReviewGroup);
   }
 
   private renderViewTab(body: HTMLElement, emit: RibbonActionEmitter) {

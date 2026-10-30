@@ -44,6 +44,7 @@ export class WriterCanvas {
   private isMouseDown = false;
   private onStatusChange?: (pageText: string, words: number) => void;
   private onDocModifiedCallback?: (action: string, payload?: unknown) => void;
+  private ghostText: string | null = null;
 
   // Cached layout lines for hit testing and subpixel caret placement
   private layoutPages: LayoutPage[] = [];
@@ -281,6 +282,23 @@ export class WriterCanvas {
 
   public handleKeyDown(e: KeyboardEvent) {
     this.resetBlink();
+
+    // Inline Ghost Text Handling (Subphase 20.1.3: Tab to accept, Esc to dismiss)
+    if (this.ghostText) {
+      if (e.key === "Tab") {
+        e.preventDefault();
+        this.acceptGhostText();
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        this.dismissGhostText();
+        return;
+      }
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+        this.dismissGhostText();
+      }
+    }
 
     // 1. Page Break via Ctrl+Enter
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
@@ -1108,10 +1126,23 @@ export class WriterCanvas {
           }
         }
 
-        // 6. Caret Rendering
+        // 6. Caret & Inline Ghost Text Rendering
         if (this.caretVisible && caretRenderCoords && caretRenderCoords.canvasIndex === pIdx) {
           ctx.fillStyle = "#000000";
           ctx.fillRect(caretRenderCoords.x, caretRenderCoords.y, 2, caretRenderCoords.height);
+
+          // Inline Ghost Text Completion Overlay (Subphase 20.1.3)
+          if (this.ghostText) {
+            ctx.save();
+            ctx.font = "italic 14px " + (this.state.activeFormatting?.font || "Calibri");
+            ctx.fillStyle = "#9ca3af";
+            ctx.fillText(
+              this.ghostText,
+              caretRenderCoords.x + 4,
+              caretRenderCoords.y + caretRenderCoords.height * 0.8
+            );
+            ctx.restore();
+          }
         }
 
         // 7. Remote Peer Awareness (Subphase 14.2.2)
@@ -1271,6 +1302,31 @@ export class WriterCanvas {
       advances.push(ctx.measureText(char).width);
     }
     return advances;
+  }
+
+  public setGhostText(text: string | null): void {
+    this.ghostText = text;
+    this.render();
+  }
+
+  public getGhostText(): string | null {
+    return this.ghostText;
+  }
+
+  public acceptGhostText(): boolean {
+    if (!this.ghostText) return false;
+    const textToInsert = this.ghostText;
+    this.ghostText = null;
+    this.typeText(textToInsert);
+    this.emitDocChange("AcceptGhostText", { text: textToInsert });
+    return true;
+  }
+
+  public dismissGhostText(): void {
+    if (this.ghostText) {
+      this.ghostText = null;
+      this.render();
+    }
   }
 
   private updateStatus() {

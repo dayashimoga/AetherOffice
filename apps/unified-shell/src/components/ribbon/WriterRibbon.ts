@@ -154,6 +154,13 @@ export class WriterRibbon implements AppRibbonComponent {
     editGroup.appendChild(createRibbonButton("Replace", "🔄 Replace", () => emit("Replace")));
     editGroup.appendChild(createRibbonButton("Select All", "Select All", () => emit("SelectAll")));
     body.appendChild(editGroup);
+
+    // 6. Copilot Group (Subphase 20.1.3)
+    const copilotGroup = createRibbonGroup("Copilot");
+    copilotGroup.appendChild(
+      createRibbonButton("Aether Copilot", "✨ Copilot", () => emit("ToggleCopilot"), false, "btn-copilot")
+    );
+    body.appendChild(copilotGroup);
   }
 
   private renderInsertTab(body: HTMLElement, emit: RibbonActionEmitter) {
@@ -346,6 +353,13 @@ export class WriterRibbon implements AppRibbonComponent {
     trackRow.appendChild(createRibbonButton("Reject Change", "✕ Reject", () => emit("RejectChange"), false, "btn-reject-change"));
     trackGroup.appendChild(trackRow);
     body.appendChild(trackGroup);
+
+    // 5. Copilot Group (Subphase 20.1.3)
+    const copilotReviewGroup = createRibbonGroup("Copilot");
+    copilotReviewGroup.appendChild(
+      createRibbonButton("Aether Copilot", "✨ Copilot", () => emit("ToggleCopilot"), false, "btn-copilot-review")
+    );
+    body.appendChild(copilotReviewGroup);
   }
 
   private renderViewTab(body: HTMLElement, emit: RibbonActionEmitter) {

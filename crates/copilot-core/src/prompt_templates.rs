@@ -253,4 +253,3 @@ Include verbal transition into this slide and hook leading to the next slide.",
         }
     }
 }
-

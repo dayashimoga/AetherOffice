@@ -825,9 +825,9 @@
                           "title":  "Interactive AetherCopilot Assistant UI Sidebar \u0026 Inline Ghost Text",
                           "crate":  "unified-shell",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-20/subphase-20.1.3.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-30T06:11:36Z"
                       }
                   ]
 }

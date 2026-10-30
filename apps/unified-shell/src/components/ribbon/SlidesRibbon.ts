@@ -209,6 +209,13 @@ export class SlidesRibbon implements AppRibbonComponent {
     editGroup.appendChild(createRibbonButton("Replace", "🔄 Replace", () => emit("Replace")));
     editGroup.appendChild(createRibbonButton("Select All", "Select All", () => emit("SelectAll")));
     body.appendChild(editGroup);
+
+    // 8. Copilot (Subphase 20.1.3)
+    const copilotGroup = createRibbonGroup("Copilot");
+    copilotGroup.appendChild(
+      createRibbonButton("Aether Copilot", "✨ Copilot", () => emit("ToggleCopilot"), false, "slides-btn-copilot")
+    );
+    body.appendChild(copilotGroup);
   }
 
   private renderInsertTab(body: HTMLElement, emit: RibbonActionEmitter) {
@@ -493,6 +500,13 @@ export class SlidesRibbon implements AppRibbonComponent {
     const compGroup = createRibbonGroup("Compare");
     compGroup.appendChild(createRibbonButton("Compare Presentations", "📑 Compare", () => emit("Compare")));
     body.appendChild(compGroup);
+
+    // 4. Copilot (Subphase 20.1.3)
+    const copilotReviewGroup = createRibbonGroup("Copilot");
+    copilotReviewGroup.appendChild(
+      createRibbonButton("Aether Copilot", "✨ Copilot", () => emit("ToggleCopilot"), false, "slides-btn-copilot-review")
+    );
+    body.appendChild(copilotReviewGroup);
   }
 
   private renderViewTab(body: HTMLElement, emit: RibbonActionEmitter) {

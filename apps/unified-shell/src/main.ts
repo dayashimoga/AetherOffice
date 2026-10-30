@@ -42,6 +42,8 @@ import { PluginSidebar } from "./components/PluginSidebar";
 import { PluginManagerModal } from "./components/PluginManagerModal";
 import { SanitizeModal } from "./components/SanitizeModal";
 import { PivotFieldListSidebar } from "./components/PivotFieldListSidebar";
+import { CopilotSidebar } from "./components/CopilotSidebar";
+import { DiffPreviewModal } from "./components/DiffPreviewModal";
 import { pluginHost } from "./plugins/pluginHost";
 
 export class UnifiedShellApp {
@@ -84,6 +86,8 @@ export class UnifiedShellApp {
   private pluginManagerModal!: PluginManagerModal;
   private sanitizeModal!: SanitizeModal;
   private pivotFieldListSidebar!: PivotFieldListSidebar;
+  private copilotSidebar!: CopilotSidebar;
+  private diffPreviewModal!: DiffPreviewModal;
 
   constructor(autoBoot = true) {
     this.init(autoBoot);
@@ -106,6 +110,25 @@ export class UnifiedShellApp {
     this.pluginManagerModal = new PluginManagerModal("app");
     this.sanitizeModal = new SanitizeModal("app");
     this.pivotFieldListSidebar = new PivotFieldListSidebar();
+    this.diffPreviewModal = new DiffPreviewModal(document.getElementById("app") || document.body);
+    this.copilotSidebar = new CopilotSidebar("copilot-sidebar-container", {
+      onReviewDiff: (diff) => {
+        this.diffPreviewModal.open({
+          originalText: diff.original,
+          proposedText: diff.modified,
+          targetDescription: diff.targetRangeOrElement,
+          onApply: (appliedText) => {
+            const active = this.tabBar.getActiveTab();
+            if (active?.docType.toLowerCase() === "word" && this.writerCanvas) {
+              this.writerCanvas.typeText(appliedText);
+            } else if (active?.docType.toLowerCase() === "excel" && diff.targetRangeOrElement) {
+              calcState.setCellValue(diff.targetRangeOrElement, appliedText);
+              this.calcGridCanvas?.render();
+            }
+          },
+        });
+      },
+    });
     this.backstageMenu = new BackstageMenu("app");
     this.backstageMenu.setCallbacks({
       onClose: () => {
@@ -455,6 +478,14 @@ export class UnifiedShellApp {
     return this.pivotFieldListSidebar;
   }
 
+  public getCopilotSidebar(): CopilotSidebar {
+    return this.copilotSidebar;
+  }
+
+  public getDiffPreviewModal(): DiffPreviewModal {
+    return this.diffPreviewModal;
+  }
+
   public updateNavigationOutline() {
     if (!this.navPane || this.currentDocType !== "Word") return;
     const headings: { level: number; text: string; pageIndex: number; paragraphIndex: number }[] = [];
@@ -659,6 +690,11 @@ export class UnifiedShellApp {
 
     this.currentDocType = tab.docType;
     this.ribbon.setDocumentType(tab.docType);
+    if (this.copilotSidebar) {
+      const dt = tab.docType.toLowerCase();
+      const mode = dt === "word" ? "writer" : dt === "excel" ? "calc" : dt === "powerpoint" ? "slides" : "writer";
+      this.copilotSidebar.setMode(mode);
+    }
 
     // Update Sub-header bar
     const subHeader = document.getElementById("sub-header-container");
@@ -1047,6 +1083,16 @@ export class UnifiedShellApp {
     if (action === "InsertSlicer") {
       this.pivotFieldListSidebar.show();
       this.pivotFieldListSidebar.addSlicer("Region");
+      return;
+    }
+    if (action === "ToggleCopilot" || action === "OpenCopilot") {
+      const active = this.tabBar.getActiveTab();
+      if (active) {
+        const dt = active.docType.toLowerCase();
+        const mode = dt === "word" ? "writer" : dt === "excel" ? "calc" : dt === "powerpoint" ? "slides" : "writer";
+        this.copilotSidebar.setMode(mode);
+      }
+      this.copilotSidebar.toggle();
       return;
     }
     if (action.startsWith("TogglePluginSidebar:")) {
