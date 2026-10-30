@@ -866,9 +866,13 @@ export class CalcGridCanvas {
           ctx.fillStyle = condStyle?.color || cellData.color || "#1b1b1b";
           const fontStyle = cellData.italic ? "italic " : "";
           const fontWeight = cellData.bold ? "bold " : "";
-          ctx.font = `${fontStyle}${fontWeight}12px Calibri, sans-serif`;
+          const fontFamily = cellData.fontFamily || "Calibri, sans-serif";
+          const fontSize = cellData.fontSize || 12;
+          ctx.font = `${fontStyle}${fontWeight}${fontSize}px ${fontFamily}`;
 
-          const text = formatCellValue(cellData);
+          const text = this.state.showFormulas && cellData.raw?.startsWith("=")
+            ? cellData.raw
+            : formatCellValue(cellData);
           const isNum =
             cellData.format === "Currency" ||
             cellData.format === "Percentage" ||
@@ -912,6 +916,16 @@ export class CalcGridCanvas {
           }
 
           ctx.restore();
+
+          if (cellData.comment) {
+            ctx.fillStyle = "#ef4444";
+            ctx.beginPath();
+            ctx.moveTo(x + colWidth - 6, y);
+            ctx.lineTo(x + colWidth, y);
+            ctx.lineTo(x + colWidth, y + 6);
+            ctx.closePath();
+            ctx.fill();
+          }
         }
 
         // Filter dropdown arrow indicator

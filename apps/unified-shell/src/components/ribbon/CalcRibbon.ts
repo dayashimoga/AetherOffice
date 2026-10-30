@@ -175,6 +175,10 @@ export class CalcRibbon implements AppRibbonComponent {
     cellRow.className = "ribbon-group-row";
     cellRow.appendChild(createRibbonButton("Insert Cells", "➕ Insert", () => emit("InsertCells")));
     cellRow.appendChild(createRibbonButton("Delete Cells", "➖ Delete", () => emit("DeleteCells")));
+    cellRow.appendChild(createRibbonButton("Insert Row", "➕ Row", () => emit("InsertRow")));
+    cellRow.appendChild(createRibbonButton("Insert Col", "➕ Col", () => emit("InsertColumn")));
+    cellRow.appendChild(createRibbonButton("Delete Row", "➖ Row", () => emit("DeleteRow")));
+    cellRow.appendChild(createRibbonButton("Delete Col", "➖ Col", () => emit("DeleteColumn")));
     cellRow.appendChild(createRibbonButton("Format Cell", "📐 Format", () => emit("FormatCells")));
     cellGroup.appendChild(cellRow);
     body.appendChild(cellGroup);
@@ -250,6 +254,7 @@ export class CalcRibbon implements AppRibbonComponent {
     // 5. Links & Comments
     const linkGroup = createRibbonGroup("Links & Notes");
     linkGroup.appendChild(createRibbonButton("Link", "🔗 Link", () => emit("InsertLink")));
+    linkGroup.appendChild(createRibbonButton("Comment", "💬 Comment", () => emit("InsertComment")));
     linkGroup.appendChild(createRibbonButton("New Note", "📝 Note", () => emit("NewNote")));
     body.appendChild(linkGroup);
   }
@@ -301,6 +306,10 @@ export class CalcRibbon implements AppRibbonComponent {
     fnRow1.className = "ribbon-group-row";
     fnRow1.appendChild(createRibbonButton("Insert Function", "ƒx Insert", () => emit("InsertFunction")));
     fnRow1.appendChild(createRibbonButton("AutoSum", "Σ SUM", () => emit("AutoSum")));
+    fnRow1.appendChild(createRibbonButton("Average", "x̄ AVG", () => emit("AutoAverage")));
+    fnRow1.appendChild(createRibbonButton("Count", "123 Count", () => emit("AutoCount")));
+    fnRow1.appendChild(createRibbonButton("Max", "⬆ Max", () => emit("AutoMax")));
+    fnRow1.appendChild(createRibbonButton("Min", "⬇ Min", () => emit("AutoMin")));
     fnRow1.appendChild(createRibbonButton("Financial", "💰 Financial", () => emit("FormulaCategory", "financial")));
     fnRow1.appendChild(createRibbonButton("Logical", "⚖️ Logical", () => emit("FormulaCategory", "logical")));
     fnGroup.appendChild(fnRow1);

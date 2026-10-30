@@ -323,6 +323,9 @@ export class UnifiedShellApp {
         if (this.currentDocType === "Word" && this.writerCanvas) {
           this.writerCanvas.getState().setZoom(zoom);
           this.writerCanvas.render();
+        } else if (this.currentDocType === "Excel" && this.calcGridCanvas) {
+          calcState.setZoom(zoom);
+          this.calcGridCanvas.render();
         }
       };
     }
@@ -767,7 +770,12 @@ export class UnifiedShellApp {
     if (docInfo && this.currentDocType === "Excel") {
       const current = calcState.getActiveSheetIndex() + 1;
       const total = calcState.sheets.length;
-      docInfo.textContent = `Sheet ${current} of ${total}`;
+      const stats = calcState.getSelectedRangeStats();
+      if (stats.count > 1) {
+        docInfo.textContent = `Sheet ${current} of ${total} | Average: ${stats.average}  Count: ${stats.count}  Min: ${stats.min}  Max: ${stats.max}  Sum: ${stats.sum}`;
+      } else {
+        docInfo.textContent = `Sheet ${current} of ${total}`;
+      }
     }
   }
 
@@ -1006,7 +1014,7 @@ export class UnifiedShellApp {
           if (docInfo) {
             const current = calcState.getActiveSheetIndex() + 1;
             const total = calcState.sheets.length;
-            docInfo.textContent = `Sheet ${current} of ${total} | Average: ${stats.average}  Count: ${stats.count}  Sum: ${stats.sum}`;
+            docInfo.textContent = `Sheet ${current} of ${total} | Average: ${stats.average}  Count: ${stats.count}  Min: ${stats.min}  Max: ${stats.max}  Sum: ${stats.sum}`;
           }
         });
 
@@ -1443,6 +1451,14 @@ export class UnifiedShellApp {
         calcState.toggleUnderline();
         this.calcGridCanvas?.render();
         this.tabBar.setDirty(active.id, true);
+      } else if (action === "SetFontFamily") {
+        calcState.setFontFamily(String(payload || "Calibri"));
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "SetFontSize") {
+        calcState.setFontSize(Number(payload) || 11);
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
       } else if (action === "SetFontColor") {
         calcState.setFontColor(String(payload || "#15803d"));
         this.calcGridCanvas?.render();
@@ -1452,9 +1468,60 @@ export class UnifiedShellApp {
         this.calcGridCanvas?.render();
         this.tabBar.setDirty(active.id, true);
       } else if (action === "SetBorders") {
-        calcState.setBorders("all");
+        calcState.setBorders(String(payload || "all"));
         this.calcGridCanvas?.render();
         this.tabBar.setDirty(active.id, true);
+      } else if (action === "ClearCells" || action === "Clear" || action === "ClearAll") {
+        calcState.clearSelection();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "InsertCells") {
+        const cr = calcState.coordToColRow(calcState.selectedCell);
+        calcState.insertRow(cr.row);
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "DeleteCells") {
+        const cr = calcState.coordToColRow(calcState.selectedCell);
+        calcState.deleteRow(cr.row);
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "ShowFormulas") {
+        calcState.toggleShowFormulas();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "NewNote" || action === "InsertComment") {
+        calcState.insertComment(String(payload || "Comment"));
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "AutoAverage") {
+        const formula = calcState.insertAutoSum("AVERAGE");
+        this.formulaBar.setActiveCell(calcState.selectedCell, formula);
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "AutoCount") {
+        const formula = calcState.insertAutoSum("COUNT");
+        this.formulaBar.setActiveCell(calcState.selectedCell, formula);
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "AutoMax") {
+        const formula = calcState.insertAutoSum("MAX");
+        this.formulaBar.setActiveCell(calcState.selectedCell, formula);
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "AutoMin") {
+        const formula = calcState.insertAutoSum("MIN");
+        this.formulaBar.setActiveCell(calcState.selectedCell, formula);
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "Zoom100") {
+        calcState.setZoom(1.0);
+        this.calcGridCanvas?.render();
+      } else if (action === "ZoomIn") {
+        calcState.setZoom(Math.min(2.0, calcState.zoom + 0.1));
+        this.calcGridCanvas?.render();
+      } else if (action === "ZoomOut") {
+        calcState.setZoom(Math.max(0.5, calcState.zoom - 0.1));
+        this.calcGridCanvas?.render();
       } else if (action === "AlignLeft") {
         calcState.setAlignment("left");
         this.calcGridCanvas?.render();

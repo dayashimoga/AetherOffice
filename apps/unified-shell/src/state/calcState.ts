@@ -6,12 +6,15 @@ export interface CellData {
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
+  fontFamily?: string;
+  fontSize?: number;
   align?: "left" | "center" | "right";
   valign?: "top" | "middle" | "bottom";
   wrapText?: boolean;
   borders?: string;
   color?: string;
   bgColor?: string;
+  comment?: string;
 }
 
 export interface GridRange {
@@ -220,6 +223,8 @@ export class CalcState {
   formulaReferences: { range: GridRange; color: string }[] = [];
   clipboardData: ClipboardPayload | null = null;
   internalClipboardText: string = "";
+  showFormulas: boolean = false;
+  zoom: number = 1.0;
 
   public resetToBlank(sheetName = "Sheet1"): void {
     this.sheets = [
@@ -247,6 +252,8 @@ export class CalcState {
     this.internalClipboardText = "";
     this.undoStack = [];
     this.redoStack = [];
+    this.showFormulas = false;
+    this.zoom = 1.0;
   }
 
   // Backward compatibility getters & setters delegating to active sheet
@@ -713,6 +720,8 @@ export class CalcState {
       bold: current?.bold,
       italic: current?.italic,
       underline: current?.underline,
+      fontFamily: current?.fontFamily,
+      fontSize: current?.fontSize,
       format: current?.format,
       decimals: current?.decimals,
       align: current?.align,
@@ -721,6 +730,7 @@ export class CalcState {
       borders: current?.borders,
       color: current?.color,
       bgColor: current?.bgColor,
+      comment: current?.comment,
     });
     this.formulaBarText = val;
     this.recalculateAll();
@@ -1430,6 +1440,39 @@ export class CalcState {
     this.forEachCellInRange(range, (cell) => {
       cell.color = color;
     });
+  }
+
+  public setFontFamily(font: string, range?: GridRange): void {
+    this.forEachCellInRange(range, (cell) => {
+      cell.fontFamily = font;
+    });
+  }
+
+  public setFontSize(size: number, range?: GridRange): void {
+    this.forEachCellInRange(range, (cell) => {
+      cell.fontSize = size;
+    });
+  }
+
+  public clearSelection(range?: GridRange): void {
+    this.forEachCellInRange(range, (cell) => {
+      cell.raw = "";
+      cell.computed = "";
+    });
+  }
+
+  public insertComment(commentText: string): void {
+    const cell = this.getOrCreateCell(this.selectedCell);
+    cell.comment = commentText;
+  }
+
+  public toggleShowFormulas(): boolean {
+    this.showFormulas = !this.showFormulas;
+    return this.showFormulas;
+  }
+
+  public setZoom(zoom: number): void {
+    this.zoom = Math.max(0.5, Math.min(3.0, zoom));
   }
 
   public mergeAndCenter(range?: GridRange): void {
