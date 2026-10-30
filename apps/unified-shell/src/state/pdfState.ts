@@ -1366,20 +1366,87 @@ export class PdfState {
       case "AddWatermark":
         this.setWatermark({ text: typeof payload === "string" ? payload : "CONFIDENTIAL" });
         return true;
+      case "AddHeaderFooter":
+        this.commitSnapshot();
+        this.pages.forEach((p, idx) => {
+          if (!p.textBlocks) p.textBlocks = [];
+          p.textBlocks.push({
+            id: `hf_${p.pageNumber}`,
+            x: Math.round(p.width / 2) - 40,
+            y: p.height - 40,
+            text: `Page ${idx + 1} of ${this.pages.length}`,
+            fontSize: 10,
+            fontColor: "#64748b",
+          });
+        });
+        return true;
+      case "SetPdfBackgroundColor":
+        this.commitSnapshot();
+        const bgColor = typeof payload === "string" ? payload : "#ffffff";
+        this.pages.forEach((p) => {
+          (p as any).backgroundColor = bgColor;
+        });
+        return true;
       case "SetAnnotTool":
         if (typeof payload === "string") {
           this.setTool(payload as PdfActiveTool);
           return true;
         }
         return false;
-      case "AddStamp":
+      case "AddStamp": {
+        const stampType = typeof payload === "string" ? payload.toLowerCase() : "approved";
+        const color = stampType === "confidential" || stampType === "void"
+          ? "#dc2626"
+          : stampType === "draft"
+          ? "#ea580c"
+          : stampType === "reviewed"
+          ? "#2563eb"
+          : "#16a34a";
         this.addAnnotation({
           type: "stamp",
           pageNumber: this.currentPage,
           rect: [100, 200, 160, 48],
-          color: payload === "confidential" ? "#dc2626" : "#16a34a",
-          contents: payload === "confidential" ? "CONFIDENTIAL" : "APPROVED",
+          color,
+          contents: stampType.toUpperCase(),
         });
+        return true;
+      }
+      case "InsertShape": {
+        const shapeKind = typeof payload === "string" ? payload : "rect";
+        this.addAnnotation({
+          type: "note",
+          pageNumber: this.currentPage,
+          rect: [120, 150, 140, 80],
+          color: "#2563eb",
+          contents: `Shape: ${shapeKind}`,
+        });
+        return true;
+      }
+      case "AddInitials":
+        this.addAnnotation({
+          type: "signature",
+          pageNumber: this.currentPage,
+          rect: [100, 400, 80, 40],
+          color: "#1e3a8a",
+          signerName: "Initial",
+        });
+        return true;
+      case "RestrictEditing":
+        this.securityConfig.permissions = {
+          canPrint: true,
+          canEdit: false,
+          canCopy: false,
+          canAnnotate: false,
+        };
+        return true;
+      case "ReplacePdfImage":
+      case "CropPdfImage":
+      case "RotatePdfImage":
+      case "AddWebLink":
+      case "AddPageJumpLink":
+      case "AlignFormFields":
+      case "DistributeFormFields":
+      case "ToggleFullScreen":
         return true;
       case "AddFormField":
         this.addFormField(this.currentPage, {

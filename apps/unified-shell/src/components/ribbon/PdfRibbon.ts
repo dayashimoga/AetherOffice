@@ -126,12 +126,12 @@ export class PdfRibbon implements AppRibbonComponent {
     textRow2.appendChild(
       createRibbonSelect(["Segoe UI", "Helvetica", "Times", "Courier", "Arial"], "Segoe UI", (val) =>
         emit("SetPdfFontFamily", val)
-      )
+      , "pdf-select-font-family")
     );
     textRow2.appendChild(
       createRibbonSelect([10, 12, 14, 16, 18, 24, 32], 14, (val) =>
         emit("SetPdfFontSize", parseFloat(val))
-      )
+      , "pdf-select-font-size")
     );
     textRow2.appendChild(createRibbonButton("Text Color", "🎨 Color", () => emit("SetPdfTextColor", "#000000"), false, "pdf-btn-color"));
     textGroup.appendChild(textRow2);
@@ -142,19 +142,28 @@ export class PdfRibbon implements AppRibbonComponent {
     const imgRow = document.createElement("div");
     imgRow.className = "ribbon-group-row";
     imgRow.appendChild(createRibbonButton("Add Image", "🖼️ Add Image", () => emit("AddPdfImage"), false, "pdf-btn-add-image"));
-    imgRow.appendChild(createRibbonButton("Replace Image", "🔄 Replace", () => emit("ReplacePdfImage")));
-    imgRow.appendChild(createRibbonButton("Crop Image", "✂️ Crop", () => emit("CropPdfImage")));
-    imgRow.appendChild(createRibbonButton("Rotate Image", "⟳ Rotate", () => emit("RotatePdfImage")));
+    imgRow.appendChild(createRibbonButton("Replace Image", "🔄 Replace", () => emit("ReplacePdfImage"), false, "pdf-btn-replace-image"));
+    imgRow.appendChild(createRibbonButton("Crop Image", "✂️ Crop", () => emit("CropPdfImage"), false, "pdf-btn-crop-image"));
+    imgRow.appendChild(createRibbonButton("Rotate Image", "⟳ Rotate", () => emit("RotatePdfImage"), false, "pdf-btn-rotate-image"));
     imgGroup.appendChild(imgRow);
     body.appendChild(imgGroup);
 
-    // 3. Watermark & Links
-    const linkGroup = createRibbonGroup("Watermark & Links");
+    // 3. Watermark & Headers
+    const wmkGroup = createRibbonGroup("Watermark & Headers");
+    const wmkRow = document.createElement("div");
+    wmkRow.className = "ribbon-group-row";
+    wmkRow.appendChild(createRibbonButton("Add Watermark", "🌊 Watermark", () => emit("AddWatermark", "CONFIDENTIAL"), false, "pdf-btn-add-watermark"));
+    wmkRow.appendChild(createRibbonButton("Header & Footer", "📑 Header/Footer", () => emit("AddHeaderFooter"), false, "pdf-btn-header-footer"));
+    wmkRow.appendChild(createRibbonButton("Page Color", "🎨 Page Color", () => emit("SetPdfBackgroundColor", "#f8fafc"), false, "pdf-btn-bg-color"));
+    wmkGroup.appendChild(wmkRow);
+    body.appendChild(wmkGroup);
+
+    // 4. Links
+    const linkGroup = createRibbonGroup("Links");
     const linkRow = document.createElement("div");
     linkRow.className = "ribbon-group-row";
-    linkRow.appendChild(createRibbonButton("Add Watermark", "🌊 Watermark", () => emit("AddWatermark", "CONFIDENTIAL")));
-    linkRow.appendChild(createRibbonButton("Add Web Link", "🔗 Web Link", () => emit("AddWebLink")));
-    linkRow.appendChild(createRibbonButton("Page Jump Link", "📄 Page Link", () => emit("AddPageJumpLink")));
+    linkRow.appendChild(createRibbonButton("Add Web Link", "🔗 Web Link", () => emit("AddWebLink"), false, "pdf-btn-web-link"));
+    linkRow.appendChild(createRibbonButton("Page Jump Link", "📄 Page Link", () => emit("AddPageJumpLink"), false, "pdf-btn-page-link"));
     linkGroup.appendChild(linkRow);
     body.appendChild(linkGroup);
   }
@@ -167,14 +176,15 @@ export class PdfRibbon implements AppRibbonComponent {
     fldRow1.appendChild(createRibbonButton("Text Field", "🔤 Text Field", () => emit("AddFormField", "text"), false, "pdf-btn-form-text"));
     fldRow1.appendChild(createRibbonButton("Checkbox", "☑ Checkbox", () => emit("AddFormField", "checkbox"), false, "pdf-btn-form-checkbox"));
     fldRow1.appendChild(createRibbonButton("Radio Button", "🔘 Radio", () => emit("AddFormField", "radio"), false, "pdf-btn-form-radio"));
+    fldRow1.appendChild(createRibbonButton("Date Field", "📅 Date", () => emit("AddFormField", "date"), false, "pdf-btn-form-date"));
     fieldGroup.appendChild(fldRow1);
 
     const fldRow2 = document.createElement("div");
     fldRow2.className = "ribbon-group-row";
     fldRow2.appendChild(createRibbonButton("Dropdown", "▼ Dropdown", () => emit("AddFormField", "dropdown"), false, "pdf-btn-form-dropdown"));
-    fldRow2.appendChild(createRibbonButton("List Box", "≡ List Box", () => emit("AddFormField", "listbox")));
+    fldRow2.appendChild(createRibbonButton("List Box", "≡ List Box", () => emit("AddFormField", "listbox"), false, "pdf-btn-form-listbox"));
     fldRow2.appendChild(createRibbonButton("Signature Field", "✒️ Signature", () => emit("AddFormField", "signature"), false, "pdf-btn-form-sig"));
-    fldRow2.appendChild(createRibbonButton("Button", "🔲 Button", () => emit("AddFormField", "button")));
+    fldRow2.appendChild(createRibbonButton("Button", "🔲 Button", () => emit("AddFormField", "button"), false, "pdf-btn-form-btn"));
     fieldGroup.appendChild(fldRow2);
     body.appendChild(fieldGroup);
 
@@ -182,11 +192,11 @@ export class PdfRibbon implements AppRibbonComponent {
     const fldToolsGroup = createRibbonGroup("Field Tools");
     const fldToolRow = document.createElement("div");
     fldToolRow.className = "ribbon-group-row";
-    fldToolRow.appendChild(createRibbonButton("Align Left", "Align Left", () => emit("AlignFormFields", "left")));
-    fldToolRow.appendChild(createRibbonButton("Distribute", "Distribute", () => emit("DistributeFormFields")));
-    fldToolRow.appendChild(createRibbonButton("Clear Form", "🧹 Clear Form", () => emit("ClearFormData")));
-    fldToolRow.appendChild(createRibbonButton("Import Data", "📥 Import", () => emit("ImportFormData")));
-    fldToolRow.appendChild(createRibbonButton("Export Data", "📤 Export", () => emit("ExportFormData")));
+    fldToolRow.appendChild(createRibbonButton("Align Left", "Align Left", () => emit("AlignFormFields", "left"), false, "pdf-btn-form-align"));
+    fldToolRow.appendChild(createRibbonButton("Distribute", "Distribute", () => emit("DistributeFormFields"), false, "pdf-btn-form-distribute"));
+    fldToolRow.appendChild(createRibbonButton("Clear Form", "🧹 Clear Form", () => emit("ClearFormData"), false, "pdf-btn-form-clear"));
+    fldToolRow.appendChild(createRibbonButton("Import Data", "📥 Import", () => emit("ImportFormData"), false, "pdf-btn-form-import"));
+    fldToolRow.appendChild(createRibbonButton("Export Data", "📤 Export", () => emit("ExportFormData"), false, "pdf-btn-form-export"));
     fldToolsGroup.appendChild(fldToolRow);
     body.appendChild(fldToolsGroup);
   }
@@ -206,9 +216,13 @@ export class PdfRibbon implements AppRibbonComponent {
     annotRow2.className = "ribbon-group-row";
     annotRow2.appendChild(createRibbonButton("Pencil Draw", "✏️ Pencil", () => emit("SetAnnotTool", "pencil"), true, "pdf-btn-pencil"));
     annotRow2.appendChild(createRibbonButton("Eraser", "🧹 Eraser", () => emit("SetAnnotTool", "eraser"), true, "pdf-btn-eraser"));
-    annotRow2.appendChild(createRibbonButton("Callout Box", "💬 Callout", () => emit("SetAnnotTool", "callout")));
-    annotRow2.appendChild(createRibbonButton("Approved Stamp", "✅ Approved", () => emit("AddStamp", "approved")));
-    annotRow2.appendChild(createRibbonButton("Confidential", "🔒 Confidential", () => emit("AddStamp", "confidential")));
+    annotRow2.appendChild(createRibbonButton("Callout Box", "💬 Callout", () => emit("SetAnnotTool", "callout"), false, "pdf-btn-callout"));
+    annotRow2.appendChild(createRibbonButton("Approved Stamp", "✅ Approved", () => emit("AddStamp", "approved"), false, "pdf-btn-stamp-approved"));
+    annotRow2.appendChild(createRibbonButton("Confidential", "🔒 Confidential", () => emit("AddStamp", "confidential"), false, "pdf-btn-stamp-confidential"));
+    annotRow2.appendChild(createRibbonButton("Draft", "📝 Draft", () => emit("AddStamp", "draft"), false, "pdf-btn-stamp-draft"));
+    annotRow2.appendChild(createRibbonButton("Reviewed", "👀 Reviewed", () => emit("AddStamp", "reviewed"), false, "pdf-btn-stamp-reviewed"));
+    annotRow2.appendChild(createRibbonButton("Final", "🏁 Final", () => emit("AddStamp", "final"), false, "pdf-btn-stamp-final"));
+    annotRow2.appendChild(createRibbonButton("Void", "🚫 Void", () => emit("AddStamp", "void"), false, "pdf-btn-stamp-void"));
     annotGroup.appendChild(annotRow2);
     body.appendChild(annotGroup);
 
@@ -216,12 +230,21 @@ export class PdfRibbon implements AppRibbonComponent {
     const drawGroup = createRibbonGroup("Drawing");
     const drawRow = document.createElement("div");
     drawRow.className = "ribbon-group-row";
-    drawRow.appendChild(createRibbonButton("Line", "/ Line", () => emit("InsertShape", "line")));
-    drawRow.appendChild(createRibbonButton("Arrow", "➔ Arrow", () => emit("InsertShape", "arrow")));
-    drawRow.appendChild(createRibbonButton("Rectangle", "⬛ Rect", () => emit("InsertShape", "rect")));
-    drawRow.appendChild(createRibbonButton("Oval", "⚪ Oval", () => emit("InsertShape", "ellipse")));
+    drawRow.appendChild(createRibbonButton("Line", "/ Line", () => emit("InsertShape", "line"), false, "pdf-btn-shape-line"));
+    drawRow.appendChild(createRibbonButton("Arrow", "➔ Arrow", () => emit("InsertShape", "arrow"), false, "pdf-btn-shape-arrow"));
+    drawRow.appendChild(createRibbonButton("Rectangle", "⬛ Rect", () => emit("InsertShape", "rect"), false, "pdf-btn-shape-rect"));
+    drawRow.appendChild(createRibbonButton("Oval", "⚪ Oval", () => emit("InsertShape", "ellipse"), false, "pdf-btn-shape-oval"));
     drawGroup.appendChild(drawRow);
     body.appendChild(drawGroup);
+
+    // 3. Redaction
+    const redGroup = createRibbonGroup("Redaction");
+    const redRow = document.createElement("div");
+    redRow.className = "ribbon-group-row";
+    redRow.appendChild(createRibbonButton("Mark Redaction", "⬛ Mark Redact", () => emit("MarkRedaction"), true, "pdf-btn-redact"));
+    redRow.appendChild(createRibbonButton("Apply Redactions", "Apply Redactions", () => emit("ApplyRedactions"), false, "pdf-btn-apply-redact"));
+    redGroup.appendChild(redRow);
+    body.appendChild(redGroup);
   }
 
   private renderPageToolsTab(body: HTMLElement, emit: RibbonActionEmitter) {
@@ -271,7 +294,7 @@ export class PdfRibbon implements AppRibbonComponent {
     const signRow = document.createElement("div");
     signRow.className = "ribbon-group-row";
     signRow.appendChild(createRibbonButton("Add Signature", "✍️ Add Signature", () => emit("AddSignature"), false, "pdf-btn-add-signature"));
-    signRow.appendChild(createRibbonButton("Add Initials", "Initials", () => emit("AddInitials")));
+    signRow.appendChild(createRibbonButton("Add Initials", "Initials", () => emit("AddInitials"), false, "pdf-btn-add-initials"));
     signRow.appendChild(createRibbonButton("Sign Document", "✒️ Sign", () => emit("SignPdf"), false, "pdf-btn-sign"));
     signRow.appendChild(createRibbonButton("Export PDF", "💾 Export PDF", () => emit("ExportPdf"), false, "pdf-btn-export-pdf"));
     signGroup.appendChild(signRow);
@@ -284,7 +307,7 @@ export class PdfRibbon implements AppRibbonComponent {
     secRow.appendChild(createRibbonButton("Password Protect", "🔒 Encrypt Password", () => emit("EncryptPassword"), false, "pdf-btn-encrypt"));
     secRow.appendChild(createRibbonButton("Remove Security", "🔓 Decrypt Password", () => emit("DecryptPassword"), false, "pdf-btn-decrypt"));
     secRow.appendChild(createRibbonButton("Compress PDF", "🗜️ Compress", () => emit("CompressPdf"), false, "pdf-btn-compress"));
-    secRow.appendChild(createRibbonButton("Restrict Editing", "Restrict Editing", () => emit("RestrictEditing")));
+    secRow.appendChild(createRibbonButton("Restrict Editing", "Restrict Editing", () => emit("RestrictEditing"), false, "pdf-btn-restrict-editing"));
     secGroup.appendChild(secRow);
     body.appendChild(secGroup);
 
@@ -303,9 +326,9 @@ export class PdfRibbon implements AppRibbonComponent {
     const dispGroup = createRibbonGroup("Page Display");
     const dispRow = document.createElement("div");
     dispRow.className = "ribbon-group-row";
-    dispRow.appendChild(createRibbonButton("Single Page", "📄 Single Page", () => emit("SetPageLayout", "single")));
-    dispRow.appendChild(createRibbonButton("Continuous", "📜 Continuous", () => emit("SetPageLayout", "continuous")));
-    dispRow.appendChild(createRibbonButton("Two Pages", "📄📄 Two Pages", () => emit("SetPageLayout", "two-page")));
+    dispRow.appendChild(createRibbonButton("Single Page", "📄 Single Page", () => emit("SetPageLayout", "single"), false, "pdf-btn-view-single"));
+    dispRow.appendChild(createRibbonButton("Continuous", "📜 Continuous", () => emit("SetPageLayout", "continuous"), false, "pdf-btn-view-continuous"));
+    dispRow.appendChild(createRibbonButton("Two Pages", "📄📄 Two Pages", () => emit("SetPageLayout", "two-page"), false, "pdf-btn-view-twopage"));
     dispGroup.appendChild(dispRow);
     body.appendChild(dispGroup);
 
@@ -313,8 +336,8 @@ export class PdfRibbon implements AppRibbonComponent {
     const rotGroup = createRibbonGroup("Rotate View");
     const rotRow = document.createElement("div");
     rotRow.className = "ribbon-group-row";
-    rotRow.appendChild(createRibbonButton("Rotate View CW", "↷ View CW", () => emit("RotateView", 90)));
-    rotRow.appendChild(createRibbonButton("Rotate View CCW", "↶ View CCW", () => emit("RotateView", -90)));
+    rotRow.appendChild(createRibbonButton("Rotate View CW", "↷ View CW", () => emit("RotateView", 90), false, "pdf-btn-view-rot-cw"));
+    rotRow.appendChild(createRibbonButton("Rotate View CCW", "↶ View CCW", () => emit("RotateView", -90), false, "pdf-btn-view-rot-ccw"));
     rotGroup.appendChild(rotRow);
     body.appendChild(rotGroup);
 
@@ -322,10 +345,10 @@ export class PdfRibbon implements AppRibbonComponent {
     const paneGroup = createRibbonGroup("Navigation Panes");
     const paneRow = document.createElement("div");
     paneRow.className = "ribbon-group-row";
-    paneRow.appendChild(createRibbonButton("Bookmarks", "📑 Bookmarks", () => emit("ToggleBookmarks"), true));
-    paneRow.appendChild(createRibbonButton("Thumbnails", "🖼️ Thumbnails", () => emit("ToggleThumbnails"), true));
-    paneRow.appendChild(createRibbonButton("Attachments", "📎 Attachments", () => emit("ToggleAttachments"), true));
-    paneRow.appendChild(createRibbonButton("Full Screen", "⛶ Full Screen", () => emit("ToggleFullScreen")));
+    paneRow.appendChild(createRibbonButton("Bookmarks", "📑 Bookmarks", () => emit("ToggleBookmarks"), true, "pdf-btn-view-bookmarks"));
+    paneRow.appendChild(createRibbonButton("Thumbnails", "🖼️ Thumbnails", () => emit("ToggleThumbnails"), true, "pdf-btn-view-thumbnails"));
+    paneRow.appendChild(createRibbonButton("Attachments", "📎 Attachments", () => emit("ToggleAttachments"), true, "pdf-btn-view-attachments"));
+    paneRow.appendChild(createRibbonButton("Full Screen", "⛶ Full Screen", () => emit("ToggleFullScreen"), false, "pdf-btn-view-fullscreen"));
     paneGroup.appendChild(paneRow);
     body.appendChild(paneGroup);
   }
