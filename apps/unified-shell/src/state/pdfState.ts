@@ -211,6 +211,7 @@ export class PdfState {
   }
 
   public isEncrypted = false;
+  public isCompressed = false;
   public securityConfig: {
     isEncrypted: boolean;
     openPassword?: string;
@@ -592,6 +593,7 @@ export class PdfState {
   }
 
   public compressPdf(targetQuality = 0.75): { originalSizeBytes: number; compressedSizeBytes: number; savingsPercent: number } {
+    this.isCompressed = true;
     const origEstimate = this.pages.length * 150000 + (this.pages.reduce((acc, p) => acc + (p.imageBlocks?.length || 0), 0) * 350000);
     const compressedEstimate = Math.round(origEstimate * Math.max(0.3, targetQuality));
     const savings = Math.round(((origEstimate - compressedEstimate) / origEstimate) * 100);
@@ -628,6 +630,9 @@ export class PdfState {
 
   public resetToBlank(title = "Document 1.pdf"): void {
     this.createBlankPdf(1);
+    this.isCompressed = false;
+    this.isEncrypted = false;
+    this.securityConfig = { isEncrypted: false };
     if (this.pages[0]) {
       this.pages[0].title = title;
     }
