@@ -20,6 +20,9 @@ pub use collab_commands::*;
 pub mod macro_commands;
 pub use macro_commands::*;
 
+pub mod window_commands;
+pub use window_commands::*;
+
 pub struct ShellState {
     pub session_manager: Mutex<DesktopSessionManager>,
     pub formatting: Mutex<FormattingState>,
@@ -548,7 +551,10 @@ pub fn focus_app_instance(state: &ShellState, instance_id: &str) -> Result<bool,
 
 #[cfg(not(test))]
 pub fn run() {
-    if let Err(e) = tauri::Builder::default().run(tauri::generate_context!()) {
+    if let Err(e) = tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![window_commands::spawn_app_window])
+        .run(tauri::generate_context!())
+    {
         eprintln!("Error while running AetherOffice: {e}");
         std::process::exit(1);
     }
@@ -872,5 +878,27 @@ mod tests {
         assert!(result.success);
         assert!(result.gas_consumed > 0);
         assert!(result.error_message.is_none());
+    }
+
+    #[test]
+    fn test_create_app_window_metadata() {
+        let (label, title, url) = create_app_window_metadata("word", Some("doc1.docx"));
+        assert_eq!(label, "win-word");
+        assert_eq!(title, "Aether Word");
+        assert_eq!(url, "index.html?app=word&file=doc1.docx");
+
+        let (label_x, title_x, url_x) = create_app_window_metadata("excel", None);
+        assert_eq!(label_x, "win-excel");
+        assert_eq!(title_x, "Aether Excel");
+        assert_eq!(url_x, "index.html?app=excel");
+
+        let (_, title_p, _) = create_app_window_metadata("ppt", None);
+        assert_eq!(title_p, "Aether PowerPoint");
+
+        let (_, title_pdf, _) = create_app_window_metadata("pdf", None);
+        assert_eq!(title_pdf, "Aether PDF Studio");
+
+        let (_, title_n, _) = create_app_window_metadata("notes", None);
+        assert_eq!(title_n, "Aether Notes");
     }
 }

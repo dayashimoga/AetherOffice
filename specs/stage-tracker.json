@@ -1,8 +1,8 @@
 ﻿{
     "project":  "OpenOfficeRS",
-    "contract":  "GEC-v3.0",
-    "total_stages":  27,
-    "total_subphases":  89,
+    "contract":  "GEC-v4.0",
+    "total_stages":  34,
+    "total_subphases":  103,
     "subphases":  [
                       {
                           "id":  "1.1.1",
@@ -982,6 +982,160 @@
                           "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-27/subphase-27.1.2.md",
                           "completed_at":  "2026-10-30T11:06:39Z"
+                      },
+                      {
+                          "id":  "28.1.1",
+                          "stage":  28,
+                          "phase":  "28.1",
+                          "title":  "Separate App Windows Per Document Type + Shared Session Manager",
+                          "crate":  "render-core",
+                          "rea_required":  false,
+                          "status":  "COMPLETED",
+                          "prompt_file":  ".agents/stages/stage-28/subphase-28.1.1.md",
+                          "completed_at":  "2026-10-30T12:25:15Z"
+                      },
+                      {
+                          "id":  "28.1.2",
+                          "stage":  28,
+                          "phase":  "28.1",
+                          "title":  "Fix Ghost Word Sidebar Bug, Hide Alt-Badges \u0026 Fix Global Dark/Light Theme",
+                          "crate":  "render-core",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-28/subphase-28.1.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "28.2.1",
+                          "stage":  28,
+                          "phase":  "28.2",
+                          "title":  "Universal File Menu Backstage: Real Open, Save, Save As, Export \u0026 Print for All 5 Formats",
+                          "crate":  "ooxml-opc",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-28/subphase-28.2.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "29.1.1",
+                          "stage":  29,
+                          "phase":  "29.1",
+                          "title":  "Fix Word Typing, Cursor Focus, Multi-Page Creation \u0026 Draggable/Resizable Shapes",
+                          "crate":  "word-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-29/subphase-29.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "29.1.2",
+                          "stage":  29,
+                          "phase":  "29.1",
+                          "title":  "Fix Word Home, Insert \u0026 Layout Ribbons (100% Working Controls)",
+                          "crate":  "word-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-29/subphase-29.1.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "29.2.1",
+                          "stage":  29,
+                          "phase":  "29.2",
+                          "title":  "Fix Word References, Review \u0026 View Ribbons (100% Working Controls)",
+                          "crate":  "word-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-29/subphase-29.2.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "30.1.1",
+                          "stage":  30,
+                          "phase":  "30.1",
+                          "title":  "Excel Home, Insert \u0026 Page Layout Ribbons (100% Working Controls)",
+                          "crate":  "excel-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-30/subphase-30.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "30.1.2",
+                          "stage":  30,
+                          "phase":  "30.1",
+                          "title":  "Excel Formulas, Data, Review \u0026 View Ribbons (100% Working Controls)",
+                          "crate":  "excel-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-30/subphase-30.1.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "31.1.1",
+                          "stage":  31,
+                          "phase":  "31.1",
+                          "title":  "PowerPoint Home, Insert, Design \u0026 Transitions Ribbons (100% Working)",
+                          "crate":  "ppt-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-31/subphase-31.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "31.1.2",
+                          "stage":  31,
+                          "phase":  "31.1",
+                          "title":  "PowerPoint Animations, Slide Show, Review \u0026 View Ribbons (100% Working)",
+                          "crate":  "ppt-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-31/subphase-31.1.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "32.1.1",
+                          "stage":  32,
+                          "phase":  "32.1",
+                          "title":  "PDF Open/Save, Multi-Page Organizer, Page Resize \u0026 Password Encrypt/Decrypt",
+                          "crate":  "pdf-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-32/subphase-32.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "32.1.2",
+                          "stage":  32,
+                          "phase":  "32.1",
+                          "title":  "PDF Direct Text/Image Editing, Annotations, Redaction, Forms \u0026 Signatures",
+                          "crate":  "pdf-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-32/subphase-32.1.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "33.1.1",
+                          "stage":  33,
+                          "phase":  "33.1",
+                          "title":  "Notepad / Notes Open/Save (.txt/.md) \u0026 Complete Home, Edit, View, Markdown Ribbons",
+                          "crate":  "render-core",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-33/subphase-33.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "34.1.1",
+                          "stage":  34,
+                          "phase":  "34.1",
+                          "title":  "Automated Feature-Matrix Harness Testing Every Button in Word, Excel, PPT, PDF \u0026 TXT",
+                          "crate":  "render-core",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-34/subphase-34.1.1.md",
+                          "completed_at":  null
                       }
                   ]
 }

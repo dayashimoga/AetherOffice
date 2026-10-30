@@ -186,6 +186,11 @@ async function invokeTauri<T>(cmd: string, args?: Record<string, unknown>): Prom
       const id = args?.instance_id as string;
       return mockInstances.some((i) => i.instance_id === id) as unknown as T;
     }
+    if (cmd === "spawn_app_window") {
+      const type = (args?.app_type as string) || "word";
+      const winId = `win-${type}-${Date.now()}`;
+      return winId as unknown as T;
+    }
     if (cmd === "open_document") {
       const path = (args?.file_path as string) || "Document.docx";
       const filename = path.split(/[/\\]/).pop() || path;
@@ -334,5 +339,8 @@ export const IPC = {
 
   collabGetPeers: (sessionId: string): Promise<PeerPresence[]> =>
     invokeTauri("collab_get_peers", { session_id: sessionId }),
+
+  spawnAppWindow: (appType: string, filePath?: string): Promise<string> =>
+    invokeTauri("spawn_app_window", { app_type: appType, file_path: filePath }),
 };
 

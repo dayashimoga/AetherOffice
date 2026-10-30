@@ -12,9 +12,11 @@ export class TabBar {
   private container: HTMLElement;
   private tabs: TabItem[] = [];
   private activeTabId: string | null = null;
+  private filterDocType: DocumentType | null = null;
   private onTabChangeCallback?: (tab: TabItem) => void;
   private onTabCloseCallback?: (id: string) => void;
   private onNewTabCallback?: (docType?: DocumentType) => void;
+  private onTabPopoutCallback?: (tab: TabItem) => void;
   private outsideClickListener?: (e: MouseEvent) => void;
 
   constructor(containerId: string) {
@@ -28,10 +30,21 @@ export class TabBar {
     onTabChange?: (tab: TabItem) => void;
     onTabClose?: (id: string) => void;
     onNewTab?: (docType?: DocumentType) => void;
+    onTabPopout?: (tab: TabItem) => void;
   }) {
     this.onTabChangeCallback = callbacks.onTabChange;
     this.onTabCloseCallback = callbacks.onTabClose;
     this.onNewTabCallback = callbacks.onNewTab;
+    this.onTabPopoutCallback = callbacks.onTabPopout;
+  }
+
+  public setFilterDocType(docType: DocumentType | null) {
+    this.filterDocType = docType;
+    this.render();
+  }
+
+  public getFilterDocType(): DocumentType | null {
+    return this.filterDocType;
   }
 
   public addTab(tab: TabItem) {
@@ -113,7 +126,11 @@ export class TabBar {
   private render() {
     this.container.innerHTML = "";
 
-    this.tabs.forEach((tab) => {
+    const visibleTabs = this.filterDocType
+      ? this.tabs.filter((t) => t.docType === this.filterDocType)
+      : this.tabs;
+
+    visibleTabs.forEach((tab) => {
       const tabEl = document.createElement("div");
       tabEl.className = `tab-item ${tab.id === this.activeTabId ? "active" : ""}`;
       tabEl.onclick = () => this.switchTab(tab.id);
@@ -148,6 +165,18 @@ export class TabBar {
       label.className = "tab-title";
       label.textContent = tab.isDirty ? `${tab.title} *` : tab.title;
 
+      const popoutBtn = document.createElement("button");
+      popoutBtn.className = "tab-popout-btn";
+      popoutBtn.dataset.testid = "tab-popout-btn";
+      popoutBtn.title = "Open in New Window ↗";
+      popoutBtn.textContent = "↗";
+      popoutBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (this.onTabPopoutCallback) {
+          this.onTabPopoutCallback(tab);
+        }
+      };
+
       const closeBtn = document.createElement("button");
       closeBtn.className = "tab-close-btn";
       closeBtn.textContent = "×";
@@ -158,6 +187,7 @@ export class TabBar {
 
       tabEl.appendChild(icon);
       tabEl.appendChild(label);
+      tabEl.appendChild(popoutBtn);
       tabEl.appendChild(closeBtn);
       this.container.appendChild(tabEl);
     });
@@ -173,7 +203,7 @@ export class TabBar {
     addBtn.className = "tab-add-btn";
     addBtn.dataset.testid = "tab-add-btn";
     addBtn.textContent = "+";
-    addBtn.title = "New Document (Click for options)";
+    addBtn.title = this.filterDocType ? `New ${this.filterDocType} Document` : "New Document (Click for options)";
 
     const dropdown = document.createElement("div");
     dropdown.className = "tab-new-dropdown";
@@ -204,8 +234,12 @@ export class TabBar {
 
     addBtn.onclick = (e) => {
       e.stopPropagation();
-      const isVisible = dropdown.style.display === "block";
-      dropdown.style.display = isVisible ? "none" : "block";
+      if (this.filterDocType) {
+        if (this.onNewTabCallback) this.onNewTabCallback(this.filterDocType);
+      } else {
+        const isVisible = dropdown.style.display === "block";
+        dropdown.style.display = isVisible ? "none" : "block";
+      }
     };
 
     if (this.outsideClickListener) {

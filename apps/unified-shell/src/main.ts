@@ -48,6 +48,7 @@ import { PivotFieldListSidebar } from "./components/PivotFieldListSidebar";
 import { CopilotSidebar } from "./components/CopilotSidebar";
 import { DiffPreviewModal } from "./components/DiffPreviewModal";
 import { themeManager } from "./components/ThemeManager";
+import { OpenDocumentsDrawer } from "./components/OpenDocumentsDrawer";
 
 export function downloadFile(content: BlobPart, filename: string, mimeType = "application/octet-stream"): void {
   if (typeof window === "undefined" || !document) return;
@@ -107,12 +108,43 @@ export class UnifiedShellApp {
   private pivotFieldListSidebar!: PivotFieldListSidebar;
   private copilotSidebar!: CopilotSidebar;
   private diffPreviewModal!: DiffPreviewModal;
+  private openDocumentsDrawer!: OpenDocumentsDrawer;
+  private appFilter: DocumentType | null = null;
 
   constructor(autoBoot = true) {
     this.init(autoBoot);
   }
 
+  public getOpenDocumentsDrawer(): OpenDocumentsDrawer {
+    return this.openDocumentsDrawer;
+  }
+
+  public getAppFilter(): DocumentType | null {
+    return this.appFilter;
+  }
+
   public init(autoBoot = true) {
+    // 0. Parse Multi-Window App Query Parameter (?app=word|excel|ppt|pdf|notes)
+    const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    const appQuery = urlParams?.get("app")?.toLowerCase();
+    if (appQuery) {
+      if (appQuery === "word" || appQuery === "writer") this.appFilter = "Word";
+      else if (appQuery === "excel" || appQuery === "calc") this.appFilter = "Excel";
+      else if (appQuery === "ppt" || appQuery === "powerpoint" || appQuery === "slides") this.appFilter = "PowerPoint";
+      else if (appQuery === "pdf") this.appFilter = "PDF";
+      else if (appQuery === "notes" || appQuery === "notepad") this.appFilter = "Notes";
+    }
+
+    if (this.appFilter) {
+      const appNameEl = document.querySelector(".app-name");
+      if (appNameEl) {
+        appNameEl.textContent = `Aether ${this.appFilter}`;
+      }
+      if (typeof document !== "undefined") {
+        document.title = `Aether ${this.appFilter}`;
+      }
+    }
+
     // 0. Initialize Window Controls & Theme Engine
     this.initWindowControls();
     themeManager.init();
@@ -123,14 +155,66 @@ export class UnifiedShellApp {
       this.appRail = new AppRail(railContainer, {
         onSelectApp: (mode) => this.handleRailAppSelect(mode),
       });
+      if (this.appFilter) {
+        const railMode: RailAppMode =
+          this.appFilter === "Word"
+            ? "word"
+            : this.appFilter === "Excel"
+            ? "excel"
+            : this.appFilter === "PowerPoint"
+            ? "powerpoint"
+            : this.appFilter === "PDF"
+            ? "pdf"
+            : "notes";
+        this.appRail.setActiveApp(railMode);
+      }
+    }
+
+    // 0.2 Initialize Global Session & Auto-Save Open Documents Drawer
+    this.openDocumentsDrawer = new OpenDocumentsDrawer("app");
+    this.openDocumentsDrawer.setCallbacks({
+      onSelectDoc: (id, docType) => {
+        this.switchToOrCreateApp(docType);
+        this.tabBar.switchTab(id);
+      },
+      onPopoutDoc: (entry) => {
+        this.handlePopoutTab({
+          id: entry.id,
+          docType: entry.docType,
+          title: entry.title,
+          isDirty: entry.isDirty,
+          file_path: entry.filePath,
+        });
+      },
+      onCloseDoc: (id) => {
+        this.tabBar.closeTab(id);
+      },
+    });
+
+    const titleActions = document.querySelector(".title-actions");
+    if (titleActions && !document.getElementById("btn-all-open-files")) {
+      const allFilesBtn = document.createElement("button");
+      allFilesBtn.id = "btn-all-open-files";
+      allFilesBtn.className = "all-open-files-btn";
+      allFilesBtn.dataset.testid = "btn-all-open-files";
+      allFilesBtn.title = "View All Open Documents Across Apps (All Open Files)";
+      allFilesBtn.innerHTML = `<span class="files-icon">📑</span> <span class="files-label">All Open Files</span>`;
+      allFilesBtn.onclick = () => {
+        this.openDocumentsDrawer.toggle();
+      };
+      titleActions.insertBefore(allFilesBtn, titleActions.firstChild);
     }
 
     // 1. Initialize Tab Bar
     this.tabBar = new TabBar("tab-bar-container");
+    if (this.appFilter) {
+      this.tabBar.setFilterDocType(this.appFilter);
+    }
     this.tabBar.setCallbacks({
       onTabChange: (tab) => this.handleTabChange(tab),
       onTabClose: (id) => this.handleTabClose(id),
       onNewTab: (docType) => this.handleNewTab(docType),
+      onTabPopout: (tab) => this.handlePopoutTab(tab),
     });
 
     // 2. Initialize Ribbon
@@ -395,7 +479,17 @@ export class UnifiedShellApp {
   }
 
   public applyBootConfig(bootConfig: BootConfig) {
-    const mode = bootConfig.app_mode || "writer";
+    const mode = this.appFilter
+      ? this.appFilter === "Word"
+        ? "writer"
+        : this.appFilter === "Excel"
+        ? "calc"
+        : this.appFilter === "PowerPoint"
+        ? "slides"
+        : this.appFilter === "PDF"
+        ? "pdf"
+        : "notes"
+      : bootConfig.app_mode || "writer";
     const initialFile = bootConfig.initial_file;
     if (this.collabBar) {
       this.collabBar.setAppMode(mode);
@@ -458,6 +552,22 @@ export class UnifiedShellApp {
           isDirty: false,
         });
         this.tabBar.switchTab("tab-pdf-1");
+        break;
+      }
+      case "notes": {
+        const title = initialFile
+          ? initialFile.split(/[/\\]/).pop() || "Untitled 1.txt"
+          : "Untitled 1.txt";
+        if (!initialFile) {
+          notesState.resetToBlank(title);
+        }
+        this.tabBar.addTab({
+          id: "tab-notes-1",
+          docType: "Notes",
+          title,
+          isDirty: false,
+        });
+        this.tabBar.switchTab("tab-notes-1");
         break;
       }
       case "hub":
@@ -773,6 +883,17 @@ export class UnifiedShellApp {
     const appContainer = document.getElementById("app");
     if (appContainer) {
       appContainer.classList.remove("shell-hub-mode");
+    }
+
+    if (this.openDocumentsDrawer) {
+      this.openDocumentsDrawer.registerDocument({
+        id: tab.id,
+        docType: tab.docType,
+        title: tab.title,
+        isDirty: tab.isDirty,
+        filePath: tab.file_path,
+        lastAutoSavedMs: Date.now(),
+      });
     }
 
     this.currentDocType = tab.docType;
@@ -1124,9 +1245,26 @@ export class UnifiedShellApp {
 
   private handleTabClose(id: string) {
     IPC.closeSession(id, false).catch((err) => console.error("Close error:", err));
+    if (this.openDocumentsDrawer) {
+      this.openDocumentsDrawer.unregisterDocument(id);
+    }
     if (this.tabBar.getTabs().length === 0) {
       this.showHub();
     }
+  }
+
+  public async handlePopoutTab(tab: TabItem) {
+    const appType =
+      tab.docType === "Word"
+        ? "word"
+        : tab.docType === "Excel"
+        ? "excel"
+        : tab.docType === "PowerPoint"
+        ? "ppt"
+        : tab.docType === "PDF"
+        ? "pdf"
+        : "notes";
+    return await IPC.spawnAppWindow(appType, tab.file_path);
   }
 
   public handleNewTab(docType?: DocumentType) {
@@ -1171,6 +1309,15 @@ export class UnifiedShellApp {
       title: defaultTitle,
       isDirty: false,
     });
+    if (this.openDocumentsDrawer) {
+      this.openDocumentsDrawer.registerDocument({
+        id: newId,
+        docType: type,
+        title: defaultTitle,
+        isDirty: false,
+        lastAutoSavedMs: Date.now(),
+      });
+    }
   }
 
   public switchToOrCreateApp(docType: DocumentType) {
