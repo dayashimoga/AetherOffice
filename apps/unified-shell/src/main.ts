@@ -35,6 +35,7 @@ import { FormatBackgroundDialog } from "./components/FormatBackgroundDialog";
 import { AnimationPane } from "./components/AnimationPane";
 import { PresentationPlayer } from "./components/PresentationPlayer";
 import { SlideMediaOverlay } from "./components/SlideMediaOverlay";
+import { PresenterConsoleWindow } from "./components/PresenterConsoleWindow";
 import { PdfWorkspace } from "./apps/pdf/PdfWorkspace";
 import { CollabBar } from "./components/CollabBar";
 import { PluginSidebar } from "./components/PluginSidebar";
@@ -76,6 +77,7 @@ export class UnifiedShellApp {
   private animationPane?: AnimationPane;
   private presentationPlayer?: PresentationPlayer;
   private slideMediaOverlay?: SlideMediaOverlay;
+  private presenterConsole?: PresenterConsoleWindow;
   private pdfWorkspace?: PdfWorkspace;
   private collabBar!: CollabBar;
   private pluginSidebar!: PluginSidebar;
@@ -248,6 +250,7 @@ export class UnifiedShellApp {
     ]);
 
     this.laserPointer = new LaserPointer("laser-pointer-dot");
+    this.presenterConsole = new PresenterConsoleWindow("app", slidesState);
 
     // 6. Initialize Find & Replace, Word Count, Function Wizard, and Slide Layout Dialogs
     this.findReplaceDialog = new FindReplaceDialog();
@@ -625,6 +628,10 @@ export class UnifiedShellApp {
 
   public getSlideMediaOverlay(): SlideMediaOverlay | undefined {
     return this.slideMediaOverlay;
+  }
+
+  public getPresenterConsole(): PresenterConsoleWindow | undefined {
+    return this.presenterConsole;
   }
 
   public getPdfWorkspace(): PdfWorkspace | undefined {
@@ -1106,17 +1113,23 @@ export class UnifiedShellApp {
           document.documentElement.requestFullscreen().catch(() => {});
         }
         this.updateSlideSorter();
-      } else if (action === "StartPresenterView") {
+      } else if (action === "StartPresenterView" || action === "StartDualScreenPresenter") {
         if (!this.presentationPlayer) {
           this.presentationPlayer = new PresentationPlayer(slidesState);
         }
         this.presentationPlayer.startShow(false, true);
+        this.presenterConsole?.open();
         if (!document.fullscreenElement && typeof document.documentElement.requestFullscreen === "function") {
           document.documentElement.requestFullscreen().catch(() => {});
         }
         this.updateSlideSorter();
       } else if (action === "TogglePresenterView") {
         this.presentationPlayer?.togglePresenterView();
+        if (this.presenterConsole?.isOpen()) {
+          this.presenterConsole.close();
+        } else {
+          this.presenterConsole?.open();
+        }
       } else if (action === "ToggleAnimationPane") {
         this.animationPane?.toggle();
       } else if (action === "PreviewTransition") {

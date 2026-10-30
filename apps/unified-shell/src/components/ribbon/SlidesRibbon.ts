@@ -464,6 +464,9 @@ export class SlidesRibbon implements AppRibbonComponent {
       createRibbonButton("Presenter View", "🖥️ Presenter View", () => emit("StartPresenterView"))
     );
     monRow.appendChild(
+      createRibbonButton("Presenter Studio", "🎛️ Studio Dual-Screen", () => emit("StartDualScreenPresenter"))
+    );
+    monRow.appendChild(
       createRibbonButton("Use Presenter View", "☑ Presenter View", () => emit("TogglePresenterView"), true)
     );
     monGroup.appendChild(monRow);
