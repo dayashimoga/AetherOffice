@@ -111,6 +111,7 @@ export class SlidesRibbon implements AppRibbonComponent {
     slidesRow3.appendChild(createRibbonButton("Title & Content", "Title+Content", () => emit("AddSlideWithLayout", "titleAndContent"), false, "slides-layout-title-content"));
     slidesRow3.appendChild(createRibbonButton("Section Header", "Section", () => emit("AddSlideWithLayout", "sectionHeader"), false, "slides-layout-section"));
     slidesRow3.appendChild(createRibbonButton("Two Content", "Two Content", () => emit("AddSlideWithLayout", "twoContent"), false, "slides-layout-two-content"));
+    slidesRow3.appendChild(createRibbonButton("Comparison", "Comparison", () => emit("AddSlideWithLayout", "comparison"), false, "slides-layout-comparison"));
     slidesRow3.appendChild(createRibbonButton("Title Only", "Title Only", () => emit("AddSlideWithLayout", "titleOnly"), false, "slides-layout-title-only"));
     slidesRow3.appendChild(createRibbonButton("Blank", "Blank", () => emit("AddSlideWithLayout", "blank"), false, "slides-layout-blank"));
     slidesGroup.appendChild(slidesRow3);
@@ -227,6 +228,7 @@ export class SlidesRibbon implements AppRibbonComponent {
     arrangeRow2.appendChild(createRibbonButton("Distribute V", "↕ Dist V", () => emit("DistributeV"), false, "slides-btn-distribute-v"));
     arrangeRow2.appendChild(createRibbonButton("Group", "🔗 Group", () => emit("Group"), false, "slides-btn-group"));
     arrangeRow2.appendChild(createRibbonButton("Ungroup", "🔓 Ungroup", () => emit("Ungroup"), false, "slides-btn-ungroup"));
+    arrangeRow2.appendChild(createRibbonButton("Rotate 90°", "🔄 Rotate", () => emit("Rotate90"), false, "slides-btn-rotate-90"));
     arrangeGroup.appendChild(arrangeRow2);
     body.appendChild(arrangeGroup);
 
@@ -321,6 +323,8 @@ export class SlidesRibbon implements AppRibbonComponent {
     textRow.appendChild(createRibbonButton("WordArt", "🎨 WordArt", () => emit("InsertWordArt"), false, "slides-btn-wordart"));
     textRow.appendChild(createRibbonButton("Header & Footer", "📑 Header/Footer", () => emit("InsertHeaderFooter"), false, "slides-btn-header-footer"));
     textRow.appendChild(createRibbonButton("Slide Number", "# Slide No", () => emit("InsertSlideNumber"), false, "slides-btn-slide-number"));
+    textRow.appendChild(createRibbonButton("Date & Time", "📅 Date", () => emit("InsertHeaderFooter"), false, "slides-btn-datetime"));
+    textRow.appendChild(createRibbonButton("Symbol", "Ω Symbol", () => emit("InsertShape", "star"), false, "slides-btn-symbol"));
     textGroup.appendChild(textRow);
     body.appendChild(textGroup);
 

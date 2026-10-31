@@ -73,6 +73,21 @@ export class SlideLayoutDialog {
       `,
     },
     {
+      type: "comparison",
+      title: "Comparison",
+      description: "Two columns with individual section headings",
+      iconSvg: `
+        <svg width="64" height="40" viewBox="0 0 64 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="64" height="40" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+          <rect x="8" y="5" width="48" height="4" rx="1" fill="#c43e1c"/>
+          <rect x="8" y="12" width="22" height="4" rx="1" fill="#94a3b8"/>
+          <rect x="34" y="12" width="22" height="4" rx="1" fill="#94a3b8"/>
+          <rect x="8" y="19" width="22" height="16" rx="1.5" fill="#f1f5f9" stroke="#e2e8f0"/>
+          <rect x="34" y="19" width="22" height="16" rx="1.5" fill="#f1f5f9" stroke="#e2e8f0"/>
+        </svg>
+      `,
+    },
+    {
       type: "titleOnly",
       title: "Title Only",
       description: "Header placeholder with open canvas area",

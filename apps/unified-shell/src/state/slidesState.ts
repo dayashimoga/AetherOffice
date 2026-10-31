@@ -56,6 +56,7 @@ export type SlideLayoutType =
   | "titleAndContent"
   | "sectionHeader"
   | "twoContent"
+  | "comparison"
   | "titleOnly"
   | "blank";
 
@@ -190,6 +191,7 @@ export interface SlideShape {
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
+  strikethrough?: boolean;
   textAlign?: "left" | "center" | "right" | "justify";
   imageUrl?: string;
   imageAlt?: string;
@@ -599,6 +601,79 @@ export class SlidesState {
         ];
         break;
 
+      case "comparison":
+        shapes = [
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 80,
+            y: 40,
+            w: 800,
+            h: 60,
+            fill: "transparent",
+            text: title,
+            textColor,
+            fontSize: 32,
+            bold: true,
+            rotation: 0,
+          },
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 80,
+            y: 110,
+            w: 380,
+            h: 40,
+            fill: "transparent",
+            text: "Option A",
+            textColor,
+            fontSize: 20,
+            bold: true,
+            rotation: 0,
+          },
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 80,
+            y: 160,
+            w: 380,
+            h: 320,
+            fill: "transparent",
+            text: "• Features of Option A\n• Benefits & Pros\n• Specifications",
+            textColor: subColor,
+            fontSize: 16,
+            rotation: 0,
+          },
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 500,
+            y: 110,
+            w: 380,
+            h: 40,
+            fill: "transparent",
+            text: "Option B",
+            textColor,
+            fontSize: 20,
+            bold: true,
+            rotation: 0,
+          },
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 500,
+            y: 160,
+            w: 380,
+            h: 320,
+            fill: "transparent",
+            text: "• Features of Option B\n• Benefits & Pros\n• Specifications",
+            textColor: subColor,
+            fontSize: 16,
+            rotation: 0,
+          },
+        ];
+        break;
+
       case "sectionHeader":
         shapes = [
           {
@@ -821,6 +896,79 @@ export class SlidesState {
             text: "Section Description",
             textColor: subColor,
             fontSize: 20,
+            rotation: 0,
+          },
+        ];
+        break;
+
+      case "comparison":
+        shapes = [
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 80,
+            y: 40,
+            w: 800,
+            h: 60,
+            fill: "transparent",
+            text: existingTitle || "Comparison Title",
+            textColor,
+            fontSize: 32,
+            bold: true,
+            rotation: 0,
+          },
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 80,
+            y: 110,
+            w: 380,
+            h: 40,
+            fill: "transparent",
+            text: "Option A",
+            textColor,
+            fontSize: 20,
+            bold: true,
+            rotation: 0,
+          },
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 80,
+            y: 160,
+            w: 380,
+            h: 320,
+            fill: "transparent",
+            text: "• Features of Option A\n• Benefits & Pros\n• Specifications",
+            textColor: subColor,
+            fontSize: 16,
+            rotation: 0,
+          },
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 500,
+            y: 110,
+            w: 380,
+            h: 40,
+            fill: "transparent",
+            text: "Option B",
+            textColor,
+            fontSize: 20,
+            bold: true,
+            rotation: 0,
+          },
+          {
+            id: `sh_${++this.nextShapeCounter}`,
+            type: "text",
+            x: 500,
+            y: 160,
+            w: 380,
+            h: 320,
+            fill: "transparent",
+            text: "• Features of Option B\n• Benefits & Pros\n• Specifications",
+            textColor: subColor,
+            fontSize: 16,
             rotation: 0,
           },
         ];
@@ -2375,6 +2523,7 @@ export class SlidesState {
     const sh = this.getSelectedShape();
     if (!sh) return false;
     this.commitSnapshot();
+    sh.strikethrough = !sh.strikethrough;
     return true;
   }
 
@@ -2426,6 +2575,14 @@ export class SlidesState {
   }
 
   public setLineSpacing(_spacing: number): boolean {
+    return true;
+  }
+
+  public rotateSelectedShape(deg = 90): boolean {
+    const sel = this.getSelectedShape();
+    if (!sel) return false;
+    this.commitSnapshot();
+    sel.rotation = ((sel.rotation || 0) + deg) % 360;
     return true;
   }
 
@@ -2890,6 +3047,9 @@ export class SlidesState {
       case "Ungroup":
       case "UngroupShapes":
         return this.ungroupShapes();
+      case "Rotate90":
+      case "RotateShape":
+        return this.rotateSelectedShape(typeof payload === "number" ? payload : 90);
       case "InsertSmartArt":
         this.insertSmartArt(typeof payload === "string" ? (payload as any) : "process");
         return true;
