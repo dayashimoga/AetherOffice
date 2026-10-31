@@ -331,8 +331,13 @@ export class UnifiedShellApp {
       },
       onCancel: () => console.log("Formula cancelled"),
       onNameBoxJump: (coord) => {
-        calcState.selectCell(coord);
+        if (this.calcGridCanvas) {
+          this.calcGridCanvas.selectRangeByName(coord);
+        } else {
+          calcState.selectRangeByName(coord);
+        }
         this.calcGridCanvas?.render();
+        this.updateStatusBar();
       },
     });
 
@@ -1232,8 +1237,13 @@ export class UnifiedShellApp {
             this.calcGridCanvas?.cancelEditing();
           },
           onNameBoxJump: (coord) => {
-            calcState.selectCell(coord);
+            if (this.calcGridCanvas) {
+              this.calcGridCanvas.selectRangeByName(coord);
+            } else {
+              calcState.selectRangeByName(coord);
+            }
             this.calcGridCanvas?.render();
+            this.updateStatusBar();
           },
           onInput: (val) => {
             this.calcGridCanvas?.setEditingValue(val);
@@ -2052,13 +2062,27 @@ export class UnifiedShellApp {
         this.calcGridCanvas?.render();
         this.tabBar.setDirty(active.id, true);
       } else if (action === "InsertCells") {
-        const cr = calcState.coordToColRow(calcState.selectedCell);
-        calcState.insertRow(cr.row);
+        const primary = calcState.selectedRanges[calcState.selectedRanges.length - 1];
+        if (primary && primary.minCol === 0 && primary.maxCol >= 99) {
+          calcState.insertRow(primary.minRow);
+        } else if (primary && primary.minRow === 0 && primary.maxRow >= 199) {
+          calcState.insertColumn(primary.minCol);
+        } else {
+          const cr = calcState.coordToColRow(calcState.selectedCell);
+          calcState.insertRow(cr.row);
+        }
         this.calcGridCanvas?.render();
         this.tabBar.setDirty(active.id, true);
       } else if (action === "DeleteCells") {
-        const cr = calcState.coordToColRow(calcState.selectedCell);
-        calcState.deleteRow(cr.row);
+        const primary = calcState.selectedRanges[calcState.selectedRanges.length - 1];
+        if (primary && primary.minCol === 0 && primary.maxCol >= 99) {
+          calcState.deleteRow(primary.minRow);
+        } else if (primary && primary.minRow === 0 && primary.maxRow >= 199) {
+          calcState.deleteColumn(primary.minCol);
+        } else {
+          const cr = calcState.coordToColRow(calcState.selectedCell);
+          calcState.deleteRow(cr.row);
+        }
         this.calcGridCanvas?.render();
         this.tabBar.setDirty(active.id, true);
       } else if (action === "ShowFormulas") {

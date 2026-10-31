@@ -15,6 +15,10 @@ export class CalcGridCanvas {
   private scrollY = 0;
   private isDraggingFillHandle = false;
   private isSelecting = false;
+  private isSelectingCol = false;
+  private isSelectingRow = false;
+  private colSelectionAnchor = 0;
+  private rowSelectionAnchor = 0;
   private isResizingCol = false;
   private resizingColIndex = -1;
   private colResizeStartX = 0;
@@ -155,6 +159,7 @@ export class CalcGridCanvas {
     this.state.selectCell(coord, extend, multi);
     this.render();
 
+    const desc = this.state.getSelectionDescriptor();
     if (extend && this.state.selectedRanges.length > 0) {
       const primary = this.state.selectedRanges[this.state.selectedRanges.length - 1];
       const minCol = Math.min(primary.minCol, primary.maxCol);
@@ -164,12 +169,9 @@ export class CalcGridCanvas {
 
       const isMultiCell = minCol !== maxCol || minRow !== maxRow;
       if (isMultiCell) {
-        const startCoord = `${this.state.colIndexToLetter(minCol)}${minRow + 1}`;
-        const endCoord = `${this.state.colIndexToLetter(maxCol)}${maxRow + 1}`;
-        const rangeText = `${startCoord}:${endCoord}`;
         const stats = this.state.getSelectedRangeStats();
         if (this.onRangeStatsChanged) {
-          this.onRangeStatsChanged(stats, rangeText);
+          this.onRangeStatsChanged(stats, desc);
         }
       } else if (this.onCellSelected) {
         this.onCellSelected(coord, this.state.formulaBarText);
@@ -178,6 +180,77 @@ export class CalcGridCanvas {
       this.onCellSelected(coord, this.state.formulaBarText);
     }
     this.canvas.focus();
+  }
+
+  public selectColumn(col: number, extend = false, multi = false): void {
+    if (this.isEditing) {
+      this.commitEditing("none");
+    }
+    this.state.selectColumn(col, extend, multi);
+    this.render();
+    const desc = this.state.getSelectionDescriptor();
+    const stats = this.state.getSelectedRangeStats();
+    if (this.onRangeStatsChanged) {
+      this.onRangeStatsChanged(stats, desc);
+    }
+    if (this.onCellSelected) {
+      this.onCellSelected(this.state.selectedCell, this.state.formulaBarText);
+    }
+    this.canvas.focus();
+  }
+
+  public selectRow(row: number, extend = false, multi = false): void {
+    if (this.isEditing) {
+      this.commitEditing("none");
+    }
+    this.state.selectRow(row, extend, multi);
+    this.render();
+    const desc = this.state.getSelectionDescriptor();
+    const stats = this.state.getSelectedRangeStats();
+    if (this.onRangeStatsChanged) {
+      this.onRangeStatsChanged(stats, desc);
+    }
+    if (this.onCellSelected) {
+      this.onCellSelected(this.state.selectedCell, this.state.formulaBarText);
+    }
+    this.canvas.focus();
+  }
+
+  public selectAll(): void {
+    if (this.isEditing) {
+      this.commitEditing("none");
+    }
+    this.state.selectAllCells();
+    this.render();
+    const desc = this.state.getSelectionDescriptor();
+    const stats = this.state.getSelectedRangeStats();
+    if (this.onRangeStatsChanged) {
+      this.onRangeStatsChanged(stats, desc);
+    }
+    if (this.onCellSelected) {
+      this.onCellSelected(this.state.selectedCell, this.state.formulaBarText);
+    }
+    this.canvas.focus();
+  }
+
+  public selectRangeByName(ref: string): boolean {
+    if (this.isEditing) {
+      this.commitEditing("none");
+    }
+    const success = this.state.selectRangeByName(ref);
+    if (success) {
+      this.render();
+      const desc = this.state.getSelectionDescriptor();
+      const stats = this.state.getSelectedRangeStats();
+      if (this.onRangeStatsChanged) {
+        this.onRangeStatsChanged(stats, desc);
+      }
+      if (this.onCellSelected) {
+        this.onCellSelected(this.state.selectedCell, this.state.formulaBarText);
+      }
+      this.canvas.focus();
+    }
+    return success;
   }
 
   public startEditing(initialChar?: string) {
@@ -541,6 +614,12 @@ export class CalcGridCanvas {
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
 
+      // Check Top-Left Select All Corner (◢)
+      if (x <= this.headerWidth && y <= this.headerHeight) {
+        this.selectAll();
+        return;
+      }
+
       // Check Column Divider Resize
       const colDiv = this.findColDivider(x, y);
       if (colDiv !== null) {
@@ -558,6 +637,24 @@ export class CalcGridCanvas {
         this.resizingRowIndex = rowDiv;
         this.rowResizeStartY = e.clientY;
         this.rowResizeInitialHeight = this.state.getRowHeight(rowDiv);
+        return;
+      }
+
+      // Check Column Header Selection / Drag
+      if (y <= this.headerHeight && x > this.headerWidth) {
+        const colIdx = this.getColAtX(x);
+        this.isSelectingCol = true;
+        this.colSelectionAnchor = colIdx;
+        this.selectColumn(colIdx, e.shiftKey, e.ctrlKey || e.metaKey);
+        return;
+      }
+
+      // Check Row Header Selection / Drag
+      if (x <= this.headerWidth && y > this.headerHeight) {
+        const rowIdx = this.getRowAtY(y);
+        this.isSelectingRow = true;
+        this.rowSelectionAnchor = rowIdx;
+        this.selectRow(rowIdx, e.shiftKey, e.ctrlKey || e.metaKey);
         return;
       }
 
@@ -603,10 +700,50 @@ export class CalcGridCanvas {
         this.canvas.style.cursor = "row-resize";
       } else if (this.isNearFillHandle(x, y)) {
         this.canvas.style.cursor = "crosshair";
-      } else if (x <= this.headerWidth || y <= this.headerHeight) {
-        this.canvas.style.cursor = "default";
+      } else if (x <= this.headerWidth && y <= this.headerHeight) {
+        this.canvas.style.cursor = "pointer";
+      } else if (y <= this.headerHeight && x > this.headerWidth) {
+        this.canvas.style.cursor = "pointer";
+      } else if (x <= this.headerWidth && y > this.headerHeight) {
+        this.canvas.style.cursor = "pointer";
       } else {
         this.canvas.style.cursor = "cell";
+      }
+
+      if (this.isSelectingCol && (e.buttons & 1) === 1) {
+        const colIdx = this.getColAtX(x);
+        const minC = Math.min(this.colSelectionAnchor, colIdx);
+        const maxC = Math.max(this.colSelectionAnchor, colIdx);
+        if (this.state.selectedRanges.length > 0) {
+          const cur = this.state.selectedRanges[this.state.selectedRanges.length - 1];
+          cur.minCol = minC;
+          cur.maxCol = maxC;
+          cur.minRow = 0;
+          cur.maxRow = 999;
+        }
+        this.render();
+        const desc = this.state.getSelectionDescriptor();
+        const stats = this.state.getSelectedRangeStats();
+        this.onRangeStatsChanged?.(stats, desc);
+        return;
+      }
+
+      if (this.isSelectingRow && (e.buttons & 1) === 1) {
+        const rowIdx = this.getRowAtY(y);
+        const minR = Math.min(this.rowSelectionAnchor, rowIdx);
+        const maxR = Math.max(this.rowSelectionAnchor, rowIdx);
+        if (this.state.selectedRanges.length > 0) {
+          const cur = this.state.selectedRanges[this.state.selectedRanges.length - 1];
+          cur.minRow = minR;
+          cur.maxRow = maxR;
+          cur.minCol = 0;
+          cur.maxCol = 99;
+        }
+        this.render();
+        const desc = this.state.getSelectionDescriptor();
+        const stats = this.state.getSelectedRangeStats();
+        this.onRangeStatsChanged?.(stats, desc);
+        return;
       }
 
       if (this.isDraggingFillHandle) {
@@ -651,6 +788,8 @@ export class CalcGridCanvas {
         this.onCellModified?.(this.state.selectedCell, "autoFill");
       }
       this.isSelecting = false;
+      this.isSelectingCol = false;
+      this.isSelectingRow = false;
     });
 
     this.canvas.addEventListener("keydown", (e: KeyboardEvent) => {
@@ -677,8 +816,7 @@ export class CalcGridCanvas {
         }
         if (key === "a") {
           e.preventDefault();
-          this.selectCell("A1", false, false);
-          this.selectCell("Z50", true, false);
+          this.selectAll();
           return;
         }
       }
@@ -714,7 +852,7 @@ export class CalcGridCanvas {
 
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
-        this.state.commitFormula("");
+        this.state.clearSelection();
         this.render();
         this.onCellModified?.(this.state.selectedCell, "");
         if (this.onCellSelected) {
@@ -1216,21 +1354,31 @@ export class CalcGridCanvas {
       ctx.fillStyle = "#f3f2f1";
       ctx.fillRect(0, 0, w, this.headerHeight);
 
-      const primaryRange = this.state.selectedRanges[this.state.selectedRanges.length - 1];
-      const activeCol = primaryRange ? primaryRange.maxCol : 0;
-      const activeRow = primaryRange ? primaryRange.maxRow : 0;
+      const isAllSelected = this.state.selectedRanges.some((range) => {
+        const minR = Math.min(range.minRow, range.maxRow);
+        const maxR = Math.max(range.minRow, range.maxRow);
+        const minC = Math.min(range.minCol, range.maxCol);
+        const maxC = Math.max(range.minCol, range.maxCol);
+        return minR === 0 && maxR >= 199 && minC === 0 && maxC >= 99;
+      });
 
       for (let c = 0; c < colsInView; c++) {
         const x = this.headerWidth + this.state.getColOffset(c) - this.scrollX;
         const colWidth = this.state.getColWidth(c);
-        const isColActive = c === activeCol;
+        const isColActive =
+          isAllSelected ||
+          this.state.selectedRanges.some((range) => {
+            const minC = Math.min(range.minCol, range.maxCol);
+            const maxC = Math.max(range.minCol, range.maxCol);
+            return c >= minC && c <= maxC;
+          });
 
         if (isColActive) {
           ctx.fillStyle = "#caead8";
           ctx.fillRect(x, 0, colWidth, this.headerHeight);
         }
 
-        ctx.strokeStyle = "#d2d0ce";
+        ctx.strokeStyle = isColActive ? "#107c41" : "#d2d0ce";
         ctx.lineWidth = 1;
         ctx.strokeRect(x, 0, colWidth, this.headerHeight);
 
@@ -1247,14 +1395,20 @@ export class CalcGridCanvas {
       for (let r = 0; r < rowsInView; r++) {
         const y = this.headerHeight + this.state.getRowOffset(r) - this.scrollY;
         const rowHeight = this.state.getRowHeight(r);
-        const isRowActive = r === activeRow;
+        const isRowActive =
+          isAllSelected ||
+          this.state.selectedRanges.some((range) => {
+            const minR = Math.min(range.minRow, range.maxRow);
+            const maxR = Math.max(range.minRow, range.maxRow);
+            return r >= minR && r <= maxR;
+          });
 
         if (isRowActive) {
           ctx.fillStyle = "#caead8";
           ctx.fillRect(0, y, this.headerWidth, rowHeight);
         }
 
-        ctx.strokeStyle = "#d2d0ce";
+        ctx.strokeStyle = isRowActive ? "#107c41" : "#d2d0ce";
         ctx.lineWidth = 1;
         ctx.strokeRect(0, y, this.headerWidth, rowHeight);
 
@@ -1264,16 +1418,16 @@ export class CalcGridCanvas {
         ctx.fillText(String(r + 1), this.headerWidth / 2, y + rowHeight / 2 + 4);
       }
 
-      // 8. Top-left Select-all box
-      ctx.fillStyle = "#e1dfdd";
+      // 8. Top-left Select-all box (◢)
+      ctx.fillStyle = isAllSelected ? "#caead8" : "#e1dfdd";
       ctx.fillRect(0, 0, this.headerWidth, this.headerHeight);
-      ctx.strokeStyle = "#c8c6c4";
+      ctx.strokeStyle = isAllSelected ? "#107c41" : "#c8c6c4";
       ctx.strokeRect(0, 0, this.headerWidth, this.headerHeight);
       ctx.beginPath();
       ctx.moveTo(this.headerWidth - 10, this.headerHeight - 2);
       ctx.lineTo(this.headerWidth - 2, this.headerHeight - 10);
       ctx.lineTo(this.headerWidth - 2, this.headerHeight - 2);
-      ctx.fillStyle = "#979593";
+      ctx.fillStyle = isAllSelected ? "#107c41" : "#979593";
       if (ctx.fill) {
         ctx.fill();
       }
