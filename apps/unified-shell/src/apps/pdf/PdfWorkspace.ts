@@ -599,20 +599,40 @@ export class PdfWorkspace {
         tbBox.style.position = "absolute";
         tbBox.style.left = `${tb.x * zoom}px`;
         tbBox.style.top = `${(tb.y - (tb.fontSize || 14)) * zoom}px`;
-        tbBox.style.cursor = this.state.activeTool === "edit_text" ? "text" : "default";
+        tbBox.style.fontSize = `${(tb.fontSize || 14) * zoom}px`;
+        tbBox.style.fontFamily = tb.fontFamily || "Segoe UI, sans-serif";
+        tbBox.style.fontWeight = tb.bold ? "bold" : "normal";
+        tbBox.style.fontStyle = tb.italic ? "italic" : "normal";
+        tbBox.style.lineHeight = "1.2";
+        tbBox.style.padding = "2px 4px";
+        tbBox.style.borderRadius = "2px";
+        tbBox.style.cursor = "text";
+        tbBox.style.userSelect = "text";
+        tbBox.style.color = "transparent";
+        tbBox.textContent = tb.text;
+        tbBox.title = "Click to edit text";
 
         if (this.state.activeTool === "edit_text") {
           tbBox.style.border = "1px dashed #0078d4";
-          tbBox.style.padding = "2px 4px";
           tbBox.style.backgroundColor = "rgba(0, 120, 212, 0.05)";
-          tbBox.title = "Click to edit text";
+        } else {
+          tbBox.style.border = "1px solid transparent";
         }
 
-        tbBox.onclick = (e) => {
-          if (this.state.activeTool === "edit_text") {
-            e.stopPropagation();
-            this.openInlineTextEditor(tbBox, page, tb, zoom);
+        tbBox.onmouseenter = () => {
+          tbBox.style.border = "1px dashed #0078d4";
+          tbBox.style.backgroundColor = "rgba(0, 120, 212, 0.08)";
+        };
+        tbBox.onmouseleave = () => {
+          if (this.state.activeTool !== "edit_text") {
+            tbBox.style.border = "1px solid transparent";
+            tbBox.style.backgroundColor = "transparent";
           }
+        };
+
+        tbBox.onclick = (e) => {
+          e.stopPropagation();
+          this.openInlineTextEditor(tbBox, page, tb, zoom);
         };
 
         overlay.appendChild(tbBox);
@@ -651,47 +671,132 @@ export class PdfWorkspace {
         fieldEl.style.top = `${fy * zoom}px`;
         fieldEl.style.width = `${fw * zoom}px`;
         fieldEl.style.height = `${fh * zoom}px`;
+        fieldEl.style.boxSizing = "border-box";
         fieldEl.style.cursor = "pointer";
+        fieldEl.style.zIndex = "10";
 
         if (this.state.highlightFields) {
           fieldEl.style.backgroundColor = "rgba(59, 130, 246, 0.25)";
           fieldEl.style.outline = "2px dashed #2563eb";
         }
 
-        if (field.type === "checkbox") {
-          fieldEl.onclick = (e) => {
+        if (field.type === "text") {
+          const input = document.createElement("input");
+          input.type = "text";
+          input.className = "pdf-interactive-input";
+          input.setAttribute("data-testid", `pdf-input-${field.name}`);
+          input.value = String(field.value ?? "");
+          input.style.width = "100%";
+          input.style.height = "100%";
+          input.style.boxSizing = "border-box";
+          input.style.border = "1px solid #0078d4";
+          input.style.borderRadius = "2px";
+          input.style.backgroundColor = "rgba(239, 246, 252, 0.95)";
+          input.style.padding = "2px 6px";
+          input.style.fontSize = `${Math.round(13 * zoom)}px`;
+          input.style.color = "#0f172a";
+          input.style.outline = "none";
+          input.oninput = (e) => {
             e.stopPropagation();
-            this.state.setFormFieldValue(field.id, !field.value);
+            this.state.setFormFieldValue(field.id, input.value);
+            if (this.callbacks.onDirty) this.callbacks.onDirty();
+          };
+          input.onchange = (e) => {
+            e.stopPropagation();
+            this.state.setFormFieldValue(field.id, input.value);
             this.render();
             if (this.callbacks.onDirty) this.callbacks.onDirty();
           };
-        } else if (field.type === "radio") {
+          fieldEl.appendChild(input);
+
           fieldEl.onclick = (e) => {
+            if (e.target === fieldEl) {
+              e.stopPropagation();
+              input.focus();
+            }
+          };
+        } else if (field.type === "checkbox") {
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.className = "pdf-interactive-checkbox";
+          cb.setAttribute("data-testid", `pdf-checkbox-${field.name}`);
+          cb.checked = Boolean(field.value);
+          cb.style.width = "100%";
+          cb.style.height = "100%";
+          cb.style.margin = "0";
+          cb.style.cursor = "pointer";
+          cb.onchange = (e) => {
             e.stopPropagation();
-            this.state.setFormFieldValue(field.id, true);
+            this.state.setFormFieldValue(field.id, cb.checked);
             this.render();
             if (this.callbacks.onDirty) this.callbacks.onDirty();
           };
-        } else if (field.type === "text") {
+          fieldEl.appendChild(cb);
+
           fieldEl.onclick = (e) => {
-            e.stopPropagation();
-            const newVal = prompt(`Edit ${field.name}:`, String(field.value));
-            if (newVal !== null) {
-              this.state.setFormFieldValue(field.id, newVal);
+            if (e.target === fieldEl) {
+              e.stopPropagation();
+              const nextVal = !field.value;
+              this.state.setFormFieldValue(field.id, nextVal);
               this.render();
               if (this.callbacks.onDirty) this.callbacks.onDirty();
             }
           };
-        } else if (field.type === "dropdown") {
-          fieldEl.onclick = (e) => {
+        } else if (field.type === "radio") {
+          const radio = document.createElement("input");
+          radio.type = "radio";
+          radio.name = field.group || "pdf-radio-group";
+          radio.className = "pdf-interactive-radio";
+          radio.setAttribute("data-testid", `pdf-radio-${field.name}`);
+          radio.checked = Boolean(field.value);
+          radio.style.width = "100%";
+          radio.style.height = "100%";
+          radio.style.margin = "0";
+          radio.style.cursor = "pointer";
+          radio.onchange = (e) => {
             e.stopPropagation();
-            const opts = field.options || ["Option 1", "Option 2", "Option 3"];
-            const currentIdx = opts.indexOf(String(field.value));
-            const nextIdx = (currentIdx + 1) % opts.length;
-            this.state.setFormFieldValue(field.id, opts[nextIdx]);
+            this.state.setFormFieldValue(field.id, radio.checked);
             this.render();
             if (this.callbacks.onDirty) this.callbacks.onDirty();
           };
+          fieldEl.appendChild(radio);
+
+          fieldEl.onclick = (e) => {
+            if (e.target === fieldEl) {
+              e.stopPropagation();
+              this.state.setFormFieldValue(field.id, true);
+              this.render();
+              if (this.callbacks.onDirty) this.callbacks.onDirty();
+            }
+          };
+        } else if (field.type === "dropdown" || field.type === "listbox") {
+          const select = document.createElement("select");
+          select.className = "pdf-interactive-select";
+          select.setAttribute("data-testid", `pdf-select-${field.name}`);
+          select.style.width = "100%";
+          select.style.height = "100%";
+          select.style.boxSizing = "border-box";
+          select.style.border = "1px solid #0078d4";
+          select.style.borderRadius = "2px";
+          select.style.backgroundColor = "rgba(239, 246, 252, 0.95)";
+          select.style.fontSize = `${Math.round(11 * zoom)}px`;
+          select.style.color = "#0f172a";
+          select.style.cursor = "pointer";
+          const opts = field.options || ["Option 1", "Option 2", "Option 3"];
+          opts.forEach((opt) => {
+            const optEl = document.createElement("option");
+            optEl.value = opt;
+            optEl.textContent = opt;
+            if (String(field.value) === opt) optEl.selected = true;
+            select.appendChild(optEl);
+          });
+          select.onchange = (e) => {
+            e.stopPropagation();
+            this.state.setFormFieldValue(field.id, select.value);
+            this.render();
+            if (this.callbacks.onDirty) this.callbacks.onDirty();
+          };
+          fieldEl.appendChild(select);
         } else if (field.type === "signature") {
           fieldEl.onclick = (e) => {
             e.stopPropagation();
@@ -744,10 +849,14 @@ export class PdfWorkspace {
         this.activeInkPageNumber = page.pageNumber;
         this.currentInkPoints = [{ x, y }];
       } else if (this.state.activeTool === "add_text") {
-        this.state.addTextBlock(page.pageNumber, Math.round(x), Math.round(y));
+        const newTb = this.state.addTextBlock(page.pageNumber, Math.round(x), Math.round(y));
         this.state.setTool("edit_text");
         this.render();
         if (this.callbacks.onDirty) this.callbacks.onDirty();
+        const createdEl = this.viewportEl.querySelector(`[data-block-id="${newTb.id}"]`) as HTMLElement;
+        if (createdEl) {
+          this.openInlineTextEditor(createdEl, page, newTb, zoom);
+        }
       } else if (this.state.activeTool === "add_image") {
         this.state.addImageBlock(page.pageNumber, {
           x: Math.round(x),
@@ -874,6 +983,20 @@ export class PdfWorkspace {
     overlay.addEventListener("mouseup", stopInk);
     overlay.addEventListener("mouseleave", stopInk);
 
+    overlay.addEventListener("dblclick", (e) => {
+      const rect = overlay.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / zoom;
+      const y = (e.clientY - rect.top) / zoom;
+      const newTb = this.state.addTextBlock(page.pageNumber, Math.round(x), Math.round(y), "New Text");
+      this.state.setTool("edit_text");
+      this.render();
+      if (this.callbacks.onDirty) this.callbacks.onDirty();
+      const createdEl = this.viewportEl.querySelector(`[data-block-id="${newTb.id}"]`) as HTMLElement;
+      if (createdEl) {
+        this.openInlineTextEditor(createdEl, page, newTb, zoom);
+      }
+    });
+
     return overlay;
   }
 
@@ -885,9 +1008,15 @@ export class PdfWorkspace {
     tb: PdfTextBlock,
     zoom: number
   ) {
+    const existing = document.querySelector(".pdf-inline-text-editor");
+    if (existing && existing.parentElement) {
+      existing.parentElement.removeChild(existing);
+    }
+
     const input = document.createElement("input");
     input.type = "text";
     input.className = "pdf-inline-text-editor";
+    input.setAttribute("data-testid", "pdf-inline-text-editor");
     input.value = tb.text;
     input.style.position = "absolute";
     input.style.left = `${tb.x * zoom}px`;
@@ -901,10 +1030,14 @@ export class PdfWorkspace {
     input.style.borderRadius = "2px";
     input.style.backgroundColor = "#ffffff";
     input.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)";
-    input.style.zIndex = "100";
+    input.style.zIndex = "1000";
     input.style.outline = "none";
+    input.style.minWidth = "120px";
 
+    let committed = false;
     const commit = () => {
+      if (committed) return;
+      committed = true;
       const val = input.value.trim();
       if (val !== "") {
         this.state.updateTextBlock(page.pageNumber, tb.id, val);
@@ -920,6 +1053,7 @@ export class PdfWorkspace {
       if (e.key === "Enter") {
         commit();
       } else if (e.key === "Escape") {
+        committed = true;
         if (input.parentElement) input.parentElement.removeChild(input);
       }
     };

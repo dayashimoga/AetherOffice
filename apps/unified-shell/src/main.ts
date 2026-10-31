@@ -2925,6 +2925,7 @@ export class UnifiedShellApp {
       this.speakerNotesPane?.refresh();
       this.animationPane?.refresh();
     } else if (docType === "PDF") {
+      this.pdfWorkspace?.render();
       this.pdfViewerCanvas?.render();
     }
 

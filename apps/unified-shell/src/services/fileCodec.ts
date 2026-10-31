@@ -80,9 +80,25 @@ export class FileCodecService {
     return "Word";
   }
 
-  public async saveFile(docType: DocumentType, options: SaveFileOptions): Promise<string> {
-    const filename = options.filename;
-    const customPath = options.customPath;
+  public async saveFile(
+    docTypeOrFilename: DocumentType | string,
+    optionsOrDocType?: SaveFileOptions | DocumentType
+  ): Promise<string> {
+    let docType: DocumentType;
+    let filename: string;
+    let customPath: string | undefined;
+
+    if (typeof optionsOrDocType === "object" && optionsOrDocType !== null) {
+      docType = docTypeOrFilename as DocumentType;
+      filename = optionsOrDocType.filename;
+      customPath = optionsOrDocType.customPath;
+    } else if (typeof optionsOrDocType === "string") {
+      filename = docTypeOrFilename;
+      docType = optionsOrDocType as DocumentType;
+    } else {
+      filename = docTypeOrFilename;
+      docType = this.detectDocType(filename);
+    }
     let bytes: Uint8Array;
     let mime = "application/octet-stream";
 
