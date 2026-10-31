@@ -270,12 +270,29 @@ export class FileCodecService {
         const isPptx = fileName.toLowerCase().endsWith(".pptx");
         if (isPptx) {
           const parsed = await binaryPackageService.parsePptx(uint8);
-          if (parsed.slides.length > 0) {
+          if (parsed.slides && parsed.slides.length > 0) {
             slidesState.slides = parsed.slides.map((s, idx) => {
-              const shapeTexts = s.text.length > 1 ? s.text.slice(1) : s.text;
+              if (s.shapes && s.shapes.length > 0) {
+                return {
+                  id: String(idx + 1),
+                  title: s.title || `Slide ${idx + 1}`,
+                  shapes: s.shapes,
+                  notes: s.notes,
+                  transition: s.transition,
+                  transitionConfig: s.transitionConfig,
+                  background: s.background,
+                  animations: s.animations,
+                  layout: s.layout,
+                };
+              }
+              const shapeTexts = s.text && s.text.length > 1 ? s.text.slice(1) : (s.text || [s.title || ""]);
               return {
                 id: String(idx + 1),
-                title: s.title,
+                title: s.title || `Slide ${idx + 1}`,
+                notes: s.notes,
+                transition: s.transition,
+                transitionConfig: s.transitionConfig,
+                background: s.background,
                 shapes: shapeTexts.map((t, tIdx) => ({
                   id: `shape-${idx}-${tIdx}`,
                   type: "text" as const,

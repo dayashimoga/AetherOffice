@@ -14,8 +14,21 @@ export interface XlsxParseResult {
   }>;
 }
 
+export interface PptxSlideParseData {
+  slideNumber: number;
+  title: string;
+  text: string[];
+  shapes?: any[];
+  notes?: string;
+  transition?: string;
+  transitionConfig?: any;
+  background?: string;
+  animations?: any[];
+  layout?: any;
+}
+
 export interface PptxParseResult {
-  slides: Array<{ slideNumber: number; title: string; text: string[] }>;
+  slides: PptxSlideParseData[];
 }
 
 export interface PdfPageParseData {
@@ -462,9 +475,67 @@ export class BinaryPackageService {
   // 3. PPTX (PresentationML ECMA-376)
   // =========================================================================
   public async buildPptx(
-    slides: Array<{ title: string; shapes?: Array<{ text?: string }> }>
+    slides: any[]
   ): Promise<Uint8Array> {
     const zip = new JSZip();
+
+    const escapeXml = (s: string) =>
+      String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
+
+    const cleanHex = (c?: string): string => {
+      if (!c) return "000000";
+      const hex = c.replace(/[^0-9A-Fa-f]/g, "");
+      if (hex.length === 3) {
+        return hex.split("").map((x) => x + x).join("").toUpperCase();
+      }
+      return hex.slice(0, 6).toUpperCase().padEnd(6, "0");
+    };
+
+    const mapGeom = (kind?: string): string => {
+      switch (kind) {
+        case "rect": return "rect";
+        case "roundRect": return "roundRect";
+        case "ellipse": return "ellipse";
+        case "triangle": return "triangle";
+        case "arrow": return "rightArrow";
+        case "arrowLeft": return "leftArrow";
+        case "arrowUp": return "upArrow";
+        case "arrowDown": return "downArrow";
+        case "star": return "star5";
+        case "diamond": return "diamond";
+        case "callout": return "wedgeRectCallout";
+        case "heart": return "heart";
+        case "cloud": return "cloud";
+        case "pentagon": return "pentagon";
+        case "hexagon": return "hexagon";
+        case "banner": return "wave";
+        default: return "rect";
+      }
+    };
+
+    const safeSlides = Array.isArray(slides) && slides.length > 0 ? slides : [{ title: "Presentation", shapes: [] }];
+
+    // [Content_Types].xml
+    const slideContentTypes = safeSlides
+      .map(
+        (_, i) =>
+          `<Override PartName="/ppt/slides/slide${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`
+      )
+      .join("\n  ");
+
+    const notesContentTypes = safeSlides
+      .map((s, i) =>
+        s.notes && s.notes.trim().length > 0
+          ? `<Override PartName="/ppt/notesSlides/notesSlide${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/>`
+          : ""
+      )
+      .filter(Boolean)
+      .join("\n  ");
 
     zip.file(
       "[Content_Types].xml",
@@ -472,11 +543,14 @@ export class BinaryPackageService {
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
+  <Default Extension="json" ContentType="application/json"/>
   <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
-  ${slides.map((_, i) => `<Override PartName="/ppt/slides/slide${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`).join("\n  ")}
+  ${slideContentTypes}
+  ${notesContentTypes}
 </Types>`
     );
 
+    // _rels/.rels
     zip.file(
       "_rels/.rels",
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -485,7 +559,8 @@ export class BinaryPackageService {
 </Relationships>`
     );
 
-    const slideRels = slides
+    // ppt/_rels/presentation.xml.rels
+    const slideRels = safeSlides
       .map(
         (_, i) =>
           `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${i + 1}.xml"/>`
@@ -500,34 +575,120 @@ export class BinaryPackageService {
 </Relationships>`
     );
 
-    const slideIdList = slides
+    // ppt/presentation.xml
+    const slideIdList = safeSlides
       .map((_, i) => `<p:sldId id="${256 + i}" r:id="rId${i + 1}"/>`)
       .join("\n    ");
 
     zip.file(
       "ppt/presentation.xml",
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
   <p:sldIdLst>
     ${slideIdList}
   </p:sldIdLst>
+  <p:sldSz cx="9144000" cy="5143500"/>
+  <p:notesSz cx="6858000" cy="9144000"/>
 </p:presentation>`
     );
 
-    slides.forEach((slide, idx) => {
-      const texts = [slide.title, ...(slide.shapes?.map((s) => s.text || "") || [])].filter(Boolean);
-      const spXmls = texts.map((t, sIdx) => {
-        const escaped = t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    // ppt/slides/slide*.xml
+    safeSlides.forEach((slide, idx) => {
+      const rawShapes = Array.isArray(slide.shapes) ? slide.shapes : [];
+      let shapesToRender = rawShapes;
+
+      // If shapes is empty but title exists, synthesise a title shape
+      if (shapesToRender.length === 0 && slide.title) {
+        shapesToRender = [
+          {
+            id: `sh-${idx}-title`,
+            type: "text",
+            x: 100,
+            y: 150,
+            w: 760,
+            h: 80,
+            text: slide.title,
+            fontSize: 40,
+            bold: true,
+            fill: "transparent",
+            textColor: "#1e293b",
+          },
+        ];
+      }
+
+      const spXmls = shapesToRender.map((s: any, sIdx: number) => {
+        const xEmu = Math.round((s.x ?? 100) * 9525);
+        const yEmu = Math.round((s.y ?? (100 + sIdx * 70)) * 9525);
+        const wEmu = Math.round((s.w ?? 500) * 9525);
+        const hEmu = Math.round((s.h ?? 50) * 9525);
+        const rotAttr = s.rotation ? ` rot="${Math.round(s.rotation * 60000)}"` : "";
+
+        const fillXml =
+          s.fill && s.fill !== "transparent" && s.fill !== "none"
+            ? `<a:solidFill><a:srgbClr val="${cleanHex(s.fill)}"/></a:solidFill>`
+            : `<a:noFill/>`;
+
+        const lnXml =
+          s.stroke && s.stroke !== "transparent" && s.stroke !== "none"
+            ? `<a:ln w="${Math.round((s.strokeWidth || 1) * 9525)}"><a:solidFill><a:srgbClr val="${cleanHex(s.stroke)}"/></a:solidFill></a:ln>`
+            : "";
+
+        const textContent = s.text ?? "";
+        const fontSz = Math.round((s.fontSize || 18) * 100);
+        const boldAttr = s.bold ? ' b="1"' : "";
+        const italicAttr = s.italic ? ' i="1"' : "";
+        const underlineAttr = s.underline ? ' u="sng"' : "";
+        const textColor = cleanHex(s.textColor || s.color || "#1e293b");
+
         return `<p:sp>
-          <p:nvSpPr><p:cNvPr id="${sIdx + 1}" name="Shape ${sIdx + 1}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>
-          <p:txBody><a:bodyPr/><a:p><a:r><a:t>${escaped}</a:t></a:r></a:p></p:txBody>
+          <p:nvSpPr>
+            <p:cNvPr id="${sIdx + 1}" name="${s.type || s.kind || "Shape"} ${sIdx + 1}"/>
+            <p:cNvSpPr/>
+            <p:nvPr/>
+          </p:nvSpPr>
+          <p:spPr>
+            <a:xfrm${rotAttr}>
+              <a:off x="${xEmu}" y="${yEmu}"/>
+              <a:ext cx="${wEmu}" cy="${hEmu}"/>
+            </a:xfrm>
+            <a:prstGeom prst="${mapGeom(s.type || s.kind || s.shapeType)}">
+              <a:avLst/>
+            </a:prstGeom>
+            ${fillXml}
+            ${lnXml}
+          </p:spPr>
+          <p:txBody>
+            <a:bodyPr/>
+            <a:p>
+              <a:r>
+                <a:rPr sz="${fontSz}"${boldAttr}${italicAttr}${underlineAttr}>
+                  <a:solidFill><a:srgbClr val="${textColor}"/></a:solidFill>
+                </a:rPr>
+                <a:t xml:space="preserve">${escapeXml(textContent)}</a:t>
+              </a:r>
+            </a:p>
+          </p:txBody>
         </p:sp>`;
       });
+
+      // Transition XML
+      let transXml = "";
+      const transEffect = slide.transitionConfig?.effect || slide.transition;
+      if (transEffect && transEffect !== "None") {
+        const effLower = String(transEffect).toLowerCase();
+        let effNode = "fade";
+        if (effLower.includes("push")) effNode = "push";
+        else if (effLower.includes("wipe")) effNode = "wipe";
+        else if (effLower.includes("split")) effNode = "split";
+        else if (effLower.includes("zoom")) effNode = "zoom";
+        else if (effLower.includes("cut")) effNode = "cut";
+        transXml = `<p:transition><p:${effNode}/></p:transition>`;
+      }
 
       zip.file(
         `ppt/slides/slide${idx + 1}.xml`,
         `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <p:cSld>
     <p:spTree>
       <p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
@@ -535,43 +696,268 @@ export class BinaryPackageService {
       ${spXmls.join("\n      ")}
     </p:spTree>
   </p:cSld>
+  ${transXml}
 </p:sld>`
       );
+
+      // Notes slide if notes exist
+      if (slide.notes && slide.notes.trim().length > 0) {
+        zip.file(
+          `ppt/notesSlides/notesSlide${idx + 1}.xml`,
+          `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:notes xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <p:cSld>
+    <p:spTree>
+      <p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
+      <p:grpSpPr/>
+      <p:sp>
+        <p:nvSpPr><p:cNvPr id="2" name="Notes Placeholder 2"/><p:cNvSpPr/><p:nvPr/></p:nvPr>
+        <p:spPr/>
+        <p:txBody>
+          <a:bodyPr/>
+          <a:p><a:r><a:t xml:space="preserve">${escapeXml(slide.notes)}</a:t></a:r></a:p>
+        </p:txBody>
+      </p:sp>
+    </p:spTree>
+  </p:cSld>
+</p:notes>`
+        );
+
+        zip.file(
+          `ppt/slides/_rels/slide${idx + 1}.xml.rels`,
+          `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rIdNotes" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide" Target="../notesSlides/notesSlide${idx + 1}.xml"/>
+</Relationships>`
+        );
+      }
     });
+
+    // Embed complete deck JSON representation for 100% lossless state round-trip
+    zip.file("ppt/deckState.json", JSON.stringify(safeSlides));
 
     return await zip.generateAsync({ type: "uint8array" });
   }
 
   public async parsePptx(buffer: ArrayBuffer | Uint8Array): Promise<PptxParseResult> {
     const zip = await JSZip.loadAsync(buffer);
-    const slides: Array<{ slideNumber: number; title: string; text: string[] }> = [];
 
-    let slideIndex = 1;
-    while (true) {
-      const slideFile = zip.file(`ppt/slides/slide${slideIndex}.xml`);
-      if (!slideFile) break;
+    const unescapeXml = (s: string) =>
+      s
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'");
 
-      const xml = await slideFile.async("string");
-      const tMatches = xml.match(/<a:t>(.*?)<\/a:t>/gs) || [];
-      const texts = tMatches.map((t) =>
-        t
-          .replace(/<a:t>/, "")
-          .replace(/<\/a:t>/, "")
-          .replace(/&amp;/g, "&")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-      );
-
-      slides.push({
-        slideNumber: slideIndex,
-        title: texts[0] || `Slide ${slideIndex}`,
-        text: texts,
-      });
-
-      slideIndex++;
+    // 1. Check for deckState.json (OpenOfficeRS native rich representation)
+    const deckFile = zip.file("ppt/deckState.json");
+    if (deckFile) {
+      try {
+        const jsonText = await deckFile.async("string");
+        const rawSlides = JSON.parse(jsonText);
+        if (Array.isArray(rawSlides) && rawSlides.length > 0) {
+          return {
+            slides: rawSlides.map((s: any, idx: number) => {
+              const shapes = s.shapes || [];
+              const textList: string[] = [];
+              if (s.title) textList.push(s.title);
+              shapes.forEach((sh: any) => {
+                if (sh.text && sh.text !== s.title) textList.push(sh.text);
+              });
+              return {
+                slideNumber: idx + 1,
+                title: s.title || (shapes[0]?.text) || `Slide ${idx + 1}`,
+                text: textList.length > 0 ? textList : [`Slide ${idx + 1}`],
+                shapes,
+                notes: s.notes || "",
+                transition: s.transition,
+                transitionConfig: s.transitionConfig,
+                background: s.background,
+                animations: s.animations,
+                layout: s.layout,
+              };
+            }),
+          };
+        }
+      } catch (err) {
+        console.warn("deckState.json parse error, falling back to XML:", err);
+      }
     }
 
-    return { slides };
+    // 2. Discover slide XML files (standard OOXML parsing)
+    const slideDefs: Array<{ index: number; path: string }> = [];
+    const presRelsFile = zip.file("ppt/_rels/presentation.xml.rels");
+    if (presRelsFile) {
+      const relsXml = await presRelsFile.async("string");
+      const relMatches = relsXml.match(/<Relationship[^>]+>/g) || [];
+      for (const rm of relMatches) {
+        if (rm.includes("/relationships/slide")) {
+          const targetM = rm.match(/Target="([^"]+)"/);
+          if (targetM) {
+            let target = targetM[1];
+            if (!target.startsWith("ppt/")) {
+              target = "ppt/" + target.replace(/^\.\//, "");
+            }
+            const numM = target.match(/slide(\d+)\.xml/i);
+            const num = numM ? parseInt(numM[1], 10) : slideDefs.length + 1;
+            slideDefs.push({ index: num, path: target });
+          }
+        }
+      }
+    }
+
+    if (slideDefs.length === 0) {
+      const files = zip.file(/^ppt\/slides\/slide\d+\.xml$/i);
+      for (const f of files) {
+        const numM = f.name.match(/slide(\d+)\.xml/i);
+        const num = numM ? parseInt(numM[1], 10) : slideDefs.length + 1;
+        slideDefs.push({ index: num, path: f.name });
+      }
+    }
+
+    slideDefs.sort((a, b) => a.index - b.index);
+
+    const mapOoxmlGeom = (prst?: string): string => {
+      switch (prst) {
+        case "roundRect": return "roundRect";
+        case "ellipse": return "ellipse";
+        case "triangle": return "triangle";
+        case "rightArrow": return "arrow";
+        case "leftArrow": return "arrowLeft";
+        case "upArrow": return "arrowUp";
+        case "downArrow": return "arrowDown";
+        case "star5": return "star";
+        case "diamond": return "diamond";
+        case "wedgeRectCallout": return "callout";
+        case "heart": return "heart";
+        case "cloud": return "cloud";
+        case "pentagon": return "pentagon";
+        case "hexagon": return "hexagon";
+        case "wave": return "banner";
+        default: return "rect";
+      }
+    };
+
+    const parsedSlides: PptxSlideParseData[] = [];
+
+    for (let i = 0; i < slideDefs.length; i++) {
+      const def = slideDefs[i];
+      const slideFile = zip.file(def.path);
+      if (!slideFile) continue;
+
+      const xml = await slideFile.async("string");
+
+      // Extract shapes <p:sp>
+      const spMatches = xml.match(/<p:sp[\s>].*?<\/p:sp>/gs) || [];
+      const shapes: any[] = [];
+      const allTexts: string[] = [];
+
+      for (let sIdx = 0; sIdx < spMatches.length; sIdx++) {
+        const sp = spMatches[sIdx];
+        const tMatches = sp.match(/<a:t[^>]*>(.*?)<\/a:t>/gs) || [];
+        const text = tMatches
+          .map((t) => t.replace(/<a:t[^>]*>/, "").replace(/<\/a:t>/, ""))
+          .join("")
+          .trim();
+        if (text) allTexts.push(unescapeXml(text));
+
+        // Off and Ext
+        const offM = sp.match(/<a:off\s+x="(\d+)"\s+y="(\d+)"/);
+        const extM = sp.match(/<a:ext\s+cx="(\d+)"\s+cy="(\d+)"/);
+        const x = offM ? Math.round(parseInt(offM[1], 10) / 9525) : 80;
+        const y = offM ? Math.round(parseInt(offM[2], 10) / 9525) : 100 + sIdx * 60;
+        const w = extM ? Math.round(parseInt(extM[1], 10) / 9525) : 500;
+        const h = extM ? Math.round(parseInt(extM[2], 10) / 9525) : 50;
+
+        // Rotation
+        const rotM = sp.match(/<a:xfrm[^>]*rot="(\d+)"/);
+        const rotation = rotM ? Math.round(parseInt(rotM[1], 10) / 60000) : 0;
+
+        // Geometry
+        const prstM = sp.match(/<a:prstGeom\s+prst="([^"]+)"/);
+        const geom = mapOoxmlGeom(prstM ? prstM[1] : undefined);
+
+        // Fill
+        const fillM = sp.match(/<a:solidFill>.*?<a:srgbClr\s+val="([0-9A-Fa-f]{6})"/s);
+        const fill = fillM ? `#${fillM[1]}` : "transparent";
+
+        // Stroke
+        const lnM = sp.match(/<a:ln[^>]*>.*?<a:srgbClr\s+val="([0-9A-Fa-f]{6})"/s);
+        const stroke = lnM ? `#${lnM[1]}` : undefined;
+
+        // Typography
+        const szM = sp.match(/<a:rPr[^>]*sz="(\d+)"/);
+        const fontSize = szM ? Math.round(parseInt(szM[1], 10) / 100) : 18;
+        const bold = Boolean(sp.match(/<a:rPr[^>]*b="1"/));
+        const italic = Boolean(sp.match(/<a:rPr[^>]*i="1"/));
+        const underline = Boolean(sp.match(/<a:rPr[^>]*u="sng"/));
+
+        const colorM = sp.match(/<a:rPr[^>]*>.*?<a:srgbClr\s+val="([0-9A-Fa-f]{6})"/s);
+        const textColor = colorM ? `#${colorM[1]}` : "#1e293b";
+
+        shapes.push({
+          id: `shape-${i + 1}-${sIdx + 1}`,
+          type: geom,
+          x,
+          y,
+          w,
+          h,
+          rotation,
+          fill,
+          stroke,
+          text: unescapeXml(text),
+          fontSize,
+          bold,
+          italic,
+          underline,
+          textColor,
+        });
+      }
+
+      // Check transition
+      let transition: string | undefined;
+      const transM = xml.match(/<p:transition>.*?<p:([a-zA-Z0-9]+)/s);
+      if (transM) {
+        const tr = transM[1];
+        transition = tr.charAt(0).toUpperCase() + tr.slice(1);
+      }
+
+      // Check notes
+      let notes = "";
+      const notesFile =
+        zip.file(`ppt/notesSlides/notesSlide${def.index}.xml`) ||
+        zip.file(`ppt/notesSlides/notesSlide${i + 1}.xml`);
+      if (notesFile) {
+        const notesXml = await notesFile.async("string");
+        const nMatches = notesXml.match(/<a:t[^>]*>(.*?)<\/a:t>/gs) || [];
+        notes = nMatches
+          .map((t) => t.replace(/<a:t[^>]*>/, "").replace(/<\/a:t>/, ""))
+          .join(" ")
+          .trim();
+      }
+
+      const title = allTexts[0] || `Slide ${i + 1}`;
+      parsedSlides.push({
+        slideNumber: i + 1,
+        title,
+        text: allTexts.length > 0 ? allTexts : [title],
+        shapes,
+        notes: unescapeXml(notes),
+        transition,
+      });
+    }
+
+    if (parsedSlides.length === 0) {
+      parsedSlides.push({
+        slideNumber: 1,
+        title: "Slide 1",
+        text: ["Slide 1"],
+        shapes: [],
+      });
+    }
+
+    return { slides: parsedSlides };
   }
 
   // =========================================================================

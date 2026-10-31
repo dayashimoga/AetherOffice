@@ -2921,6 +2921,9 @@ export class UnifiedShellApp {
       this.writerCanvas?.render();
     } else if (docType === "PowerPoint") {
       this.slideStageCanvas?.render();
+      this.updateSlideSorter();
+      this.speakerNotesPane?.refresh();
+      this.animationPane?.refresh();
     } else if (docType === "PDF") {
       this.pdfViewerCanvas?.render();
     }

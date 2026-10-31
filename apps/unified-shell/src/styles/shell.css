@@ -520,13 +520,16 @@ body.alt-keytips-active .ribbon-keytip-badge,
   margin: 2px 0;
   min-height: 64px;
   flex-shrink: 0;
+  max-width: 100%;
+  overflow: visible;
 }
 
 .ribbon-group-row {
   display: flex;
   align-items: center;
   gap: 4px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 
 .ribbon-group-title {
