@@ -133,7 +133,7 @@ describe("PowerPoint Animations, Slide Show, Review & View Ribbons (100% Working
       expect(state.isPreviewingAnimation).toBe(true);
     });
 
-    it("1.2 applies Entrance animation effects (Appear, Fade In, Fly In, Fly Up, Float In, Split, Wipe, Shape, Wheel, Bounce, Zoom, Pop)", () => {
+    it("1.2 applies Entrance animation effects (Appear, Fade In, Fly In, Fly Up, Float In, Split, Wipe, Shape, Wheel, Random Bars, Grow & Turn, Bounce, Zoom, Swivel, Pop)", () => {
       const testCases = [
         { testId: "slides-anim-appear", expected: "appear" },
         { testId: "slides-anim-fade-in", expected: "fadeIn" },
@@ -144,8 +144,11 @@ describe("PowerPoint Animations, Slide Show, Review & View Ribbons (100% Working
         { testId: "slides-anim-wipe", expected: "wipe" },
         { testId: "slides-anim-shape", expected: "shape" },
         { testId: "slides-anim-wheel", expected: "wheel" },
+        { testId: "slides-anim-random-bars", expected: "randomBars" },
+        { testId: "slides-anim-grow-turn", expected: "growTurn" },
         { testId: "slides-anim-bounce", expected: "bounce" },
         { testId: "slides-anim-zoom", expected: "zoom" },
+        { testId: "slides-anim-swivel", expected: "swivel" },
         { testId: "slides-anim-pop", expected: "zoom" },
       ];
 
@@ -159,9 +162,10 @@ describe("PowerPoint Animations, Slide Show, Review & View Ribbons (100% Working
       }
     });
 
-    it("1.3 applies Emphasis animation effects (Pulse, Teeter, Spin, Grow/Shrink)", () => {
+    it("1.3 applies Emphasis animation effects (Pulse, Color Pulse, Teeter, Spin, Grow/Shrink)", () => {
       const testCases = [
         { testId: "slides-anim-pulse", expected: "pulse" },
+        { testId: "slides-anim-color-pulse", expected: "colorPulse" },
         { testId: "slides-anim-teeter", expected: "teeter" },
         { testId: "slides-anim-spin", expected: "spin" },
         { testId: "slides-anim-grow-shrink", expected: "growShrink" },
@@ -177,11 +181,13 @@ describe("PowerPoint Animations, Slide Show, Review & View Ribbons (100% Working
       }
     });
 
-    it("1.4 applies Exit animation effects (None, Disappear, Fade Out, Fly Out, Zoom Out)", () => {
+    it("1.4 applies Exit animation effects (None, Disappear, Fade Out, Fly Out, Float Out, Shrink & Turn, Zoom Out)", () => {
       const testCases = [
         { testId: "slides-anim-disappear", expected: "disappear" },
         { testId: "slides-anim-fade-out", expected: "fadeOut" },
         { testId: "slides-anim-fly-out", expected: "flyOut" },
+        { testId: "slides-anim-float-out", expected: "floatOut" },
+        { testId: "slides-anim-shrink-turn", expected: "shrinkTurn" },
         { testId: "slides-anim-zoom-out", expected: "zoomOut" },
       ];
 
@@ -226,6 +232,11 @@ describe("PowerPoint Animations, Slide Show, Review & View Ribbons (100% Working
       expect(triggerBtn).not.toBeNull();
       triggerBtn.click();
       expect(actions).toContainEqual({ action: "SetAnimationTrigger", payload: undefined });
+
+      const effectOptionsBtn = ribbonBody.querySelector("[data-testid='slides-btn-effect-options']") as HTMLButtonElement;
+      expect(effectOptionsBtn).not.toBeNull();
+      effectOptionsBtn.click();
+      expect(actions).toContainEqual({ action: "EffectOptions", payload: "property" });
     });
 
     it("1.6 sets animation timing (Start trigger, Duration, Delay, Reorder)", () => {
@@ -374,6 +385,17 @@ describe("PowerPoint Animations, Slide Show, Review & View Ribbons (100% Working
       setupBtn.click();
       expect(actions).toContainEqual({ action: "SetUpShow", payload: undefined });
 
+      const customBtn = ribbonBody.querySelector("[data-testid='slides-btn-custom-show']") as HTMLButtonElement;
+      expect(customBtn).not.toBeNull();
+      customBtn.click();
+      expect(actions).toContainEqual({ action: "CustomSlideShow", payload: undefined });
+
+      const kioskBtn = ribbonBody.querySelector("[data-testid='slides-btn-kiosk-mode']") as HTMLButtonElement;
+      expect(kioskBtn).not.toBeNull();
+      kioskBtn.click();
+      expect(actions).toContainEqual({ action: "SetKioskMode", payload: undefined });
+      expect(state.isKioskMode).toBe(true);
+
       const recordBtn = ribbonBody.querySelector("[data-testid='slides-btn-record-show']") as HTMLButtonElement;
       expect(recordBtn).not.toBeNull();
       recordBtn.click();
@@ -444,6 +466,15 @@ describe("PowerPoint Animations, Slide Show, Review & View Ribbons (100% Working
       showCommentsBtn.click();
       expect(actions).toContainEqual({ action: "ShowComments", payload: undefined });
       expect(state.showCommentsPane).toBe(!currentShow);
+
+      const prevBtn = ribbonBody.querySelector("[data-testid='slides-btn-prev-comment']") as HTMLButtonElement;
+      const nextBtn = ribbonBody.querySelector("[data-testid='slides-btn-next-comment']") as HTMLButtonElement;
+      expect(prevBtn).not.toBeNull();
+      expect(nextBtn).not.toBeNull();
+      nextBtn.click();
+      expect(actions).toContainEqual({ action: "NextComment", payload: undefined });
+      prevBtn.click();
+      expect(actions).toContainEqual({ action: "PrevComment", payload: undefined });
 
       const deleteCommentBtn = ribbonBody.querySelector("[data-testid='slides-btn-delete-comment']") as HTMLButtonElement;
       expect(deleteCommentBtn).not.toBeNull();
@@ -603,5 +634,31 @@ describe("PowerPoint Animations, Slide Show, Review & View Ribbons (100% Working
         stageCanvas.render();
       }).not.toThrow();
     });
+  });
+
+  // =========================================================================
+  // 6. COMPREHENSIVE GEC-v5.0 RIBBON DOM AUDIT
+  // =========================================================================
+  describe("6. Comprehensive GEC-v5.0 DOM Audit for Animations, Slide Show, Review, and View tabs", () => {
+    it("renders all four tabs and verifies 100% of buttons are present, labeled, and interactive", () => {
+      const tabs = ["Animations", "Slide Show", "Review", "View"];
+      for (const tab of tabs) {
+        ribbonBody.innerHTML = "";
+        ribbon.renderTab(tab, ribbonBody, (action, payload) => {
+          actions.push({ action, payload });
+        });
+
+        const groups = ribbonBody.querySelectorAll(".ribbon-group");
+        expect(groups.length).toBeGreaterThan(0);
+
+        const buttons = ribbonBody.querySelectorAll("button");
+        expect(buttons.length).toBeGreaterThan(0);
+
+        buttons.forEach((btn) => {
+          expect(btn.textContent?.trim().length).toBeGreaterThan(0);
+          expect(() => btn.click()).not.toThrow();
+        });
+      }
+    }, 15000);
   });
 });

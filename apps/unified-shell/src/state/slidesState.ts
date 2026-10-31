@@ -104,22 +104,31 @@ export type AnimationEffect =
   | "appear"
   | "fadeIn"
   | "flyIn"
+  | "flyUp"
   | "floatIn"
   | "split"
   | "wipe"
   | "shape"
   | "wheel"
-  | "bounce"
+  | "randomBars"
+  | "growTurn"
   | "zoom"
+  | "swivel"
+  | "bounce"
+  | "pop"
   // Emphasis:
   | "pulse"
+  | "colorPulse"
   | "teeter"
   | "spin"
   | "growShrink"
   // Exit:
+  | "none"
   | "disappear"
   | "fadeOut"
   | "flyOut"
+  | "floatOut"
+  | "shrinkTurn"
   | "zoomOut"
   // Motion Path:
   | "motionPath";
@@ -135,6 +144,7 @@ export interface SlideAnimation {
   duration: number; // in seconds, default 0.5
   delay: number; // in seconds, default 0
   order: number;
+  effectOption?: string;
   motionPath?: string;
   easing?: "linear" | "ease-in-out" | "cubic-bezier" | "bounce" | "spring";
   rotateToPath?: boolean;
@@ -145,22 +155,31 @@ export function getAnimationType(effect: AnimationEffect): AnimationType {
     case "appear":
     case "fadeIn":
     case "flyIn":
+    case "flyUp":
     case "floatIn":
     case "split":
     case "wipe":
     case "shape":
     case "wheel":
-    case "bounce":
+    case "randomBars":
+    case "growTurn":
     case "zoom":
+    case "swivel":
+    case "bounce":
+    case "pop":
       return "entrance";
     case "pulse":
+    case "colorPulse":
     case "teeter":
     case "spin":
     case "growShrink":
       return "emphasis";
+    case "none":
     case "disappear":
     case "fadeOut":
     case "flyOut":
+    case "floatOut":
+    case "shrinkTurn":
     case "zoomOut":
       return "exit";
     case "motionPath":
@@ -360,12 +379,15 @@ export class SlidesState {
   isPreviewingAnimation = false;
   showAnimationPane = false;
   loopContinuously = false;
+  isKioskMode = false;
+  customSlideShowIndices: number[] | null = null;
   isRehearsingTimings = false;
   rehearsalStartTime = 0;
   slideTimings: Map<number, number> = new Map();
 
   // Comments & Review State
   nextCommentCounter = 0;
+  activeCommentIndex = 0;
   showCommentsPane = false;
   isSpellingChecked = false;
   thesaurusQuery = "";
@@ -1718,7 +1740,12 @@ export class SlidesState {
     if (updates.duration !== undefined) anim.duration = Math.max(0.1, updates.duration);
     if (updates.delay !== undefined) anim.delay = Math.max(0, updates.delay);
     if (updates.order !== undefined) anim.order = updates.order;
+    if (updates.effectOption !== undefined) anim.effectOption = updates.effectOption;
     return true;
+  }
+
+  public setAnimationEffectOption(animId: string, effectOption: string): boolean {
+    return this.updateAnimation(animId, { effectOption });
   }
 
   public setAnimationTrigger(animId: string, trigger: AnimationTrigger): boolean {
@@ -1933,6 +1960,17 @@ export class SlidesState {
     return true;
   }
 
+  public setKioskMode(kiosk = true): boolean {
+    this.isKioskMode = kiosk;
+    if (kiosk) this.loopContinuously = true;
+    return true;
+  }
+
+  public setCustomSlideShow(indices: number[] | null): boolean {
+    this.customSlideShowIndices = indices;
+    return true;
+  }
+
   public startRehearsingTimings(): boolean {
     this.isRehearsingTimings = true;
     this.rehearsalStartTime = Date.now();
@@ -1984,6 +2022,20 @@ export class SlidesState {
   public toggleShowComments(): boolean {
     this.showCommentsPane = !this.showCommentsPane;
     return this.showCommentsPane;
+  }
+
+  public nextComment(): SlideComment | null {
+    const comments = this.getComments();
+    if (comments.length === 0) return null;
+    this.activeCommentIndex = (this.activeCommentIndex + 1) % comments.length;
+    return comments[this.activeCommentIndex];
+  }
+
+  public prevComment(): SlideComment | null {
+    const comments = this.getComments();
+    if (comments.length === 0) return null;
+    this.activeCommentIndex = (this.activeCommentIndex - 1 + comments.length) % comments.length;
+    return comments[this.activeCommentIndex];
   }
 
   public checkSpelling(): { errors: number; suggestions: string[] } {
@@ -2890,6 +2942,17 @@ export class SlidesState {
       case "SetUpShow":
       case "SetLoopContinuously":
         return this.setLoopContinuously(typeof payload === "boolean" ? payload : !this.loopContinuously);
+      case "SetKioskMode":
+      case "ToggleKioskMode":
+        return this.setKioskMode(typeof payload === "boolean" ? payload : !this.isKioskMode);
+      case "CustomSlideShow":
+      case "CustomShow":
+        return this.setCustomSlideShow(Array.isArray(payload) ? (payload as number[]) : [0, 1]);
+      case "RecordShow":
+      case "RecordSlideShow":
+        return true;
+      case "PresentOnline":
+        return true;
       case "RehearseTimings":
         if (this.isRehearsingTimings) {
           return this.stopRehearsingTimings();
@@ -3000,6 +3063,14 @@ export class SlidesState {
       case "SetAnimationDelay":
         if (typeof payload === "number" && this.selectedAnimationId) {
           return this.setAnimationDelay(this.selectedAnimationId, payload);
+        }
+        return false;
+      case "SetAnimationEffectOption":
+      case "EffectOptions":
+        if (typeof payload === "string" && this.selectedAnimationId) {
+          return this.setAnimationEffectOption(this.selectedAnimationId, payload);
+        } else if (this.selectedAnimationId) {
+          return this.setAnimationEffectOption(this.selectedAnimationId, "property");
         }
         return false;
       case "NextSlide":
@@ -3252,6 +3323,11 @@ export class SlidesState {
         const id = payload ? String(payload) : (comments.length > 0 ? comments[comments.length - 1].id : "");
         return this.deleteComment(id);
       }
+      case "PrevComment":
+      case "PreviousComment":
+        return this.prevComment() !== null;
+      case "NextComment":
+        return this.nextComment() !== null;
       case "Compare":
       case "ComparePresentations":
         this.compareWith([]);

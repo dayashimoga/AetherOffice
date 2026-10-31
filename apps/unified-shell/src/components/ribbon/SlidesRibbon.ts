@@ -506,8 +506,11 @@ export class SlidesRibbon implements AppRibbonComponent {
     entRow2.appendChild(createRibbonButton("Wipe", "🟢 Wipe", () => emit("SetAnimation", "wipe"), false, "slides-anim-wipe"));
     entRow2.appendChild(createRibbonButton("Shape", "🟢 Shape", () => emit("SetAnimation", "shape"), false, "slides-anim-shape"));
     entRow2.appendChild(createRibbonButton("Wheel", "🟢 Wheel", () => emit("SetAnimation", "wheel"), false, "slides-anim-wheel"));
+    entRow2.appendChild(createRibbonButton("Random Bars", "🟢 Random Bars", () => emit("SetAnimation", "randomBars"), false, "slides-anim-random-bars"));
+    entRow2.appendChild(createRibbonButton("Grow & Turn", "🟢 Grow & Turn", () => emit("SetAnimation", "growTurn"), false, "slides-anim-grow-turn"));
     entRow2.appendChild(createRibbonButton("Bounce", "🟢 Bounce", () => emit("SetAnimation", "bounce"), false, "slides-anim-bounce"));
     entRow2.appendChild(createRibbonButton("Zoom", "🟢 Zoom", () => emit("SetAnimation", "zoom"), false, "slides-anim-zoom"));
+    entRow2.appendChild(createRibbonButton("Swivel", "🟢 Swivel", () => emit("SetAnimation", "swivel"), false, "slides-anim-swivel"));
     entRow2.appendChild(createRibbonButton("Pop", "🟢 Pop", () => emit("SetAnimation", "pop"), false, "slides-anim-pop"));
     entranceGroup.appendChild(entRow2);
     body.appendChild(entranceGroup);
@@ -517,6 +520,7 @@ export class SlidesRibbon implements AppRibbonComponent {
     const emphRow = document.createElement("div");
     emphRow.className = "ribbon-group-row";
     emphRow.appendChild(createRibbonButton("Pulse", "🟡 Pulse", () => emit("SetAnimation", "pulse"), false, "slides-anim-pulse"));
+    emphRow.appendChild(createRibbonButton("Color Pulse", "🟡 Color Pulse", () => emit("SetAnimation", "colorPulse"), false, "slides-anim-color-pulse"));
     emphRow.appendChild(createRibbonButton("Teeter", "🟡 Teeter", () => emit("SetAnimation", "teeter"), false, "slides-anim-teeter"));
     emphRow.appendChild(createRibbonButton("Spin", "🟡 Spin", () => emit("SetAnimation", "spin"), false, "slides-anim-spin"));
     emphRow.appendChild(createRibbonButton("Grow/Shrink", "🟡 Grow", () => emit("SetAnimation", "growShrink"), false, "slides-anim-grow-shrink"));
@@ -531,6 +535,8 @@ export class SlidesRibbon implements AppRibbonComponent {
     exitRow.appendChild(createRibbonButton("Disappear", "🔴 Disappear", () => emit("SetAnimation", "disappear"), false, "slides-anim-disappear"));
     exitRow.appendChild(createRibbonButton("Fade Out", "🔴 Fade Out", () => emit("SetAnimation", "fadeOut"), false, "slides-anim-fade-out"));
     exitRow.appendChild(createRibbonButton("Fly Out", "🔴 Fly Out", () => emit("SetAnimation", "flyOut"), false, "slides-anim-fly-out"));
+    exitRow.appendChild(createRibbonButton("Float Out", "🔴 Float Out", () => emit("SetAnimation", "floatOut"), false, "slides-anim-float-out"));
+    exitRow.appendChild(createRibbonButton("Shrink & Turn", "🔴 Shrink & Turn", () => emit("SetAnimation", "shrinkTurn"), false, "slides-anim-shrink-turn"));
     exitRow.appendChild(createRibbonButton("Zoom Out", "🔴 Zoom Out", () => emit("SetAnimation", "zoomOut"), false, "slides-anim-zoom-out"));
     exitGroup.appendChild(exitRow);
     body.appendChild(exitGroup);
@@ -539,6 +545,7 @@ export class SlidesRibbon implements AppRibbonComponent {
     const advGroup = createRibbonGroup("Advanced Animation");
     const advRow = document.createElement("div");
     advRow.className = "ribbon-group-row";
+    advRow.appendChild(createRibbonButton("Effect Options", "⚙️ Effects", () => emit("EffectOptions", "property"), false, "slides-btn-effect-options"));
     advRow.appendChild(createRibbonButton("Motion Path", "➰ Motion", () => emit("AddMotionPath"), false, "slides-anim-motion-path"));
     advRow.appendChild(createRibbonButton("Add Animation", "➕ Add Anim", () => emit("AddAnimation"), false, "slides-btn-add-anim"));
     advRow.appendChild(createRibbonButton("Animation Pane", "🎞️ Anim Pane", () => emit("ToggleAnimationPane"), true, "slides-btn-anim-pane"));
@@ -580,6 +587,7 @@ export class SlidesRibbon implements AppRibbonComponent {
     showRow.appendChild(
       createRibbonButton("From Current Slide", "⏩ Current (Shift+F5)", () => emit("StartShowCurrent"), false, "slides-btn-show-curr")
     );
+    showRow.appendChild(createRibbonButton("Custom Show", "📑 Custom Show", () => emit("CustomSlideShow"), false, "slides-btn-custom-show"));
     showRow.appendChild(createRibbonButton("Present Online", "🌐 Online", () => emit("PresentOnline"), false, "slides-btn-present-online"));
     showGroup.appendChild(showRow);
     body.appendChild(showGroup);
@@ -592,6 +600,7 @@ export class SlidesRibbon implements AppRibbonComponent {
     setupRow.appendChild(createRibbonButton("Hide Slide", "👁️‍🗨️ Hide Slide", () => emit("HideSlide"), false, "slides-btn-hide-slide"));
     setupRow.appendChild(createRibbonButton("Rehearse Timings", "⏱️ Rehearse", () => emit("RehearseTimings"), false, "slides-btn-rehearse"));
     setupRow.appendChild(createRibbonButton("Loop Continuously", "🔁 Loop", () => emit("SetLoopContinuously"), false, "slides-btn-loop-continuous"));
+    setupRow.appendChild(createRibbonButton("Kiosk Mode", "🖥️ Kiosk", () => emit("SetKioskMode"), false, "slides-btn-kiosk-mode"));
     setupRow.appendChild(createRibbonButton("Record Show", "🔴 Record", () => emit("RecordShow"), false, "slides-btn-record-show"));
     setupGroup.appendChild(setupRow);
     body.appendChild(setupGroup);
@@ -628,6 +637,8 @@ export class SlidesRibbon implements AppRibbonComponent {
     const commRow = document.createElement("div");
     commRow.className = "ribbon-group-row";
     commRow.appendChild(createRibbonButton("New Comment", "💬 New Comment", () => emit("NewComment"), false, "slides-btn-new-comment"));
+    commRow.appendChild(createRibbonButton("Prev Comment", "◀ Prev", () => emit("PrevComment"), false, "slides-btn-prev-comment"));
+    commRow.appendChild(createRibbonButton("Next Comment", "Next ▶", () => emit("NextComment"), false, "slides-btn-next-comment"));
     commRow.appendChild(createRibbonButton("Show Comments", "Show Comments", () => emit("ShowComments"), true, "slides-btn-show-comments"));
     commRow.appendChild(createRibbonButton("Delete Comment", "🗑️ Delete", () => emit("DeleteComment"), false, "slides-btn-delete-comment"));
     commGroup.appendChild(commRow);
