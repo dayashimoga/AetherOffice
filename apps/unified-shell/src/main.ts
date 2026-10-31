@@ -2588,7 +2588,13 @@ export class UnifiedShellApp {
         this.calcGridCanvas?.render();
       }
     } else if (this.currentDocType === "PDF") {
-      if (action === "AddSignature" || action === "SignPdf") {
+      if (
+        action === "AddSignature" ||
+        action === "SignPdf" ||
+        action === "AddInitials" ||
+        action === "SignDocument" ||
+        action === "Sign"
+      ) {
         this.pdfWorkspace?.openSignModal();
       }
       if (action === "ExportPdf" || action === "SaveDocument") {

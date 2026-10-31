@@ -14,9 +14,18 @@ export interface PptxParseResult {
   slides: Array<{ slideNumber: number; title: string; text: string[] }>;
 }
 
+export interface PdfPageParseData {
+  pageNumber: number;
+  width: number;
+  height: number;
+  text: string;
+  textBlocks: Array<{ text: string; x: number; y: number; fontSize?: number }>;
+}
+
 export interface PdfParseResult {
   pageCount: number;
   text: string;
+  pages?: PdfPageParseData[];
 }
 
 export class BinaryPackageService {
@@ -431,15 +440,65 @@ export class BinaryPackageService {
   public parsePdf(buffer: ArrayBuffer | Uint8Array): PdfParseResult {
     const raw = typeof buffer === "string" ? buffer : new TextDecoder().decode(buffer);
     const countMatch = raw.match(/\/Count\s+(\d+)/);
-    const pageCount = countMatch ? parseInt(countMatch[1], 10) : 1;
+    let pageCount = countMatch ? parseInt(countMatch[1], 10) : 0;
+
+    // Detect pages by /Type /Page
+    const pageMatches = raw.split(/\/Type\s*\/Page\b/).slice(1);
+    if (pageMatches.length > 0 && pageCount === 0) {
+      pageCount = pageMatches.length;
+    }
+    if (pageCount === 0) pageCount = 1;
 
     // Extract text in parentheses (text) Tj
     const tjMatches = raw.match(/\((.*?)\)\s*Tj/g) || [];
     const extracted = tjMatches.map((m) => m.replace(/^\(/, "").replace(/\)\s*Tj$/, "")).join(" ");
 
+    // Extract MediaBox dimensions if present
+    const mediaBoxMatch = raw.match(/\/MediaBox\s*\[\s*([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s*\]/);
+    const width = mediaBoxMatch ? Math.max(100, Math.round(parseFloat(mediaBoxMatch[3]) - parseFloat(mediaBoxMatch[1]))) : 612;
+    const height = mediaBoxMatch ? Math.max(100, Math.round(parseFloat(mediaBoxMatch[4]) - parseFloat(mediaBoxMatch[2]))) : 792;
+
+    const pages: PdfPageParseData[] = [];
+    if (pageMatches.length > 0) {
+      pageMatches.forEach((pageChunk, idx) => {
+        const pageTj = pageChunk.match(/\((.*?)\)\s*Tj/g) || [];
+        const pageText = pageTj.map((m) => m.replace(/^\(/, "").replace(/\)\s*Tj$/, "")).join(" ");
+        const textBlocks: Array<{ text: string; x: number; y: number; fontSize?: number }> = [];
+
+        // Match BT .. ET blocks
+        const btMatches = pageChunk.match(/BT[\s\S]*?ET/g) || [];
+        btMatches.forEach((bt) => {
+          const fontMatch = bt.match(/\/F\d+\s+([\d.]+)\s+Tf/);
+          const tdMatch = bt.match(/([\d.-]+)\s+([\d.-]+)\s+Td/);
+          const tjM = bt.match(/\((.*?)\)\s*Tj/);
+          if (tjM) {
+            const txt = tjM[1].replace(/\\([()\\])/g, "$1");
+            const fontSize = fontMatch ? parseFloat(fontMatch[1]) : 12;
+            const x = tdMatch ? parseFloat(tdMatch[1]) : 72;
+            const rawY = tdMatch ? parseFloat(tdMatch[2]) : 720;
+            const y = Math.max(0, height - rawY);
+            textBlocks.push({ text: txt, x, y, fontSize });
+          }
+        });
+
+        if (textBlocks.length === 0 && pageText) {
+          textBlocks.push({ text: pageText, x: 72, y: 72, fontSize: 12 });
+        }
+
+        pages.push({
+          pageNumber: idx + 1,
+          width,
+          height,
+          text: pageText || `Page ${idx + 1}`,
+          textBlocks,
+        });
+      });
+    }
+
     return {
-      pageCount,
+      pageCount: Math.max(pageCount, pages.length || 1),
       text: extracted || "OpenOfficeRS PDF Document",
+      pages: pages.length > 0 ? pages : undefined,
     };
   }
 

@@ -201,9 +201,39 @@ export class FileIoService {
         }
       } else if (docType === "PDF") {
         const parsed = binaryPackageService.parsePdf(uint8);
-        if (parsed.pageCount > 1) {
+        if (parsed.pages && parsed.pages.length > 0) {
+          pdfState.loadPdfDocument(
+            parsed.pages.map((p, i) => ({
+              id: `page-${i + 1}`,
+              pageNumber: i + 1,
+              width: p.width,
+              height: p.height,
+              rotation: 0,
+              title: `Page ${i + 1}`,
+              textBlocks: p.textBlocks.map((tb, tbIdx) => ({
+                id: `tb-${i + 1}-${tbIdx + 1}`,
+                x: tb.x,
+                y: tb.y,
+                text: tb.text,
+                fontSize: tb.fontSize || 12,
+              })),
+            }))
+          );
+        } else if (parsed.pageCount > 0) {
+          pdfState.resetToBlank(fileName);
           while (pdfState.pages.length < parsed.pageCount) {
             pdfState.insertBlankPage(pdfState.pages.length);
+          }
+          if (pdfState.pages[0]) {
+            pdfState.pages[0].textBlocks = [
+              {
+                id: "tb-1",
+                x: 72,
+                y: 120,
+                text: parsed.text,
+                fontSize: 14,
+              },
+            ];
           }
         }
       } else {

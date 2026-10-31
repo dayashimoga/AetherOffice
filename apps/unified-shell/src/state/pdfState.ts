@@ -1134,30 +1134,61 @@ export class PdfState {
 
     // 1: Catalog
     writeObject(1, "<< /Type /Catalog /Pages 2 0 R >>");
-    // 2: Pages Tree
-    writeObject(2, `<< /Type /Pages /Kids [4 0 R] /Count ${this.pages.length} >>`);
+
     // 3: Font
     writeObject(3, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
-    // 4: First Page
-    const firstPage = this.pages[0];
-    const p1W = firstPage ? firstPage.width : 816;
-    const p1H = firstPage ? firstPage.height : 1056;
-    let p1Stream = "BT /F1 14 Tf 80 750 Td (ISO 32000-2 Verified Export) Tj ET\r\n";
-    if (firstPage?.textBlocks) {
-      firstPage.textBlocks.forEach((tb) => {
-        p1Stream += `BT /F1 ${tb.fontSize || 12} Tf ${tb.x} ${p1H - tb.y} Td (${tb.text.replace(/[()]/g, "")}) Tj ET\r\n`;
-      });
-    }
-    writeObject(5, `<< /Length ${p1Stream.length} >>\r\nstream\r\n${p1Stream}endstream`);
-    writeObject(4, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${p1W} ${p1H}] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>`);
 
+    const pageCount = Math.max(1, this.pages.length);
+    const kidIds: string[] = [];
+    for (let i = 0; i < pageCount; i++) {
+      kidIds.push(`${4 + i * 2} 0 R`);
+    }
+
+    // 2: Pages Tree
+    writeObject(2, `<< /Type /Pages /Kids [${kidIds.join(" ")}] /Count ${pageCount} >>`);
+
+    for (let i = 0; i < pageCount; i++) {
+      const page = this.pages[i];
+      const pageObjId = 4 + i * 2;
+      const contentObjId = 5 + i * 2;
+      const pW = page ? page.width : 816;
+      const pH = page ? page.height : 1056;
+
+      let pStream = "";
+      if (page?.textBlocks && page.textBlocks.length > 0) {
+        page.textBlocks.forEach((tb) => {
+          const rawText = String(tb.text ?? "");
+          const esc = rawText.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+          pStream += `BT /F1 ${tb.fontSize || 12} Tf ${tb.x} ${pH - tb.y} Td (${esc}) Tj ET\r\n`;
+        });
+      } else {
+        pStream = `BT /F1 14 Tf 80 ${pH - 120} Td (Page ${i + 1}) Tj ET\r\n`;
+      }
+
+      if (page?.annotations) {
+        page.annotations.forEach((ann) => {
+          if (ann.type === "signature") {
+            const esc = (ann.signerName || "Signed").replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+            pStream += `BT /F1 12 Tf ${ann.rect[0]} ${pH - ann.rect[1]} Td ([Digitally Signed: ${esc}]) Tj ET\r\n`;
+          }
+        });
+      }
+
+      writeObject(contentObjId, `<< /Length ${pStream.length} >>\r\nstream\r\n${pStream}endstream`);
+      writeObject(
+        pageObjId,
+        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pW} ${pH}] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentObjId} 0 R >>`
+      );
+    }
+
+    const totalObjs = 3 + pageCount * 2;
     const startXref = out.length;
-    out += `xref\r\n0 6\r\n0000000000 65535 f\r\n`;
-    for (let i = 1; i <= 5; i++) {
-      const off = finalOffsets[i].toString().padStart(10, "0");
+    out += `xref\r\n0 ${totalObjs + 1}\r\n0000000000 65535 f\r\n`;
+    for (let i = 1; i <= totalObjs; i++) {
+      const off = (finalOffsets[i] || 0).toString().padStart(10, "0");
       out += `${off} 00000 n\r\n`;
     }
-    out += `trailer\r\n<< /Size 6 /Root 1 0 R >>\r\nstartxref\r\n${startXref}\r\n%%EOF\r\n`;
+    out += `trailer\r\n<< /Size ${totalObjs + 1} /Root 1 0 R >>\r\nstartxref\r\n${startXref}\r\n%%EOF\r\n`;
 
     const encoder = new TextEncoder();
     return encoder.encode(out);
