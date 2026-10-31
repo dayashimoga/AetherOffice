@@ -402,6 +402,13 @@ export class SlidesState {
   colorMode: "color" | "grayscale" | "bw" = "color";
   zoomLevel = 100;
 
+  public get zoom(): number {
+    return this.zoomLevel;
+  }
+  public set zoom(val: number) {
+    this.zoomLevel = val;
+  }
+
   private undoStack: SlideData[][] = [];
   private redoStack: SlideData[][] = [];
   private nextShapeCounter = 20;

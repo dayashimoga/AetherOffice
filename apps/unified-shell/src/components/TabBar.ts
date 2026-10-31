@@ -136,7 +136,7 @@ export class TabBar {
     return [...this.tabs];
   }
 
-  private render() {
+  public render() {
     this.container.innerHTML = "";
 
     // Tab Filter Mode Toggle (Current App Tabs vs All Open Tabs)

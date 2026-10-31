@@ -424,6 +424,8 @@ export class UnifiedShellApp {
     const zoomSlider = document.getElementById("zoom-slider") as HTMLInputElement | null;
     const zoomLevel = document.getElementById("status-zoom-level");
     if (zoomSlider) {
+      zoomSlider.value = "100";
+      if (zoomLevel) zoomLevel.textContent = "100%";
       zoomSlider.oninput = (e) => {
         const val = parseInt((e.target as HTMLInputElement).value, 10) || 100;
         if (zoomLevel) zoomLevel.textContent = `${val}%`;
@@ -434,6 +436,15 @@ export class UnifiedShellApp {
         } else if (this.currentDocType === "Excel" && this.calcGridCanvas) {
           calcState.setZoom(zoom);
           this.calcGridCanvas.render();
+        } else if (this.currentDocType === "PowerPoint") {
+          slidesState.setZoom(val);
+          this.slideStageCanvas?.render();
+        } else if (this.currentDocType === "PDF") {
+          pdfState.setZoom(zoom);
+          this.pdfWorkspace?.render();
+        } else if (this.currentDocType === "Notes") {
+          notesState.setZoom(val);
+          this.notesWorkspace?.render();
         }
       };
     }
@@ -1121,6 +1132,23 @@ export class UnifiedShellApp {
       if (wordInfo) wordInfo.textContent = `${lines} lines | ${words} words`;
       if (langInfo) langInfo.textContent = notesState.encoding || "UTF-8";
     }
+
+    const zoomSlider = document.getElementById("zoom-slider") as HTMLInputElement | null;
+    const zoomLevel = document.getElementById("status-zoom-level");
+    let curZoom = 100;
+    if (this.currentDocType === "Word") {
+      curZoom = Math.round((writerState.zoom || 1.0) * 100);
+    } else if (this.currentDocType === "Excel") {
+      curZoom = Math.round((calcState.zoom || 1.0) * 100);
+    } else if (this.currentDocType === "PowerPoint") {
+      curZoom = Math.round(slidesState.zoom || 100);
+    } else if (this.currentDocType === "PDF") {
+      curZoom = Math.round((pdfState.zoom || 1.0) * 100);
+    } else if (this.currentDocType === "Notes") {
+      curZoom = Math.round(notesState.zoom || 100);
+    }
+    if (zoomLevel) zoomLevel.textContent = `${curZoom}%`;
+    if (zoomSlider) zoomSlider.value = String(curZoom);
   }
 
   public updateCalcStatusBar() {
@@ -2641,8 +2669,20 @@ export class UnifiedShellApp {
             ta.select();
           }
         }
+      } else if (action === "Delete") {
+        const ta = this.notesWorkspace?.getTextarea();
+        if (ta && ta.selectionStart !== ta.selectionEnd) {
+          const s = ta.selectionStart;
+          const e = ta.selectionEnd;
+          const text = ta.value;
+          notesState.setContent(text.slice(0, s) + text.slice(e));
+        }
       }
       const changed = notesState.execCommand(action, payload);
+      if (action === "RenameActiveNote" || action === "RenameNote") {
+        active.title = notesState.title;
+        this.tabBar.render();
+      }
       if (changed) {
         this.notesWorkspace?.render();
         if (action !== "SaveDocument" && action !== "SaveDocumentMd" && action !== "CloseFind" && action !== "CloseReplace") {

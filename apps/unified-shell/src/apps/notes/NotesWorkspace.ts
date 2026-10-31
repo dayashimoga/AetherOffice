@@ -506,11 +506,11 @@ export class NotesWorkspace {
       const effectiveSize = Math.round((this.state.fontSize * this.state.zoom) / 100);
       const ff = this.state.fontFamily;
       const effectiveFont =
-        ff === "monospace" || ff === "Consolas" || ff === "JetBrains Mono"
+        ff === "monospace" || ff === "Consolas" || ff === "JetBrains Mono" || ff === "Courier New"
           ? "'JetBrains Mono', 'Consolas', 'Courier New', monospace"
           : ff === "Serif"
           ? "'Georgia', 'Times New Roman', serif"
-          : "'Inter', Segoe UI, -apple-system, sans-serif";
+          : "'Inter', 'Segoe UI', -apple-system, sans-serif";
 
       this.lineGutterEl.style.fontFamily = effectiveFont;
       this.lineGutterEl.style.fontSize = `${effectiveSize}px`;

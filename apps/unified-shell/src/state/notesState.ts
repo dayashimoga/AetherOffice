@@ -7,7 +7,7 @@ export interface NoteItem {
 }
 
 export type NotesViewMode = "editor" | "split" | "preview";
-export type NotesFontFamily = "monospace" | "sans" | "JetBrains Mono" | "Consolas" | "Inter" | "Serif";
+export type NotesFontFamily = "monospace" | "sans" | "JetBrains Mono" | "Consolas" | "Courier New" | "Inter" | "Serif" | "System UI";
 
 export class NotesState {
   public notes: NoteItem[] = [];
@@ -17,6 +17,8 @@ export class NotesState {
   public viewMode: NotesViewMode = "split";
   public showLineNumbers = true;
   public wordWrap = true;
+  public showWhitespace = false;
+  public lineEnding: "CRLF" | "LF" = "CRLF";
   public fontFamily: NotesFontFamily = "monospace";
   public fontSize = 14;
   public tabSize = 4;
@@ -211,7 +213,26 @@ export class NotesState {
   }
 
   public transformText(
-    type: "upper" | "lower" | "title" | "sort_lines" | "sort_az" | "sort_za" | "reverse_lines" | "remove_duplicates" | "trim_whitespace"
+    type:
+      | "upper"
+      | "lower"
+      | "title"
+      | "sentence"
+      | "invert"
+      | "sort_lines"
+      | "sort_az"
+      | "sort_za"
+      | "reverse_lines"
+      | "remove_duplicates"
+      | "remove_empty_lines"
+      | "trim_whitespace"
+      | "format_json"
+      | "prettify_json"
+      | "minify_json"
+      | "base64_encode"
+      | "base64_decode"
+      | "url_encode"
+      | "url_decode"
   ): void {
     let result = this.content;
     switch (type) {
@@ -223,6 +244,15 @@ export class NotesState {
         break;
       case "title":
         result = this.content.replace(/\b\w/g, (c) => c.toUpperCase());
+        break;
+      case "sentence":
+        result = this.content.toLowerCase().replace(/(^\s*\w|[.!?]\s*\w)/g, (c) => c.toUpperCase());
+        break;
+      case "invert":
+        result = this.content
+          .split("")
+          .map((c) => (c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase()))
+          .join("");
         break;
       case "sort_lines":
       case "sort_az":
@@ -238,18 +268,72 @@ export class NotesState {
           .filter((line, idx, arr) => arr.indexOf(line) === idx)
           .join("\n");
         break;
+      case "remove_empty_lines":
+        result = this.content
+          .split("\n")
+          .filter((line) => line.trim().length > 0)
+          .join("\n");
+        break;
       case "trim_whitespace":
         result = this.content
           .split("\n")
-          .map((line) => line.trimEnd())
+          .map((line) => line.trim())
           .join("\n");
+        break;
+      case "format_json":
+      case "prettify_json":
+        try {
+          const parsed = JSON.parse(this.content);
+          result = JSON.stringify(parsed, null, 2);
+        } catch {}
+        break;
+      case "minify_json":
+        try {
+          const parsed = JSON.parse(this.content);
+          result = JSON.stringify(parsed);
+        } catch {}
+        break;
+      case "base64_encode":
+        try {
+          result = btoa(unescape(encodeURIComponent(this.content)));
+        } catch {}
+        break;
+      case "base64_decode":
+        try {
+          result = decodeURIComponent(escape(atob(this.content.trim())));
+        } catch {}
+        break;
+      case "url_encode":
+        result = encodeURIComponent(this.content);
+        break;
+      case "url_decode":
+        try {
+          result = decodeURIComponent(this.content);
+        } catch {}
         break;
     }
     this.setContent(result);
   }
 
   public insertMarkdownSnippet(
-    kind: "h1" | "h2" | "h3" | "bold" | "italic" | "code" | "checklist" | "table" | "quote" | "inline_code" | "link" | "hr"
+    kind:
+      | "h1"
+      | "h2"
+      | "h3"
+      | "bold"
+      | "italic"
+      | "strike"
+      | "strikethrough"
+      | "code"
+      | "checklist"
+      | "bullet_list"
+      | "numbered_list"
+      | "table"
+      | "quote"
+      | "inline_code"
+      | "link"
+      | "image"
+      | "hr"
   ): void {
     let snippet = "";
     switch (kind) {
@@ -268,11 +352,21 @@ export class NotesState {
       case "italic":
         snippet = " *italic text* ";
         break;
+      case "strike":
+      case "strikethrough":
+        snippet = " ~~strikethrough~~ ";
+        break;
       case "inline_code":
         snippet = " `code` ";
         break;
       case "code":
         snippet = "\n```ts\nconsole.log('code');\n```\n";
+        break;
+      case "bullet_list":
+        snippet = "\n- Item 1\n- Item 2\n";
+        break;
+      case "numbered_list":
+        snippet = "\n1. First item\n2. Second item\n";
         break;
       case "checklist":
         snippet = "\n- [ ] Task item\n";
@@ -285,6 +379,9 @@ export class NotesState {
         break;
       case "link":
         snippet = " [Link](https://example.com) ";
+        break;
+      case "image":
+        snippet = " ![Image](https://example.com/image.png) ";
         break;
       case "hr":
         snippet = "\n\n---\n\n";
@@ -317,6 +414,74 @@ export class NotesState {
   public zoom100(): number {
     this.zoom = 100;
     return this.zoom;
+  }
+
+  public setZoom(zoom: number): number {
+    this.zoom = zoom <= 4 ? Math.round(zoom * 100) : Math.round(zoom);
+    this.zoom = Math.max(20, Math.min(400, this.zoom));
+    return this.zoom;
+  }
+
+  public duplicateLine(): void {
+    const lines = this.content.split("\n");
+    const idx = Math.max(0, Math.min(lines.length - 1, this.cursorLine - 1));
+    lines.splice(idx, 0, lines[idx] || "");
+    this.setContent(lines.join("\n"));
+  }
+
+  public deleteLine(): void {
+    const lines = this.content.split("\n");
+    if (lines.length <= 1) {
+      this.setContent("");
+      this.setCursor(1, 1);
+      return;
+    }
+    const idx = Math.max(0, Math.min(lines.length - 1, this.cursorLine - 1));
+    lines.splice(idx, 1);
+    this.setContent(lines.join("\n"));
+    this.setCursor(Math.min(this.cursorLine, lines.length), 1);
+  }
+
+  public moveLineUp(): void {
+    const lines = this.content.split("\n");
+    const idx = Math.max(0, Math.min(lines.length - 1, this.cursorLine - 1));
+    if (idx > 0) {
+      const temp = lines[idx];
+      lines[idx] = lines[idx - 1];
+      lines[idx - 1] = temp;
+      this.setContent(lines.join("\n"));
+      this.setCursor(idx, this.cursorCol);
+    }
+  }
+
+  public moveLineDown(): void {
+    const lines = this.content.split("\n");
+    const idx = Math.max(0, Math.min(lines.length - 1, this.cursorLine - 1));
+    if (idx < lines.length - 1) {
+      const temp = lines[idx];
+      lines[idx] = lines[idx + 1];
+      lines[idx + 1] = temp;
+      this.setContent(lines.join("\n"));
+      this.setCursor(idx + 2, this.cursorCol);
+    }
+  }
+
+  public toggleShowWhitespace(): boolean {
+    this.showWhitespace = !this.showWhitespace;
+    return this.showWhitespace;
+  }
+
+  public setLineEnding(ending: "CRLF" | "LF"): void {
+    this.lineEnding = ending;
+    if (ending === "CRLF") {
+      this.content = this.content.replace(/\r?\n/g, "\r\n");
+    } else {
+      this.content = this.content.replace(/\r\n/g, "\n");
+    }
+  }
+
+  public setEncoding(enc: string): void {
+    this.encoding = enc;
   }
 
   public replaceText(findText: string, replaceText: string, matchCase = false, useRegex = false): number {
@@ -376,6 +541,8 @@ export class NotesState {
         return true;
       case "DeleteNote":
         return this.deleteNote(typeof payload === "string" ? payload : this.activeNoteId);
+      case "DeleteActiveNote":
+        return this.deleteNote(this.activeNoteId);
       case "SelectNote":
         return typeof payload === "string" ? this.selectNote(payload) : false;
       case "RenameNote":
@@ -384,6 +551,32 @@ export class NotesState {
           return this.renameNote(id, title);
         }
         return false;
+      case "RenameActiveNote":
+        return this.renameNote(this.activeNoteId, typeof payload === "string" ? payload : "Renamed Note.txt");
+      case "DuplicateLine":
+        this.duplicateLine();
+        return true;
+      case "DeleteLine":
+        this.deleteLine();
+        return true;
+      case "MoveLineUp":
+        this.moveLineUp();
+        return true;
+      case "MoveLineDown":
+        this.moveLineDown();
+        return true;
+      case "ToggleShowWhitespace":
+        this.toggleShowWhitespace();
+        return true;
+      case "SetLineEnding":
+        this.setLineEnding(payload === "LF" ? "LF" : "CRLF");
+        return true;
+      case "SetEncoding":
+        this.setEncoding(typeof payload === "string" ? payload : "UTF-8");
+        return true;
+      case "SetZoom":
+        this.setZoom(typeof payload === "number" ? payload : 100);
+        return true;
       case "SetNotesViewMode":
       case "SetViewMode":
         if (payload === "editor" || payload === "split" || payload === "preview") {
