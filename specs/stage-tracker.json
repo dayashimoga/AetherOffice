@@ -1144,9 +1144,9 @@
                           "title":  "Fix Word Header/Body Duplicate Typing Bug \u0026 Independent Header/Body/Footer Zones",
                           "crate":  "word-engine",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-36/subphase-36.1.1.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-31T11:15:12Z"
                       },
                       {
                           "id":  "36.1.2",

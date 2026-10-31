@@ -94,6 +94,9 @@ export class WriterCanvas {
   }
   public lastFocusedBodyEl: HTMLElement | null = null;
   public isMultiPage = false;
+  public editingZone: "body" | "header" | "footer" = "body";
+  public activeEditPageIndex = 0;
+  private exitHeaderFooterBtn: HTMLButtonElement | null = null;
 
   private caretVisible = true;
   private caretTimer: number | null = null;
@@ -119,6 +122,14 @@ export class WriterCanvas {
     this.container.style.padding = "32px 24px";
     this.container.style.position = "relative";
     this.container.style.boxSizing = "border-box";
+
+    this.container.addEventListener("keydown", (e: KeyboardEvent) => {
+      if (e.key === "Escape" && this.editingZone !== "body") {
+        e.preventDefault();
+        e.stopPropagation();
+        this.exitHeaderFooter();
+      }
+    });
 
     this.startCaretBlink();
     collabState.subscribe(() => this.render());
@@ -194,21 +205,11 @@ export class WriterCanvas {
   }
 
   public focusHeader(pageIndex = 0): void {
-    const headerInput = this.container.querySelector(
-      `.word-page[data-page-index="${pageIndex}"] [data-testid="word-header-input"]`
-    ) as HTMLElement | null;
-    if (headerInput) {
-      headerInput.focus();
-    }
+    this.setEditingZone("header", pageIndex);
   }
 
   public focusFooter(pageIndex = 0): void {
-    const footerInput = this.container.querySelector(
-      `.word-page[data-page-index="${pageIndex}"] [data-testid="word-footer-input"]`
-    ) as HTMLElement | null;
-    if (footerInput) {
-      footerInput.focus();
-    }
+    this.setEditingZone("footer", pageIndex);
   }
 
   public saveSelection(): void {
@@ -520,10 +521,12 @@ export class WriterCanvas {
     if (bodyEl) {
       const page = this.state.doc.pages[pIdx];
       if (page) {
-        bodyEl.innerText = page.paragraphs
+        const textOnly = page.paragraphs
           .filter((p) => !p.shape && !p.image && !p.table)
           .map((p) => p.runs.map((r) => r.text).join(""))
           .join("\n");
+        bodyEl.innerText = textOnly;
+        page.bodyHtml = textOnly;
       }
     }
   }
@@ -857,23 +860,182 @@ export class WriterCanvas {
     };
   }
 
+  private createExitHeaderFooterButton(): HTMLButtonElement {
+    const btn = document.createElement("button");
+    btn.className = "btn-exit-header-footer btn-close-header-footer";
+    btn.setAttribute("data-testid", "btn-exit-header-footer");
+    btn.setAttribute("data-action", "exit-header-footer");
+    btn.innerHTML = `<span style="font-weight:bold;margin-right:6px;">✓</span> Exit Header/Footer <span style="opacity:0.8;font-size:11px;margin-left:4px;">(Esc)</span>`;
+    btn.style.position = "sticky";
+    btn.style.top = "12px";
+    btn.style.left = "50%";
+    btn.style.transform = "translateX(-50%)";
+    btn.style.zIndex = "1000";
+    btn.style.display = this.editingZone === "body" ? "none" : "inline-flex";
+    btn.style.alignItems = "center";
+    btn.style.justifyContent = "center";
+    btn.style.padding = "7px 18px";
+    btn.style.borderRadius = "9999px";
+    btn.style.backgroundColor = "#2563eb";
+    btn.style.color = "#ffffff";
+    btn.style.fontSize = "13px";
+    btn.style.fontWeight = "600";
+    btn.style.border = "none";
+    btn.style.boxShadow = "0 4px 14px rgba(37, 99, 235, 0.4)";
+    btn.style.cursor = "pointer";
+    btn.style.userSelect = "none";
+    btn.style.margin = "0 auto 12px auto";
+
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      this.exitHeaderFooter();
+    };
+
+    return btn;
+  }
+
+  public setEditingZone(zone: "body" | "header" | "footer", pageIndex = 0): void {
+    this.editingZone = zone;
+    this.activeEditPageIndex = pageIndex;
+    this.state.editingZone = zone;
+
+    if (this.exitHeaderFooterBtn) {
+      this.exitHeaderFooterBtn.style.display = zone === "body" ? "none" : "inline-flex";
+    }
+
+    if (zone === "header") {
+      const pageEl = this.container.querySelector(`.word-page[data-page-index="${pageIndex}"]`);
+      const headerEl = pageEl?.querySelector<HTMLElement>(".word-page-header");
+      if (headerEl) {
+        this.activateHeaderEditing(headerEl, pageIndex);
+      }
+    } else if (zone === "footer") {
+      const pageEl = this.container.querySelector(`.word-page[data-page-index="${pageIndex}"]`);
+      const footerEl = pageEl?.querySelector<HTMLElement>(".word-page-footer");
+      if (footerEl) {
+        this.activateFooterEditing(footerEl, pageIndex);
+      }
+    } else {
+      this.exitHeaderFooter();
+    }
+  }
+
+  public exitHeaderFooter(): void {
+    const pIdx = this.activeEditPageIndex;
+    const pageEl = this.container.querySelector(`.word-page[data-page-index="${pIdx}"]`);
+    if (pageEl) {
+      const headerEl = pageEl.querySelector<HTMLElement>(".word-page-header");
+      const footerEl = pageEl.querySelector<HTMLElement>(".word-page-footer");
+      if (headerEl && headerEl.classList.contains("editing-header")) {
+        headerEl.blur();
+      }
+      if (footerEl && footerEl.classList.contains("editing-footer")) {
+        footerEl.blur();
+      }
+    }
+
+    this.editingZone = "body";
+    this.state.editingZone = "body";
+    if (this.exitHeaderFooterBtn) {
+      this.exitHeaderFooterBtn.style.display = "none";
+    }
+    this.updateZoneVisuals();
+
+    const bodyEl = this.container.querySelector(
+      `.word-page[data-page-index="${pIdx}"] .word-page-body`
+    ) as HTMLElement | null;
+    if (bodyEl) {
+      bodyEl.focus({ preventScroll: true });
+    }
+    this.emitDocChange("EditingZoneChange", { zone: "body", pageIndex: pIdx });
+  }
+
+  private updateZoneVisuals(): void {
+    this.container.querySelectorAll<HTMLElement>(".word-page").forEach((pageEl) => {
+      const pIdx = parseInt(pageEl.getAttribute("data-page-index") || "0", 10);
+      const isCurrentPage = pIdx === this.activeEditPageIndex;
+      const headerEl = pageEl.querySelector<HTMLElement>(".word-page-header");
+      const footerEl = pageEl.querySelector<HTMLElement>(".word-page-footer");
+      const bodyEl = pageEl.querySelector<HTMLElement>(".word-page-body");
+      const headerInput = pageEl.querySelector<HTMLElement>('[data-testid="word-header-input"]');
+      const footerInput = pageEl.querySelector<HTMLElement>('[data-testid="word-footer-input"]');
+
+      if (headerEl) {
+        const isEditingHeader = this.editingZone === "header" && isCurrentPage;
+        headerEl.style.opacity = isEditingHeader ? "1" : "0.65";
+        headerEl.style.borderBottom = isEditingHeader ? "1px dashed #2563eb" : "1px dashed #cbd5e1";
+        if (headerInput) {
+          headerInput.style.pointerEvents = isEditingHeader ? "auto" : "none";
+          headerInput.style.outline = isEditingHeader ? "1px dashed #2563eb" : "none";
+          headerInput.style.backgroundColor = isEditingHeader ? "rgba(37, 99, 235, 0.05)" : "transparent";
+        }
+      }
+
+      if (footerEl) {
+        const isEditingFooter = this.editingZone === "footer" && isCurrentPage;
+        footerEl.style.opacity = isEditingFooter ? "1" : "0.65";
+        footerEl.style.borderTop = isEditingFooter ? "1px dashed #2563eb" : "1px dashed #cbd5e1";
+        if (footerInput) {
+          footerInput.style.pointerEvents = isEditingFooter ? "auto" : "none";
+          footerInput.style.outline = isEditingFooter ? "1px dashed #2563eb" : "none";
+          footerInput.style.backgroundColor = isEditingFooter ? "rgba(37, 99, 235, 0.05)" : "transparent";
+        }
+      }
+
+      if (bodyEl) {
+        bodyEl.style.opacity = (this.editingZone !== "body" && isCurrentPage) ? "0.65" : "1";
+      }
+    });
+  }
+
   private activateHeaderEditing(headerEl: HTMLElement, pageIndex: number) {
+    this.editingZone = "header";
+    this.activeEditPageIndex = pageIndex;
+    this.state.editingZone = "header";
+    if (this.exitHeaderFooterBtn) {
+      this.exitHeaderFooterBtn.style.display = "inline-flex";
+    }
+
     headerEl.contentEditable = "true";
     headerEl.classList.add("editing-header");
-    headerEl.style.border = "1px dashed #2563eb";
+    headerEl.style.borderBottom = "1px dashed #2563eb";
     headerEl.style.backgroundColor = "rgba(37, 99, 235, 0.05)";
+    headerEl.style.opacity = "1";
     headerEl.focus();
+
+    const headerTitle = headerEl.querySelector<HTMLElement>('[data-testid="word-header-input"]');
+    if (headerTitle) {
+      headerTitle.style.pointerEvents = "auto";
+      if (headerTitle.textContent === "Click to edit header") {
+        headerTitle.textContent = "";
+      }
+    }
 
     const finish = () => {
       headerEl.contentEditable = "false";
       headerEl.classList.remove("editing-header");
-      headerEl.style.border = "none";
+      headerEl.style.borderBottom = "1px dashed #cbd5e1";
       headerEl.style.backgroundColor = "transparent";
-      const cleanText = headerEl.innerText.replace(/Page \d+ of \d+/g, "").trim();
-      if (cleanText) {
-        this.state.doc.headerText = cleanText;
+      headerEl.style.opacity = "0.65";
+
+      let cleanText = headerEl.innerText.replace(/Page \d+ of \d+/g, "").replace(/✕/g, "").replace("Click to edit header", "").trim();
+      if (!cleanText && headerTitle && headerTitle.textContent?.trim() && headerTitle.textContent !== "Click to edit header") {
+        cleanText = headerTitle.textContent.trim();
       }
-      this.emitDocChange("SetHeader", { text: this.state.doc.headerText, pageIndex });
+
+      const page = this.state.doc.pages[pageIndex];
+      if (page) {
+        page.headerText = cleanText;
+      }
+      this.state.setHeaderText(cleanText, pageIndex);
+
+      this.editingZone = "body";
+      this.state.editingZone = "body";
+      if (this.exitHeaderFooterBtn) {
+        this.exitHeaderFooterBtn.style.display = "none";
+      }
+
+      this.emitDocChange("SetHeader", { text: cleanText, pageIndex });
       this.render();
     };
 
@@ -881,28 +1043,59 @@ export class WriterCanvas {
     headerEl.onkeydown = (ev) => {
       if (ev.key === "Enter" || ev.key === "Escape") {
         ev.preventDefault();
-        headerEl.blur();
+        this.exitHeaderFooter();
       }
     };
   }
 
   private activateFooterEditing(footerEl: HTMLElement, pageIndex: number) {
+    this.editingZone = "footer";
+    this.activeEditPageIndex = pageIndex;
+    this.state.editingZone = "footer";
+    if (this.exitHeaderFooterBtn) {
+      this.exitHeaderFooterBtn.style.display = "inline-flex";
+    }
+
     footerEl.contentEditable = "true";
     footerEl.classList.add("editing-footer");
-    footerEl.style.border = "1px dashed #2563eb";
+    footerEl.style.borderTop = "1px dashed #2563eb";
     footerEl.style.backgroundColor = "rgba(37, 99, 235, 0.05)";
+    footerEl.style.opacity = "1";
     footerEl.focus();
+
+    const footerTitle = footerEl.querySelector<HTMLElement>('[data-testid="word-footer-input"]');
+    if (footerTitle) {
+      footerTitle.style.pointerEvents = "auto";
+      if (footerTitle.textContent === "Click to edit footer") {
+        footerTitle.textContent = "";
+      }
+    }
 
     const finish = () => {
       footerEl.contentEditable = "false";
       footerEl.classList.remove("editing-footer");
-      footerEl.style.border = "none";
+      footerEl.style.borderTop = "1px dashed #cbd5e1";
       footerEl.style.backgroundColor = "transparent";
-      const cleanText = footerEl.innerText.replace(/Page \d+ of \d+/g, "").trim();
-      if (cleanText) {
-        this.state.doc.footerText = cleanText;
+      footerEl.style.opacity = "0.65";
+
+      let cleanText = footerEl.innerText.replace(/Page \d+ of \d+/g, "").replace("Click to edit footer", "").trim();
+      if (!cleanText && footerTitle && footerTitle.textContent?.trim() && footerTitle.textContent !== "Click to edit footer") {
+        cleanText = footerTitle.textContent.trim();
       }
-      this.emitDocChange("SetFooter", { text: this.state.doc.footerText, pageIndex });
+
+      const page = this.state.doc.pages[pageIndex];
+      if (page) {
+        page.footerText = cleanText;
+      }
+      this.state.setFooterText(cleanText, pageIndex);
+
+      this.editingZone = "body";
+      this.state.editingZone = "body";
+      if (this.exitHeaderFooterBtn) {
+        this.exitHeaderFooterBtn.style.display = "none";
+      }
+
+      this.emitDocChange("SetFooter", { text: cleanText, pageIndex });
       this.render();
     };
 
@@ -910,7 +1103,7 @@ export class WriterCanvas {
     footerEl.onkeydown = (ev) => {
       if (ev.key === "Enter" || ev.key === "Escape") {
         ev.preventDefault();
-        footerEl.blur();
+        this.exitHeaderFooter();
       }
     };
   }
@@ -926,6 +1119,13 @@ export class WriterCanvas {
     this.container.innerHTML = "";
     this.canvases = [];
     this.layoutPages = [];
+
+    // Floating Exit Header/Footer Pill
+    if (!this.exitHeaderFooterBtn) {
+      this.exitHeaderFooterBtn = this.createExitHeaderFooterButton();
+    }
+    this.exitHeaderFooterBtn.style.display = this.editingZone === "body" ? "none" : "inline-flex";
+    this.container.appendChild(this.exitHeaderFooterBtn);
 
     const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
     const totalPages = Math.max(1, this.state.doc.pages.length);
@@ -973,6 +1173,25 @@ export class WriterCanvas {
       pageEl.style.position = "relative";
       pageEl.style.boxSizing = "border-box";
       pageEl.style.overflow = "hidden";
+
+      pageEl.onclick = (e) => {
+        const target = e.target as HTMLElement;
+        if (
+          !target.closest(".word-page-header") &&
+          !target.closest(".word-page-footer") &&
+          !target.closest(".word-interactive-table-container") &&
+          !target.closest(".word-interactive-image-container") &&
+          !target.closest(".word-floating-shape")
+        ) {
+          if (this.editingZone !== "body") {
+            this.exitHeaderFooter();
+          }
+          const bEl = pageEl.querySelector<HTMLElement>(".word-page-body");
+          if (bEl && document.activeElement !== bEl) {
+            bEl.focus();
+          }
+        }
+      };
 
       if (this.state.doc.watermark) {
         const wm = document.createElement("div");
@@ -1065,8 +1284,9 @@ export class WriterCanvas {
       }
 
       // 1. Header Zone
+      const isHeaderActive = this.editingZone === "header" && this.activeEditPageIndex === pIdx;
       const headerEl = document.createElement("div");
-      headerEl.className = "word-page-header";
+      headerEl.className = `word-page-header ${isHeaderActive ? "editing-header active-zone" : "read-only-header"}`;
       headerEl.setAttribute("data-page-index", String(pIdx));
       headerEl.setAttribute("data-testid", "word-page-header");
       headerEl.style.position = "absolute";
@@ -1077,35 +1297,52 @@ export class WriterCanvas {
       headerEl.style.display = "flex";
       headerEl.style.justifyContent = "space-between";
       headerEl.style.alignItems = "center";
-      headerEl.style.borderBottom = "1px dashed #cbd5e1";
+      headerEl.style.borderBottom = isHeaderActive ? "1px dashed #2563eb" : "1px dashed #cbd5e1";
       headerEl.style.fontSize = `${10 * this.state.zoom}px`;
       headerEl.style.color = "#9ca3af";
       headerEl.style.cursor = "pointer";
-      headerEl.title = "Click to edit header";
+      headerEl.style.opacity = isHeaderActive ? "1" : "0.65";
+      headerEl.title = "Double-click to edit header";
 
       const headerTitle = document.createElement("span");
       headerTitle.className = "header-text";
       headerTitle.setAttribute("data-testid", "word-header-input");
       headerTitle.setAttribute("data-placeholder", "Click to edit header");
       headerTitle.contentEditable = "true";
-      headerTitle.textContent = this.state.doc.headerText || "Click to edit header";
+      headerTitle.style.pointerEvents = isHeaderActive ? "auto" : "none";
+      if (isHeaderActive) {
+        headerTitle.style.outline = "1px dashed #2563eb";
+        headerTitle.style.backgroundColor = "rgba(37, 99, 235, 0.05)";
+        headerTitle.style.borderRadius = "2px";
+        headerTitle.style.padding = "2px 4px";
+      }
+
+      const currentHeaderText = page.headerText ?? this.state.doc.headerText ?? "";
+      headerTitle.textContent = currentHeaderText || (isHeaderActive ? "" : "Click to edit header");
+
       headerTitle.onfocus = () => {
         if (headerTitle.textContent === "Click to edit header") {
           headerTitle.textContent = "";
         }
       };
+      headerTitle.oninput = () => {
+        const text = headerTitle.textContent?.trim() || "";
+        page.headerText = text;
+        this.state.setHeaderText(text, pIdx);
+      };
       headerTitle.onblur = () => {
         const text = headerTitle.textContent?.trim() || "";
-        this.state.doc.headerText = text;
+        page.headerText = text;
+        this.state.setHeaderText(text, pIdx);
         this.emitDocChange("SetHeader", { text, pageIndex: pIdx });
-        if (!text) {
+        if (!text && this.editingZone !== "header") {
           headerTitle.textContent = "Click to edit header";
         }
       };
       headerTitle.onkeydown = (ev) => {
-        if (ev.key === "Enter") {
+        if (ev.key === "Enter" || ev.key === "Escape") {
           ev.preventDefault();
-          headerTitle.blur();
+          this.exitHeaderFooter();
         }
       };
 
@@ -1128,10 +1365,6 @@ export class WriterCanvas {
         };
         headerEl.appendChild(delPageBtn);
       }
-      headerEl.onclick = (e) => {
-        e.stopPropagation();
-        this.activateHeaderEditing(headerEl, pIdx);
-      };
       headerEl.ondblclick = (e) => {
         e.stopPropagation();
         this.activateHeaderEditing(headerEl, pIdx);
@@ -1169,8 +1402,9 @@ export class WriterCanvas {
       }
 
       // 3. Footer Zone
+      const isFooterActive = this.editingZone === "footer" && this.activeEditPageIndex === pIdx;
       const footerEl = document.createElement("div");
-      footerEl.className = "word-page-footer";
+      footerEl.className = `word-page-footer ${isFooterActive ? "editing-footer active-zone" : "read-only-footer"}`;
       footerEl.setAttribute("data-page-index", String(pIdx));
       footerEl.setAttribute("data-testid", "word-page-footer");
       footerEl.style.position = "absolute";
@@ -1181,35 +1415,52 @@ export class WriterCanvas {
       footerEl.style.display = "flex";
       footerEl.style.justifyContent = "space-between";
       footerEl.style.alignItems = "center";
-      footerEl.style.borderTop = "1px dashed #cbd5e1";
+      footerEl.style.borderTop = isFooterActive ? "1px dashed #2563eb" : "1px dashed #cbd5e1";
       footerEl.style.fontSize = `${10 * this.state.zoom}px`;
       footerEl.style.color = "#9ca3af";
       footerEl.style.cursor = "pointer";
-      footerEl.title = "Click to edit footer";
+      footerEl.style.opacity = isFooterActive ? "1" : "0.65";
+      footerEl.title = "Double-click to edit footer";
 
       const footerTitle = document.createElement("span");
       footerTitle.className = "footer-text";
       footerTitle.setAttribute("data-testid", "word-footer-input");
       footerTitle.setAttribute("data-placeholder", "Click to edit footer");
       footerTitle.contentEditable = "true";
-      footerTitle.textContent = this.state.doc.footerText || "Click to edit footer";
+      footerTitle.style.pointerEvents = isFooterActive ? "auto" : "none";
+      if (isFooterActive) {
+        footerTitle.style.outline = "1px dashed #2563eb";
+        footerTitle.style.backgroundColor = "rgba(37, 99, 235, 0.05)";
+        footerTitle.style.borderRadius = "2px";
+        footerTitle.style.padding = "2px 4px";
+      }
+
+      const currentFooterText = page.footerText ?? this.state.doc.footerText ?? "";
+      footerTitle.textContent = currentFooterText || (isFooterActive ? "" : "Click to edit footer");
+
       footerTitle.onfocus = () => {
         if (footerTitle.textContent === "Click to edit footer") {
           footerTitle.textContent = "";
         }
       };
+      footerTitle.oninput = () => {
+        const text = footerTitle.textContent?.trim() || "";
+        page.footerText = text;
+        this.state.setFooterText(text, pIdx);
+      };
       footerTitle.onblur = () => {
         const text = footerTitle.textContent?.trim() || "";
-        this.state.doc.footerText = text;
+        page.footerText = text;
+        this.state.setFooterText(text, pIdx);
         this.emitDocChange("SetFooter", { text, pageIndex: pIdx });
-        if (!text) {
+        if (!text && this.editingZone !== "footer") {
           footerTitle.textContent = "Click to edit footer";
         }
       };
       footerTitle.onkeydown = (ev) => {
-        if (ev.key === "Enter") {
+        if (ev.key === "Enter" || ev.key === "Escape") {
           ev.preventDefault();
-          footerTitle.blur();
+          this.exitHeaderFooter();
         }
       };
 
@@ -1219,17 +1470,14 @@ export class WriterCanvas {
 
       footerEl.appendChild(footerTitle);
       footerEl.appendChild(footerPageNum);
-      footerEl.onclick = (e) => {
-        e.stopPropagation();
-        this.activateFooterEditing(footerEl, pIdx);
-      };
+
       footerEl.ondblclick = (e) => {
         e.stopPropagation();
         this.activateFooterEditing(footerEl, pIdx);
       };
       pageEl.appendChild(footerEl);
 
-      // 4. ContentEditable Body (Subphase 29.1.1)
+      // 4. ContentEditable Body (Subphase 29.1.1 & 36.1.1)
       const bodyEl = document.createElement("div");
       bodyEl.className = "word-page-body";
       bodyEl.contentEditable = this.state.doc.readOnly ? "false" : "true";
@@ -1248,12 +1496,13 @@ export class WriterCanvas {
       bodyEl.style.fontFamily = "Calibri, sans-serif";
       bodyEl.style.lineHeight = "1.5";
       bodyEl.style.minHeight = `${860 * this.state.zoom}px`;
+      bodyEl.style.padding = "24px 64px";
       bodyEl.style.boxSizing = "border-box";
       bodyEl.style.cursor = this.state.doc.readOnly ? "default" : "text";
       bodyEl.style.color = this.state.doc.darkCanvas ? "#f8fafc" : "#0f172a";
       bodyEl.style.whiteSpace = "pre-wrap";
       bodyEl.style.wordBreak = "break-word";
-      bodyEl.style.padding = "4px";
+      bodyEl.style.opacity = (this.editingZone !== "body" && this.activeEditPageIndex === pIdx) ? "0.65" : "1";
 
       if (this.state.doc.columns && this.state.doc.columns > 1) {
         bodyEl.style.columnCount = String(this.state.doc.columns);
@@ -1265,7 +1514,9 @@ export class WriterCanvas {
         .filter((p) => !p.shape && !p.image && !p.table)
         .map((p) => p.runs.map((r) => r.text).join(""))
         .join("\n");
-      bodyEl.textContent = textOnly;
+      const currentBodyText = page.bodyHtml !== undefined && page.bodyHtml !== "" ? page.bodyHtml : textOnly;
+      bodyEl.textContent = currentBodyText;
+      page.bodyHtml = currentBodyText;
 
       bodyEl.addEventListener("input", () => {
         const textCount = (bodyEl.textContent?.match(/\n/g) || []).length;
@@ -1273,6 +1524,7 @@ export class WriterCanvas {
         const text = textCount >= innerCount
           ? (bodyEl.textContent || bodyEl.innerText || "")
           : (bodyEl.innerText || bodyEl.textContent || "");
+        page.bodyHtml = text;
         const lines = text.split(/\r?\n/);
         this.syncPageTextFromDom(pIdx, lines);
       });
@@ -1919,6 +2171,7 @@ export class WriterCanvas {
       };
     });
     page.paragraphs = [...newParas, ...nonTextParas];
+    page.bodyHtml = lines.join("\n");
     this.emitDocChange("UpdateText", { pageIndex, lines });
     this.updateStatus();
   }

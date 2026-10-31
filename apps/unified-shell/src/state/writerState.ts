@@ -71,6 +71,9 @@ export interface WordParagraph {
 export interface DocPage {
   pageNumber: number;
   paragraphs: WordParagraph[];
+  headerText?: string;
+  bodyHtml?: string;
+  footerText?: string;
 }
 
 export type WordPage = DocPage;
@@ -140,9 +143,14 @@ export class WriterState {
     pageOrientation: "portrait",
     margins: "normal",
     pageSize: "letter",
+    headerText: "",
+    footerText: "",
     pages: [
       {
         pageNumber: 1,
+        headerText: "",
+        bodyHtml: "",
+        footerText: "",
         paragraphs: [
           {
             id: "p1",
@@ -154,6 +162,8 @@ export class WriterState {
       },
     ],
   };
+
+  public editingZone: "body" | "header" | "footer" = "body";
 
   cursor: CaretPosition = { pageIndex: 0, paragraphIndex: 0, runIndex: 0, offset: 0 };
   selection: SelectionRange | null = null;
@@ -177,20 +187,60 @@ export class WriterState {
     return this.doc.pages;
   }
 
-  public setHeaderText(text: string): void {
-    this.doc.headerText = text;
+  public setEditingZone(zone: "body" | "header" | "footer"): void {
+    this.editingZone = zone;
   }
 
-  public setFooterText(text: string): void {
+  public getEditingZone(): "body" | "header" | "footer" {
+    return this.editingZone;
+  }
+
+  public setHeaderText(text: string, pageIndex?: number): void {
+    this.doc.headerText = text;
+    if (pageIndex !== undefined && this.doc.pages[pageIndex]) {
+      this.doc.pages[pageIndex].headerText = text;
+    } else {
+      this.doc.pages.forEach((p) => {
+        p.headerText = text;
+      });
+    }
+  }
+
+  public setFooterText(text: string, pageIndex?: number): void {
     this.doc.footerText = text;
+    if (pageIndex !== undefined && this.doc.pages[pageIndex]) {
+      this.doc.pages[pageIndex].footerText = text;
+    } else {
+      this.doc.pages.forEach((p) => {
+        p.footerText = text;
+      });
+    }
   }
 
   public get headerText(): string | undefined {
-    return this.doc.headerText;
+    return this.doc.pages[this.cursor.pageIndex]?.headerText ?? this.doc.headerText;
   }
 
   public get footerText(): string | undefined {
-    return this.doc.footerText;
+    return this.doc.pages[this.cursor.pageIndex]?.footerText ?? this.doc.footerText;
+  }
+
+  public getHeaderText(pageIndex = this.cursor.pageIndex): string {
+    return this.doc.pages[pageIndex]?.headerText ?? this.doc.headerText ?? "";
+  }
+
+  public getFooterText(pageIndex = this.cursor.pageIndex): string {
+    return this.doc.pages[pageIndex]?.footerText ?? this.doc.footerText ?? "";
+  }
+
+  public getBodyHtml(pageIndex = this.cursor.pageIndex): string {
+    return this.doc.pages[pageIndex]?.bodyHtml ?? "";
+  }
+
+  public setBodyHtml(html: string, pageIndex = this.cursor.pageIndex): void {
+    if (this.doc.pages[pageIndex]) {
+      this.doc.pages[pageIndex].bodyHtml = html;
+    }
   }
 
   public get fontFamily(): string {
@@ -540,9 +590,14 @@ export class WriterState {
       pageOrientation: "portrait",
       margins: "normal",
       pageSize: "letter",
+      headerText: "",
+      footerText: "",
       pages: [
         {
           pageNumber: 1,
+          headerText: "",
+          bodyHtml: "",
+          footerText: "",
           paragraphs: [
             {
               id: "p1",
@@ -623,6 +678,7 @@ export class WriterState {
       alignment: "left",
       runs: [{ text: line, font: "Calibri", size: 11 }],
     }));
+    this.doc.pages[0].bodyHtml = text;
     this.cursor = { pageIndex: 0, paragraphIndex: 0, runIndex: 0, offset: 0 };
     this.saveSnapshot();
   }
@@ -688,6 +744,9 @@ export class WriterState {
     const newPageNum = this.doc.pages.length + 1;
     const newPage: DocPage = {
       pageNumber: newPageNum,
+      headerText: this.doc.headerText || "",
+      bodyHtml: "",
+      footerText: this.doc.footerText || "",
       paragraphs: [
         {
           id: `p-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -735,6 +794,9 @@ export class WriterState {
         } else {
           this.doc.pages.push({
             pageNumber: pIdx + 2,
+            headerText: page.headerText || this.doc.headerText || "",
+            bodyHtml: "",
+            footerText: page.footerText || this.doc.footerText || "",
             paragraphs: overflowParas,
           });
         }
@@ -1011,6 +1073,9 @@ export class WriterState {
     this.saveSnapshot();
     const coverPage: DocPage = {
       pageNumber: 1,
+      headerText: "",
+      bodyHtml: "",
+      footerText: "",
       paragraphs: [
         {
           id: `cov-title-${Date.now()}`,
@@ -1666,13 +1731,24 @@ export class WriterState {
         break;
 
       case "insertHeader":
-      case "InsertHeader":
-        this.doc.headerText = typeof val === "string" ? val : "Document Header";
+      case "InsertHeader": {
+        this.editingZone = "header";
+        const text = typeof val === "string" ? val : val && typeof val === "object" && "text" in val ? (val as any).text : "Document Header";
+        this.setHeaderText(text);
         break;
+      }
 
       case "insertFooter":
-      case "InsertFooter":
-        this.doc.footerText = typeof val === "string" ? val : "Document Footer";
+      case "InsertFooter": {
+        this.editingZone = "footer";
+        const text = typeof val === "string" ? val : val && typeof val === "object" && "text" in val ? (val as any).text : "Document Footer";
+        this.setFooterText(text);
+        break;
+      }
+
+      case "CloseHeaderFooter":
+      case "ExitHeaderFooter":
+        this.editingZone = "body";
         break;
 
       case "insertPageNumber":

@@ -203,7 +203,7 @@ describe("Blank Editable Word Pages, Rich Typing, Selection & Multi-Page Engine 
   });
 
   describe("4. Editable Header & Footer Zones", () => {
-    it("activates inline header editing on single click and persists edited text", () => {
+    it("activates inline header editing on double click and persists edited text", () => {
       const container = document.getElementById("viewport-container")!;
       const state = new WriterState();
       new WriterCanvas(container, state);
@@ -211,7 +211,7 @@ describe("Blank Editable Word Pages, Rich Typing, Selection & Multi-Page Engine 
       const headerEl = container.querySelector<HTMLElement>(".word-page-header");
       expect(headerEl).not.toBeNull();
 
-      headerEl?.click();
+      headerEl?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
       expect(headerEl?.contentEditable).toBe("true");
       expect(headerEl?.classList.contains("editing-header")).toBe(true);
 
@@ -222,7 +222,7 @@ describe("Blank Editable Word Pages, Rich Typing, Selection & Multi-Page Engine 
       expect(state.doc.headerText).toBe("Confidential Product Specification");
     });
 
-    it("activates inline footer editing on single click and persists edited text", () => {
+    it("activates inline footer editing on double click and persists edited text", () => {
       const container = document.getElementById("viewport-container")!;
       const state = new WriterState();
       new WriterCanvas(container, state);
@@ -230,7 +230,7 @@ describe("Blank Editable Word Pages, Rich Typing, Selection & Multi-Page Engine 
       const footerEl = container.querySelector<HTMLElement>(".word-page-footer");
       expect(footerEl).not.toBeNull();
 
-      footerEl?.click();
+      footerEl?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
       expect(footerEl?.contentEditable).toBe("true");
       expect(footerEl?.classList.contains("editing-footer")).toBe(true);
 
