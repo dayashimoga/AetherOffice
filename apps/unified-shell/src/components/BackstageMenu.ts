@@ -19,7 +19,7 @@ export type BackstageNavTab =
 export interface BackstageMenuCallbacks {
   onClose?: () => void;
   onNew?: (docType: DocumentType) => void;
-  onOpen?: (filePath: string, fileContent?: string) => void;
+  onOpen?: (filePath: string, fileContent?: string | ArrayBuffer | Uint8Array) => void;
   onOpenFile?: (file: File) => void;
   onSave?: (filePath?: string) => Promise<void>;
   onExportPdf?: (outputPath: string) => Promise<void>;

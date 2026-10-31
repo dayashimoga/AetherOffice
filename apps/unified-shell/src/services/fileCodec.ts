@@ -96,18 +96,25 @@ export class FileCodecService {
       bytes = await binaryPackageService.buildDocx(text, paras);
       mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     } else if (docType === "Excel") {
-      const cells: Record<string, string> = {};
-      const activeSheet = calcState.getActiveSheet();
-      if (activeSheet) {
-        for (const [coord, cell] of activeSheet.cells.entries()) {
-          if (cell) {
-            const val = cell.raw || (cell.computed !== undefined ? String(cell.computed) : "");
-            if (val !== "") cells[coord] = val;
+      const isCsv = filename.toLowerCase().endsWith(".csv") || filename.toLowerCase().endsWith(".tsv");
+      if (isCsv) {
+        const csvContent = calcState.exportCSV();
+        bytes = new TextEncoder().encode(csvContent);
+        mime = "text/csv";
+      } else {
+        const sheetsPayload = calcState.sheets.map((s) => {
+          const cells: Record<string, string> = {};
+          for (const [coord, cell] of s.cells.entries()) {
+            if (cell) {
+              const val = cell.raw || (cell.computed !== undefined ? String(cell.computed) : "");
+              if (val !== "") cells[coord] = val;
+            }
           }
-        }
+          return { name: s.name, cells };
+        });
+        bytes = await binaryPackageService.buildXlsx(sheetsPayload);
+        mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
       }
-      bytes = await binaryPackageService.buildXlsx(cells);
-      mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     } else if (docType === "PowerPoint") {
       bytes = await binaryPackageService.buildPptx(slidesState.slides);
       mime = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
@@ -228,17 +235,34 @@ export class FileCodecService {
       }
 
       if (docType === "Excel") {
-        const isXlsx = fileName.toLowerCase().endsWith(".xlsx");
+        const isXlsx = fileName.toLowerCase().endsWith(".xlsx") || fileName.toLowerCase().endsWith(".xls");
         if (isXlsx) {
           const parsed = await binaryPackageService.parseXlsx(uint8);
-          calcState.resetToBlank("Sheet1");
-          for (const [coord, val] of Object.entries(parsed.cells)) {
-            calcState.setCellValue(coord, val);
+          if (parsed.sheets && parsed.sheets.length > 0) {
+            calcState.resetToBlank(parsed.sheets[0].name);
+            for (const [coord, val] of Object.entries(parsed.sheets[0].cells)) {
+              calcState.setCellValue(coord, val);
+            }
+            for (let i = 1; i < parsed.sheets.length; i++) {
+              const sh = parsed.sheets[i];
+              calcState.addSheet(sh.name);
+              for (const [coord, val] of Object.entries(sh.cells)) {
+                calcState.setCellValue(coord, val);
+              }
+            }
+            calcState.switchSheet(calcState.sheets[0].id);
+          } else {
+            calcState.resetToBlank("Sheet1");
+            for (const [coord, val] of Object.entries(parsed.cells)) {
+              calcState.setCellValue(coord, val);
+            }
           }
         } else {
           const text = new TextDecoder().decode(uint8);
+          calcState.resetToBlank("Sheet1");
           calcState.importFromCsv(text);
         }
+        calcState.recalculateAll();
         return true;
       }
 

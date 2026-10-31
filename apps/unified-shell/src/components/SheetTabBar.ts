@@ -37,7 +37,7 @@ export class SheetTabBar {
     this.element.remove();
   }
 
-  private render() {
+  public render() {
     this.element.innerHTML = "";
 
     // 1. Navigation buttons (◀, ▶)

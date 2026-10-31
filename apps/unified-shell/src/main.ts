@@ -2874,7 +2874,7 @@ export class UnifiedShellApp {
     return savedPath;
   }
 
-  public async handleOpenFile(filePath: string, fileContent?: string): Promise<void> {
+  public async handleOpenFile(filePath: string, fileContent?: string | ArrayBuffer | Uint8Array): Promise<void> {
     const docType: DocumentType = fileIoService.detectDocType(filePath);
 
     let sessionId = `tab-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -2910,6 +2910,21 @@ export class UnifiedShellApp {
     this.tabBar.switchTab(sessionId);
     this.updateAppRailCounts();
 
+    // Re-render active viewport components to ensure newly loaded data is immediately visible
+    if (docType === "Excel") {
+      this.calcGridCanvas?.render();
+      this.sheetTabBar?.render();
+      if (this.formulaBar) {
+        this.formulaBar.setActiveCell(calcState.selectedCell, calcState.formulaBarText);
+      }
+    } else if (docType === "Word") {
+      this.writerCanvas?.render();
+    } else if (docType === "PowerPoint") {
+      this.slideStageCanvas?.render();
+    } else if (docType === "PDF") {
+      this.pdfViewerCanvas?.render();
+    }
+
     const docInfo = document.getElementById("status-doc-info");
     if (docInfo) {
       docInfo.textContent = `Opened: ${title}`;
@@ -2919,9 +2934,7 @@ export class UnifiedShellApp {
   public async handleOpenFileObject(file: File): Promise<void> {
     try {
       const buffer = await file.arrayBuffer();
-      const docType = fileIoService.detectDocType(file.name);
-      await fileIoService.loadFileContent(buffer, docType, file.name);
-      await this.handleOpenFile(file.name);
+      await this.handleOpenFile(file.name, buffer);
     } catch {
       await this.handleOpenFile(file.name);
     }
