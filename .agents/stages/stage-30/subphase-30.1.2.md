@@ -1,8 +1,8 @@
-﻿# Subphase 30.1.2: Excel Formulas, Data, Review & View Ribbons (100% Working Controls)
+﻿# Subphase 30.1.2: Excel Complete Ribbon Overhaul: Home, Insert, Page Layout, Formulas, Data, Review, View
 - **Stage:** 30 | **Phase:** 30.1
 - **Target Subsystem:** `excel-engine`
 - **Primary Agent Skill:** `@adaptive-ui-builder`
-- **Deliverable:** Complete working Excel Formulas library, Data tools (Sort, Filter, Validation, Goal Seek), Review comments/protection, and View freeze panes.
+- **Deliverable:** 100% working Excel ribbon options across all 7 tabs with zero overflow and automated verification.
 - **Validation Command:** `powershell -File tools/verify-contract.ps1`
 
 ---
@@ -11,10 +11,13 @@
 
 ```text
 /execute-subphase 30.1.2
-Invoke @adaptive-ui-builder under GEC-v4.0.
-1. Wire **100% of the buttons** in Excel's Formulas, Data, Review, and View ribbons:
-   - **Formulas Tab:** Insert Function (fx) searchable wizard, AutoSum (Sum, Average, Count, Max, Min), Category Dropdowns that insert & evaluate functions (Financial: PMT,FV,PV,NPV,IRR, Logical: IF,AND,OR,NOT,IFERROR,IFS, Text: CONCAT,LEFT,RIGHT,MID,LEN,UPPER,LOWER,TRIM,SUBSTITUTE, Date & Time: TODAY,NOW,YEAR,MONTH,DAY,DATEDIF, Lookup & Ref: VLOOKUP,XLOOKUP,INDEX,MATCH, Math & Stat: ROUND,SUMIF,SUMIFS,COUNTIF,AVERAGEIF,STDEV,MEDIAN,RAND,RANDBETWEEN), Name Manager (define named ranges like TaxRate = 0.18 usable in formulas!), Show Formulas toggle, Trace Precedents / Dependents (highlights referenced cells), and Calculate Now (F9).
-   - **Data Tab:** From CSV / JSON Import, Sort A â†’ Z, Sort Z â†’ A, Custom Multi-Column Sort, Filter (interactive dropdown filter on column headers), Clear Filter, Text to Columns, Flash Fill, Remove Duplicates, Data Validation (restrict cells to Dropdown List, Whole Number range, or Date!), Subtotals, and What-If Goal Seek solver!
-   - **Review & View Tabs:** New Comment / Note (adds red corner indicator and hover tooltip on cell), Protect Sheet (locks cells from editing with optional password), Workbook Statistics, Normal / Page Break Preview, Formula Bar checkbox, Gridlines checkbox, Headings checkbox, Freeze Panes (Freeze Top Row, Freeze First Column, Unfreeze), and Zoom controls.
-2. Verify all Formulas, Data, Review, and View actions with automated DOM tests. Commit with [GEC-Verified].
+Invoke @adaptive-ui-builder under GEC-v5.0.
+1. Ensure **100% of Excel's Ribbon controls** across all 7 tabs are accessible (zero right-edge clipping) and fully functional:
+   - **Home Tab:** Clipboard (Cut, Copy, Paste, Paste Values), Font (Family, Size, A+, A-, Bold, Italic, Underline, Borders, Fill Color, Text Color), Alignment (Top/Mid/Bottom, Left/Center/Right, Wrap Text, Merge & Center), Number (Format Dropdown, $, %, ,, .00, .0), Styles (Conditional Formatting rules + Format as Table banded themes), Cells (Insert Row, Insert Col, Delete Row, Delete Col, AutoFit Row Height, AutoFit Col Width), Editing (AutoSum Î£, Fill Down, Fill Right, Fill Series, Clear All/Formats/Contents, Sort & Filter, Find & Replace).
+   - **Insert Tab:** PivotTable (opens interactive Pivot Table builder grouping selected range by Row/Column/Sum/Average!), Table, Picture, Shapes, Column Chart, Line Chart, Pie Chart, Area/Scatter Chart (interactive floating charts on grid), Sparklines (Line/Column), Link, Comment.
+   - **Page Layout Tab:** Themes, Colors, Fonts, Margins, Orientation, Size, Set Print Area, Clear Print Area, Gridlines (View / Print), Headings (View / Print).
+   - **Formulas Tab:** Insert Function (fx) modal, AutoSum (Sum, Average, Count, Max, Min), Financial, Logical, Text, Date & Time, Lookup & Reference, Math & Trig, Name Manager, Show Formulas, Trace Precedents/Dependents, Evaluate Formula.
+   - **Data Tab:** From CSV/JSON, Sort A-Z, Sort Z-A, Custom Multi-Column Sort, Filter (interactive column header filter checkboxes), Clear Filter, Text to Columns, Flash Fill, Remove Duplicates, Data Validation, Group / Ungroup Rows & Cols, Subtotal, Goal Seek.
+   - **Review & View Tabs:** New Comment, Delete Comment, Show All Comments, Protect Sheet, Workbook Stats, Normal / Page Break View, Formula Bar, Gridlines, Headings, Freeze Top Row / First Column / Selected Cell, Split Sheet, Zoom.
+2. Verify all Excel ribbon buttons via automated DOM tests. Commit with [GEC-Verified].
 ```

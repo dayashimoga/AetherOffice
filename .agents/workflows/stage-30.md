@@ -1,31 +1,36 @@
-﻿---
-description: Automated execution workflow for Stage 30: Excel (.xlsx) Complete Fix - All 7 Ribbons, Formulas, Charts, Sort/Filter and Page Layout
----
+﻿description: Automated execution workflow for Stage 30: Excel (.xlsx) Fix - Multi-Row/Column Selection, Batch Row/Col Formatting and All Ribbons
+Workflow: Execute Stage 30 (/stage-30)
+Objective: Stage 30: Excel (.xlsx) Fix - Multi-Row/Column Selection, Batch Row/Col Formatting and All Ribbons
 
-# Workflow: Execute Stage 30 (/stage-30)
+Execute every subphase sequentially under strict Global Engineering Contract (GEC-v5.0) compliance:
 
-## Objective: Stage 30: Excel (.xlsx) Complete Fix - All 7 Ribbons, Formulas, Charts, Sort/Filter and Page Layout
-Execute every subphase sequentially under strict Global Engineering Contract (GEC-v4.0) compliance. Every button and feature must be implemented and verified via automated Vitest DOM tests before marking complete:
-
-### Subphase 30.1.1: Excel Home, Insert & Page Layout Ribbons (100% Working Controls)
-- **Spec File:** `.agents/stages/stage-30/subphase-30.1.1.md`
+### Subphase 30.1.1: Excel Multi-Row & Multi-Column Header Selection + Batch Row/Col Formatting & Editing
+- Spec File: .agents/stages/stage-30/subphase-30.1.1.md
 /execute-subphase 30.1.1
-Invoke @adaptive-ui-builder under GEC-v4.0.
-1. Audit and wire **100% of the buttons** in Excel's Home, Insert, and Page Layout ribbons:
-   - **Home Tab:** Cut/Copy/Paste, Font Family & Size, Bold/Italic/Underline, Borders (All, Outside, Thick Bottom, No Border), Fill Color, Font Color, Align Top/Middle/Bottom & Left/Center/Right, Wrap Text, Merge & Center, Number Formats (General, Number, Currency $, Accounting, Short Date, Percentage %, Fraction, Comma, Increase/Decrease Decimal), Conditional Formatting (Highlight >, Highlight <, Top 10%, Data Bars, Color Scales), Format as Table (applies alternating banded row styling to selected range), Insert/Delete/Format Rows & Columns (including AutoFit Row Height & Column Width), AutoSum, Fill Down/Right/Series, Clear (All / Formats / Contents), and Find & Select.
-   - **Insert Tab:** PivotTable Summary (generates an automatic grouped summary table from selected data onto a new or current sheet), Table, Picture, Shapes, Column Chart, Line Chart, Pie/Doughnut Chart, Scatter Plot (draggable, resizable, live-updating SVG charts on the sheet canvas), Sparklines (renders mini inline SVG line/bar sparklines inside cells!), and Hyperlink / Comment.
-   - **Page Layout Tab:** Fix the non-working buttons: Themes (applies color/font palette to grid & charts), Colors, Fonts, Margins (Normal, Narrow, Wide), Orientation (Portrait, Landscape â€” updates dashed print-boundary lines on grid), Print Area (Set Print Area, Clear Print Area), Scale to Fit, View Grid (toggles cell gridlines on/off!), Print Grid, View Headings (toggles A, B, C and 1, 2, 3 headers on/off!), and Print Headings.
-2. Write automated tests verifying every control in Home, Insert, and Page Layout. Commit with [GEC-Verified].
-- **Completion Gate:** `powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 30.1.1`
+Invoke @adaptive-ui-builder under GEC-v5.0 Article III.2.
+1. **Implement Full Row, Multi-Row, Column, Multi-Column & Rectangular Range Selection in Excel:**
+   - **Column Selection:** Clicking column header B selects the entire Column B (highlighting all cells in Column B and updating the Name Box to B:B). Clicking B and dragging across to E (or Shift+Click on E) selects Columns B:E. Ctrl+Click adds non-contiguous columns.
+   - **Row Selection:** Clicking row header 3 selects the entire Row 3 (3:3). Dragging 3 to 10 (or Shift+Click on 10) selects Rows 3:10.
+   - **Select All Sheet Corner (â—¢):** Clicking the top-left corner cell above 1 and left of A selects the entire worksheet!
+   - **Cell Range Drag Selection:** Clicking cell B2 and dragging to D8 (or Shift+Arrow) selects the 2D range B2:D8.
+2. **Row-Wise & Column-Wise Batch Operations:**
+   - When multiple rows, columns, or cell ranges are selected, clicking ANY formatting or editing command (Bold, Italic, Underline, Font Family, Font Size, Text Color, Fill Color, Borders, Align Left/Center/Right, Number Format $ / % / , / .00, Wrap Text, Clear Contents, Delete, Insert Rows/Columns, Resize Column Width / Row Height) MUST apply simultaneously to **every cell in the selected rows/columns/range**!
+3. Write automated DOM tests verifying: clicking Column B and dragging to D, applying Bold & Currency $ format, and asserting cells B1..D20 all receive Bold & Currency formatting; doing the same for Rows 2..5. Commit with [GEC-Verified].
 
-### Subphase 30.1.2: Excel Formulas, Data, Review & View Ribbons (100% Working Controls)
-- **Spec File:** `.agents/stages/stage-30/subphase-30.1.2.md`
+Completion Gate: powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 30.1.1
+
+### Subphase 30.1.2: Excel Complete Ribbon Overhaul: Home, Insert, Page Layout, Formulas, Data, Review, View
+- Spec File: .agents/stages/stage-30/subphase-30.1.2.md
 /execute-subphase 30.1.2
-Invoke @adaptive-ui-builder under GEC-v4.0.
-1. Wire **100% of the buttons** in Excel's Formulas, Data, Review, and View ribbons:
-   - **Formulas Tab:** Insert Function (fx) searchable wizard, AutoSum (Sum, Average, Count, Max, Min), Category Dropdowns that insert & evaluate functions (Financial: PMT,FV,PV,NPV,IRR, Logical: IF,AND,OR,NOT,IFERROR,IFS, Text: CONCAT,LEFT,RIGHT,MID,LEN,UPPER,LOWER,TRIM,SUBSTITUTE, Date & Time: TODAY,NOW,YEAR,MONTH,DAY,DATEDIF, Lookup & Ref: VLOOKUP,XLOOKUP,INDEX,MATCH, Math & Stat: ROUND,SUMIF,SUMIFS,COUNTIF,AVERAGEIF,STDEV,MEDIAN,RAND,RANDBETWEEN), Name Manager (define named ranges like TaxRate = 0.18 usable in formulas!), Show Formulas toggle, Trace Precedents / Dependents (highlights referenced cells), and Calculate Now (F9).
-   - **Data Tab:** From CSV / JSON Import, Sort A â†’ Z, Sort Z â†’ A, Custom Multi-Column Sort, Filter (interactive dropdown filter on column headers), Clear Filter, Text to Columns, Flash Fill, Remove Duplicates, Data Validation (restrict cells to Dropdown List, Whole Number range, or Date!), Subtotals, and What-If Goal Seek solver!
-   - **Review & View Tabs:** New Comment / Note (adds red corner indicator and hover tooltip on cell), Protect Sheet (locks cells from editing with optional password), Workbook Statistics, Normal / Page Break Preview, Formula Bar checkbox, Gridlines checkbox, Headings checkbox, Freeze Panes (Freeze Top Row, Freeze First Column, Unfreeze), and Zoom controls.
-2. Verify all Formulas, Data, Review, and View actions with automated DOM tests. Commit with [GEC-Verified].
-- **Completion Gate:** `powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 30.1.2`
+Invoke @adaptive-ui-builder under GEC-v5.0.
+1. Ensure **100% of Excel's Ribbon controls** across all 7 tabs are accessible (zero right-edge clipping) and fully functional:
+   - **Home Tab:** Clipboard (Cut, Copy, Paste, Paste Values), Font (Family, Size, A+, A-, Bold, Italic, Underline, Borders, Fill Color, Text Color), Alignment (Top/Mid/Bottom, Left/Center/Right, Wrap Text, Merge & Center), Number (Format Dropdown, $, %, ,, .00, .0), Styles (Conditional Formatting rules + Format as Table banded themes), Cells (Insert Row, Insert Col, Delete Row, Delete Col, AutoFit Row Height, AutoFit Col Width), Editing (AutoSum Î£, Fill Down, Fill Right, Fill Series, Clear All/Formats/Contents, Sort & Filter, Find & Replace).
+   - **Insert Tab:** PivotTable (opens interactive Pivot Table builder grouping selected range by Row/Column/Sum/Average!), Table, Picture, Shapes, Column Chart, Line Chart, Pie Chart, Area/Scatter Chart (interactive floating charts on grid), Sparklines (Line/Column), Link, Comment.
+   - **Page Layout Tab:** Themes, Colors, Fonts, Margins, Orientation, Size, Set Print Area, Clear Print Area, Gridlines (View / Print), Headings (View / Print).
+   - **Formulas Tab:** Insert Function (fx) modal, AutoSum (Sum, Average, Count, Max, Min), Financial, Logical, Text, Date & Time, Lookup & Reference, Math & Trig, Name Manager, Show Formulas, Trace Precedents/Dependents, Evaluate Formula.
+   - **Data Tab:** From CSV/JSON, Sort A-Z, Sort Z-A, Custom Multi-Column Sort, Filter (interactive column header filter checkboxes), Clear Filter, Text to Columns, Flash Fill, Remove Duplicates, Data Validation, Group / Ungroup Rows & Cols, Subtotal, Goal Seek.
+   - **Review & View Tabs:** New Comment, Delete Comment, Show All Comments, Protect Sheet, Workbook Stats, Normal / Page Break View, Formula Bar, Gridlines, Headings, Freeze Top Row / First Column / Selected Cell, Split Sheet, Zoom.
+2. Verify all Excel ribbon buttons via automated DOM tests. Commit with [GEC-Verified].
+
+Completion Gate: powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 30.1.2
 

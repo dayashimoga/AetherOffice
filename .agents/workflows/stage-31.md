@@ -1,32 +1,34 @@
-﻿---
-description: Automated execution workflow for Stage 31: PowerPoint (.pptx) Complete Fix - All 8 Ribbons, SmartArt, Animations and F5 Show
----
+﻿description: Automated execution workflow for Stage 31: PowerPoint (.pptx) Fix - Real .pptx Open/Save, Expanded Ribbons, Animations and Presenter View
+Workflow: Execute Stage 31 (/stage-31)
+Objective: Stage 31: PowerPoint (.pptx) Fix - Real .pptx Open/Save, Expanded Ribbons, Animations and Presenter View
 
-# Workflow: Execute Stage 31 (/stage-31)
+Execute every subphase sequentially under strict Global Engineering Contract (GEC-v5.0) compliance:
 
-## Objective: Stage 31: PowerPoint (.pptx) Complete Fix - All 8 Ribbons, SmartArt, Animations and F5 Show
-Execute every subphase sequentially under strict Global Engineering Contract (GEC-v4.0) compliance. Every button and feature must be implemented and verified via automated Vitest DOM tests before marking complete:
-
-### Subphase 31.1.1: PowerPoint Home, Insert, Design & Transitions Ribbons (100% Working)
-- **Spec File:** `.agents/stages/stage-31/subphase-31.1.1.md`
+### Subphase 31.1.1: PowerPoint Real .pptx Open/Save & Expanded Home, Insert, Design, Transitions Ribbons
+- Spec File: .agents/stages/stage-31/subphase-31.1.1.md
 /execute-subphase 31.1.1
-Invoke @adaptive-ui-builder under GEC-v4.0.
-1. Wire **100% of the buttons** in PowerPoint's Home, Insert, Design, and Transitions ribbons:
-   - **Home Tab:** + New Slide (with 6 Layout templates: Title Slide, Title & Content, Section Header, Two Content, Title Only, Blank), Duplicate Slide, Delete Slide, Reset Slide, Font/Size/Bold/Italic/Underline/Shadow/Color, Bullet/Numbered Lists inside text boxes, Align Left/Center/Right & Top/Middle/Bottom, Quick Shapes gallery, Arrange (Bring to Front, Send to Back, Align Center, Align Middle, Distribute Horizontally/Vertically, Group/Ungroup), Shape Fill, Shape Outline, Shape Effects (Drop Shadow, Glow), and Find & Replace.
-   - **Insert Tab:** New Slide, Table (inserts editable slide table), Picture (upload image onto slide), Shapes (16 vector shapes including arrows, stars, banners, callouts, flowcharts), Icons / Stickers, SmartArt Diagram (inserts editable Process, Cycle, Hierarchy, or Pyramid diagram!), Chart (inserts editable Bar, Line, or Pie chart onto the slide), Text Box, Header & Footer, WordArt, Slide Number, and Audio / Video embed.
-   - **Design Tab:** 10 visual Presentation Themes (instantly updates slide background, typography, and accent colors across the deck), Variants color palettes, Slide Size (Standard 4:3 vs Widescreen 16:9 â€” visibly changes stage aspect ratio!), and Format Background (Solid Color, Linear Gradient, Radial Gradient, Pattern, Apply to All).
-   - **Transitions Tab:** None, Fade, Push, Wipe, Split, Reveal, Random Bars, Shape Circle, Zoom, Morph (interpolates matching shapes across slides!), Effect Options (direction), Transition Sound, Duration (s), Apply to All, Advance Slide After X sec, and Preview Transition (plays live CSS/WAAPI transition animation on the canvas!).
-2. Verify every button in Home, Insert, Design, and Transitions via automated DOM tests. Commit with [GEC-Verified].
-- **Completion Gate:** `powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 31.1.1`
+Invoke @adaptive-ui-builder under GEC-v5.0 Article III.3.
+1. **Fix Opening & Saving Real .pptx Files:**
+   - Wire File -> Open and the top ðŸ“‚ Open button in PowerPoint so selecting an existing .pptx file unzips ppt/slides/slide*.xml (using ooxml-opc / JSZip), parses all slide text boxes, shapes, colors, and positions, and loads them into the editable slide deck!
+   - Wire File -> Save / ðŸ’¾ Save (Ctrl+S) to package all current slides, shapes, text, themes, and notes into a valid downloadable/saveable .pptx archive!
+2. **Fix Ribbon Overflow & Expand Missing PowerPoint Controls (Home, Insert, Design, Transitions):**
+   - **Home Tab:** + New Slide (with 6 layouts), Duplicate Slide, Delete Slide, Move Up/Down, Reset Layout, Clipboard (Cut, Copy, Paste), Font (Family, Size, A+, A-, Bold, Italic, Underline, Strikethrough, Text Shadow, Text Color, Highlight, Clear), Paragraph (Bullets, Numbering, Left/Center/Right/Justify, Top/Middle/Bottom vertical align, Line Spacing, Columns), Drawing & Arrange (Text Box, 12 Quick Shapes, Shape Fill, Shape Outline, Border Weight, Bring to Front, Send to Back, Align Left/Center/Right/Top/Middle/Bottom, Rotate 90Â°, Duplicate Shape, Delete Shape), Find & Replace.
+   - **Insert Tab:** New Slide, Table (inserts editable table on slide), Pictures (upload local image onto slide), Shapes (full 20-shape gallery), Icons & Badges, SmartArt (inserts editable Process, Cycle, Hierarchy, Pyramid diagrams), Chart (inserts editable Bar, Line, Pie chart on slide), Text Box, Header & Footer, WordArt, Date & Time, Slide Number, Equation / Symbol, Audio / Video Clip.
+   - **Design Tab:** 12 curated High-Contrast Presentation Themes (with live preview thumbnails), Color Variants, Slide Size (16:9 Widescreen vs 4:3 Standard), and Format Background (Solid Color, Gradient, Pattern, Image, Apply to All Slides).
+   - **Transitions Tab:** 12 Slide Transitions (None, Fade, Push, Wipe, Split, Reveal, Cut, Cover, Flash, Zoom, Flip 3D, Morph), Effect Direction, Duration, Sound, Advance On Click / After X sec, Apply to All, and Preview (plays transition immediately on canvas).
+3. Write automated tests verifying .pptx Open/Save and every control in Home, Insert, Design, and Transitions. Commit with [GEC-Verified].
 
-### Subphase 31.1.2: PowerPoint Animations, Slide Show, Review & View Ribbons (100% Working)
-- **Spec File:** `.agents/stages/stage-31/subphase-31.1.2.md`
+Completion Gate: powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 31.1.1
+
+### Subphase 31.1.2: PowerPoint Animations, Slide Show, Presenter Console, Review & View Ribbons
+- Spec File: .agents/stages/stage-31/subphase-31.1.2.md
 /execute-subphase 31.1.2
-Invoke @adaptive-ui-builder under GEC-v4.0.
-1. Fix and wire **100% of the buttons** in PowerPoint's Animations, Slide Show, Review, and View ribbons:
-   - **Animations Tab:** Entrance (Appear, Fade In, Fly In, Float In, Split, Wipe, Shape, Wheel, Bounce, Zoom), Emphasis (Pulse, Teeter, Spin, Grow/Shrink), Exit (Disappear, Fade Out, Fly Out, Zoom Out), Preview (plays the animation on the selected shape immediately!), Animation Pane (right sidebar listing queued animations with reorder & delete), Trigger (On Click, With Previous, After Previous), Duration, and Delay.
-   - **Slide Show Tab:** Make every button work: Beginning (F5) (starts fullscreen slideshow from Slide 1, skipping [Hidden] slides!), Current (Shift+F5) (starts from current slide), Presenter View (opens dual-pane Presenter console showing Current Slide, Next Slide preview, Speaker Notes, live elapsed Timer, and On-Slide Laser Pointer / Ink Pen!), Hide Slide (toggles [Hidden] state on current slide), Rehearse Timings (launches live slide timing recorder), and Set Up Show (Loop continuously option).
-   - **Review & View Tabs:** Spell Check, New Comment (slide comment pins + sidebar), Compare, Normal View, Outline View (editable text outline of all slides), Slide Sorter View (full-screen grid of all slide thumbnails for fast drag-reordering!), Notes Page View, Ruler, Gridlines (alignment grid on slide), Guides (center crosshair guides), Notes toggle (bottom speaker notes drawer), Grayscale / Black & White preview mode, and Zoom controls.
-2. Verify all Animations, Slide Show, Review, and View features with automated DOM tests. Commit with [GEC-Verified].
-- **Completion Gate:** `powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 31.1.2`
+Invoke @adaptive-ui-builder under GEC-v5.0.
+1. Wire **100% of the controls** in PowerPoint's Animations, Slide Show, Review, and View ribbons:
+   - **Animations Tab:** Entrance (Appear, Fade In, Fly In, Float In, Split, Wipe, Shape, Wheel, Random Bars, Grow & Turn, Zoom, Swivel, Bounce), Emphasis (Pulse, Color Pulse, Teeter, Spin, Grow/Shrink), Exit (Disappear, Fade Out, Fly Out, Float Out, Shrink & Turn), Effect Options, Add Animation, Animation Pane (right sidebar showing ordered animation steps per slide with Play, Move Up/Down, Delete), Trigger (On Click / With Previous / After Previous), Duration, Delay, and Preview Animation.
+   - **Slide Show Tab:** From Beginning (F5), From Current Slide (Shift+F5), Presenter View (launches split presenter console with current slide, next slide, speaker notes, live timer, laser pointer, and freehand slide pen!), Custom Slide Show, Set Up Slide Show (Loop continuously, Kiosk mode), Hide Slide, Rehearse Timings (records per-slide rehearsal clock), Record Slide Show.
+   - **Review & View Tabs:** Spelling, Thesaurus, New Comment (attaches comment pins to slide coordinates + right Comments drawer), Delete/Prev/Next Comment, Compare, Normal View, Outline View (edit all slide titles/bullets in a continuous document tree), Slide Sorter View (grid of all slides with drag-to-reorder), Notes Page View, Reading View, Ruler, Gridlines, Guides (center alignment crosshairs), Speaker Notes bottom panel, Color / Grayscale / Black & White mode, and Zoom slider.
+2. Verify all buttons across Animations, Slide Show, Review, and View via automated DOM tests. Commit with [GEC-Verified].
+
+Completion Gate: powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 31.1.2
 

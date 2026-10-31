@@ -210,7 +210,7 @@ export class Ribbon {
 
     // 2. Ribbon Tools Body
     const body = document.createElement("div");
-    body.className = "ribbon-tools-body";
+    body.className = "ribbon-tools-body ribbon-content";
     body.id = "ribbon-tools-body";
 
     this.router.renderTab(

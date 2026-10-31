@@ -133,7 +133,7 @@ export class PdfState {
       ],
       imageBlocks: [],
       formFields: [
-        { id: "f1", name: "Full_Name", type: "text", value: "John Doe", rect: [100, 200, 250, 30] },
+        { id: "f1", name: "Full_Name", type: "text", value: "Jane Citizen", rect: [100, 200, 250, 30] },
         { id: "f2", name: "Agreed", type: "checkbox", value: true, rect: [100, 250, 20, 20] },
       ],
       annotations: [

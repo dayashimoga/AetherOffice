@@ -1,23 +1,33 @@
----
+﻿---
 trigger: always_on
-description: Global Engineering Contract (GEC-v4.0) enforcing 100% Automated Feature Testing across Word, Excel, PPT, PDF, and TXT, Full-App Theme Cascading, Multi-Window Per Format Management, and Zero Visual Bleed.
+description: Global Engineering Contract (GEC-v5.0) enforcing Production-Grade UI/UX, Real Binary File I/O, Multi-Instance Per-Format Tabs + Split View, Full Row/Col Excel Selection, Real Drawn/Typed PDF Signatures, and 100% Automated Ribbon Testing.
 ---
 
-# GLOBAL ENGINEERING CONTRACT (GEC-v4.0)
+# GLOBAL ENGINEERING CONTRACT (GEC-v5.0 â€” PRODUCTION READINESS)
 
-## ARTICLE I: SEPARATE WINDOWS PER DOCUMENT TYPE + UNIFIED SESSION HUB (LOW RAM)
-1. **Dedicated App Windows Inside One Shared Process:**
-   - Users must be able to open **Word (`.docx`)**, **Excel (`.xlsx`)**, **PowerPoint (`.pptx`)**, **PDF Studio (`.pdf`)**, and **Notepad (`.txt`/`.md`)** in their own dedicated, separate windows (via Tauri `WebviewWindowBuilder` sharing the single Rust process for `< 25 MB` overhead) OR dock/undock them at will from the **Window / App Hub Switcher**.
-   - Every window is scoped cleanly to its document type (e.g., the Word window holds Word tabs and Word chrome; the Excel window holds Excel workbooks; the PDF window holds PDF documents) while a **Global Session & Auto-Save Registry** tracks all open documents across windows so nothing is ever lost and any open document is reachable in 1 click.
+## ARTICLE I: MULTI-DOCUMENT WORKSPACE, APP GROUPING & SPLIT-VIEW ARCHITECTURE
+1. **Unlimited Simultaneous Documents Per Format:**
+   - Users MUST be able to open and edit multiple `.docx` files, multiple `.xlsx` files, multiple `.pptx` files, multiple `.pdf` files, and multiple `.txt/.md` files simultaneously.
+   - Clicking an app icon on the Left App Rail (`W`, `X`, `P`, `PDF`, `N`) filters the workspace to show all open tabs of that format (or `All` mode to see all tabs), while every app rail icon also has a `+` action and `Open File` action to spawn additional documents of that type at any time.
+   - Include a **Side-by-Side Split View (`â—« Split Screen`)** toggle in the top bar so users can view and edit any two open documents side-by-side in the same window, PLUS `â†— Pop Out Window` to detach any tab into a separate OS window.
 
-## ARTICLE II: ZERO LAYOUT BLEEDING & FULL-APP DARK/LIGHT THEME
-1. **No Ghost Sidebars:** Word's `Navigation` sidebar MUST ONLY render when the active view is Word and `showNavPane == true`. It must NEVER appear on the left side of Excel, PowerPoint, PDF, or Notepad!
-2. **No Permanent Alt-Keytip Badges:** The black `[F]`, `[H]`, `[N]`, `[P]` badges on Ribbon tabs (`File`, `Home`, `Insert`) MUST stay hidden by default and only appear when the user presses the `Alt` key.
-3. **Full-App Theme Cascade:** Toggling `Dark / Light` mode MUST apply CSS theme variables (`--bg-app`, `--bg-toolbar`, `--bg-sidebar`, `--bg-workspace`, `--bg-surface`, `--text-primary`, `--text-muted`, `--border-subtle`) across 100% of the window (Titlebar, Tab bar, Ribbon, Left Sidebar, Workspace background, Dialogs, and Bottom Status Bar).
-4. **Dynamic Per-App Status Bar:** The bottom status bar must show accurate metrics for the active app (Word: `Page X of Y | N words | N chars`; Excel: `Sheet X of Y | Selected: A1 | Sum / Avg / Count`; PPT: `Slide X of Y | Theme Name`; PDF: `Page X of Y | Dimensions | Security Status`; TXT: `Ln X, Col Y | N lines | N words | UTF-8`). Never hardcode `22 words`!
+## ARTICLE II: VISUAL OVERHAUL, ZERO OVERFLOW & WCAG HIGH-CONTRAST THEME
+1. **Modern Glass/Fluent UI Overhaul & Zero Ribbon Overflow:**
+   - The Ribbon toolbar MUST NEVER clip or cut off buttons on the right edge (`Titl`, `Subtota`). Use a responsive wrapping layout (`flex-wrap: wrap`) or compact adaptive groups with horizontal scroll buttons so 100% of tools are visible and clickable at any window width.
+2. **Complete Dark & Light Theme with High-Contrast Text:**
+   - Toggling Dark/Light theme MUST style the entire viewport including the canvas surround (`#090d16` in Dark, `#f1f5f9` in Light), sidebars, status bar, modals, and thumbnails.
+   - **Contrast Invariant:** White cards (like slide thumbnails or white pages) MUST ALWAYS use dark text (`#0f172a`) inside the white card, while dark sidebars (`#1e293b`) MUST ALWAYS use bright text (`#f8fafc`). Never render light text on a white background!
 
-## ARTICLE III: 100% WORKING FILE I/O & RIBBON FEATURES (AUTOMATED TEST MANDATE)
-1. **Working File Menu (`New`, `Open`, `Save`, `Save As`, `Export`, `Print`):**
-   - Must work in ALL 5 apps (`docx`, `xlsx`, `pptx`, `pdf`, `txt`) using real file pickers (`<input type="file">` + Tauri FS API) and real file downloads/writes + clean print frames.
-2. **Automated Feature Matrix Gate:**
-   - Every single button in every ribbon tab across Word, Excel, PowerPoint, PDF, and Notepad must be tested by an automated Vitest DOM test in `apps/unified-shell/src/__tests__/exhaustive_feature_matrix.test.tsx`.
+## ARTICLE III: FORMAT-SPECIFIC PRODUCTION MANDATES
+1. **Word (`.docx`):**
+   - **Fix 100% Zoom Clipping & Scroll Flicker:** Never use `justify-content: center` on the vertical axis of the `.word-canvas-scroll` container! Use `display: flex; flex-direction: column; align-items: center; justify-content: flex-start; overflow-y: auto` and `transform-origin: top center` on pages so Page 1, Header, Footer, and line 1 of text are 100% visible at `100%` zoom, and scrolling never flickers or jumps back to the top.
+   - Real `.docx` file opening (parsing XML `w:p`/`w:r`/`w:tbl` inside the ZIP package) and saving.
+2. **Excel (`.xlsx`):**
+   - **Full Row & Column Selection:** Clicking column header `B` selects all of Column B; dragging `B` to `E` selects Columns B..E; `Ctrl+Click` selects non-adjacent columns/rows. Clicking row header `5` or dragging `5` to `12` selects entire rows. Any formatting (Bold, Fill, Font, Size, Align, Number Format, Delete, Clear) applied while rows/columns are selected MUST apply to all cells in those rows/columns!
+3. **PowerPoint (`.pptx`):**
+   - Real `.pptx` file opening (reading slide XMLs from ZIP) and saving, plus complete Slide Show, Transitions, Animations, Shape Alignment, SmartArt, Tables, and Media tools.
+4. **PDF Studio (`.pdf`):**
+   - **Ban on Hardcoded `"John Doe"` Signature:** `"John Doe"` is STRICTLY BANNED from `apps/`. Clicking `Sign` or `Add Signature` MUST open an interactive Signature Pad Modal where the user draws their real signature with mouse/touch OR types their own custom name/initials, and stamps that exact image/text onto the PDF page.
+   - Real local `.pdf` file opening (rendering pages and extracting text boxes), real saving, password encryption/decryption, and page size resizing.
+5. **Notepad (`.txt` / `.md`):**
+   - Complete menu bar (File, Edit, Search, View, Encoding, Text Tools, Markdown, Macros) with 100% working commands and automated tests.

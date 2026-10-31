@@ -3,6 +3,7 @@ import { PdfState, pdfState } from "../state/pdfState";
 export interface SignModalOptions {
   pageNumber?: number;
   targetFieldId?: string;
+  signerName?: string;
   onSigned?: (signatureDataUrl: string, signerName: string) => void;
   onSave?: () => void;
 }
@@ -16,7 +17,7 @@ export class SignDocumentModal {
   private isDrawing = false;
   private activeTab: "draw" | "type" | "cert" = "draw";
   private strokeColor = "#002060";
-  private signerName = "John Doe";
+  private signerName = "Authorized Signer";
   private targetPage = 1;
   private targetFieldId?: string;
   private onSignedCallback?: (signatureDataUrl: string, signerName: string) => void;
@@ -64,6 +65,9 @@ export class SignDocumentModal {
   public show(options: SignModalOptions = {}) {
     this.targetPage = options.pageNumber || this.state.currentPage;
     this.targetFieldId = options.targetFieldId;
+    if (options.signerName !== undefined) {
+      this.signerName = options.signerName;
+    }
     this.onSignedCallback = options.onSigned;
     this.onSaveCallback = options.onSave;
 

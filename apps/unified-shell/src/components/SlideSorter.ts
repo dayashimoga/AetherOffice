@@ -244,6 +244,7 @@ export class SlideSorter {
       preview.style.padding = "4px 8px";
 
       const titleEl = document.createElement("div");
+      titleEl.className = "slide-thumb-title";
       titleEl.style.fontWeight = "600";
       titleEl.style.fontSize = "12px";
       titleEl.style.overflow = "hidden";

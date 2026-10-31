@@ -1,8 +1,8 @@
-﻿# Subphase 32.1.2: PDF Direct Text/Image Editing, Annotations, Redaction, Forms & Signatures
+﻿# Subphase 32.1.2: PDF Studio Complete Ribbon Overhaul: Home, Edit PDF, Forms, Comment, Page Tools, Protect, View
 - **Stage:** 32 | **Phase:** 32.1
 - **Target Subsystem:** `pdf-engine`
 - **Primary Agent Skill:** `@pdf-architect`
-- **Deliverable:** 100% working Home, Edit PDF, Forms, Comment & Annotate, Sign, and View tabs in PDF Studio.
+- **Deliverable:** 100% working PDF editing, text/image modification, annotations, redaction, form builder/filler, page resizing, and password security.
 - **Validation Command:** `powershell -File tools/verify-contract.ps1`
 
 ---
@@ -11,11 +11,13 @@
 
 ```text
 /execute-subphase 32.1.2
-Invoke @pdf-architect and @adaptive-ui-builder under GEC-v4.0.
-1. Wire **100% of the buttons** across PDF Studio's Home, Edit PDF, Forms, Comment & Annotate, Sign & Protect, and View tabs:
-   - **Home Tab:** Make Open, Hand (drag-pan canvas), Select (select text/objects), Snapshot (captures selected region or current page as PNG to clipboard/download), 100%, Fit Page, Fit Width, Prev Page, Next Page, + In (Zoom In), - Out (Zoom Out), Search (opens live PDF text search bar highlighting matches across pages), Print, and Save (generates and downloads valid .pdf file) 100% functional!
-   - **Edit PDF Tab:** Edit Text & Objects mode (click any text block on the PDF page to edit its text, font, size, or color in-place, drag to reposition, or press Delete), + Add Text (click anywhere on the page to create a new formatted text block), + Add Image (upload and resize image on the PDF page), Add Links, Header & Footer (stamps page numbers/dates across all pages), Watermark (diagonal or centered text/image watermark with opacity slider), and Background Color.
-   - **Comment & Annotate Tab:** Highlight, Underline, Strikethrough, Sticky Note (places interactive comment marker + syncs with left Notes tab), Callout Text Box, Freehand Draw / Pencil (smooth ink drawing on the PDF canvas with color/thickness picker), Eraser, Shapes (Rect, Circle, Arrow, Line), Stamps (APPROVED, CONFIDENTIAL, DRAFT, REVIEWED, FINAL, VOID), and Redact Content (draws blackout redaction box that permanently strips underlying text/objects).
-   - **Forms & Sign Tabs:** + Text Field, + Checkbox, + Radio Button, + Dropdown, + Date Field, + Clear Form, Fill Form Mode, and Place Digital Signature (draw signature on canvas pad or type cursive signature + date stamp, and place resizable signature onto the PDF).
-2. Verify every single PDF tool and ribbon button with automated DOM tests. Commit with [GEC-Verified].
+Invoke @pdf-architect and @adaptive-ui-builder under GEC-v5.0.
+1. Make **100% of PDF Studio's Ribbon tabs and tools** work seamlessly on the active PDF page:
+   - **Home Tab:** Open PDF, Create Blank PDF, Save PDF, Print, Hand Tool (drag to scroll), Select Tool (click/drag to move/resize/edit any element on the page), Snapshot, Fit Page, Fit Width, Actual Size (100%), Zoom In (+), Zoom Out (-), First / Prev / Next / Last Page, and Search Text (highlights matching text across PDF pages).
+   - **Edit PDF Tab:** Edit Text Mode (makes all text blocks on the PDF page directly editable in-place with Font Family, Font Size, Color, Bold, Italic, Align, and Delete controls!), + Add Text Box (places a new editable text box on the page), + Add Image (uploads and places a resizable image on the page), Crop Page, Header & Footer (adds custom top/bottom text & page numbers across pages), Watermark (adds customizable diagonal/centered watermark text with opacity & rotation), Background Color.
+   - **Forms Tab:** + Text Field, + Checkbox, + Radio Button, + Dropdown List, + Date Picker, + Signature Field, Highlight Existing Fields, Clear All Form Fields, Export Form Data (JSON/CSV).
+   - **Comment & Annotate Tab:** Highlight, Underline, Strikethrough, Sticky Note (adds comment pin + syncs with left Notes list), Text Callout, Freehand Ink Pen (draw directly over the PDF page with color & thickness controls), Eraser, Shapes (Rectangle, Circle, Arrow, Line), Stamps (APPROVED, CONFIDENTIAL, DRAFT, FINAL, SIGNED, URGENT).
+   - **Page Tools Tab:** + Insert Blank Page, Duplicate Page, Delete Page, Rotate 90Â° CW, Rotate 90Â° CCW, Move Page Up/Down, **Resize Page Size (A4, Letter, Legal, A3, Custom Width Ã— Height with content scaling)**, Extract Page, Split PDF, Merge Another PDF.
+   - **Sign & Protect Tab:** Add Signature (Draw/Type/Upload modal), Add Initials, Encrypt with Password (locks PDF with password + shows lock screen until unlocked), Decrypt / Remove Password, Restrict Editing, Mark for Redaction & Apply Redactions (permanently blacks out and deletes underlying content), Compress PDF.
+2. Verify every single PDF button and modal with automated DOM tests. Commit with [GEC-Verified].
 ```

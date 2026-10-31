@@ -1,8 +1,8 @@
-﻿# Subphase 32.1.1: PDF Open/Save, Multi-Page Organizer, Page Resize & Password Encrypt/Decrypt
+﻿# Subphase 32.1.1: Fix Local PDF File Open/Render/Save & Replace Hardcoded 'John Doe' with Real Signature Pad
 - **Stage:** 32 | **Phase:** 32.1
 - **Target Subsystem:** `pdf-engine`
 - **Primary Agent Skill:** `@pdf-architect`
-- **Deliverable:** 100% working PDF Open/Create/Save, Add/Delete/Duplicate/Rotate/Extract/Split/Merge pages, Resize PDF Page Dimensions, and Password Encrypt/Decrypt.
+- **Deliverable:** Open any local .pdf file and render its pages/text, save edited .pdf, and interactive Signature/Initials Pad (Draw, Type, or Upload Image) with zero 'John Doe' defaults.
 - **Validation Command:** `powershell -File tools/verify-contract.ps1`
 
 ---
@@ -11,20 +11,17 @@
 
 ```text
 /execute-subphase 32.1.1
-Invoke @pdf-architect and @adaptive-ui-builder under GEC-v4.0.
-1. Fix the completely non-responsive PDF workspace so every single button works:
-   - **Open & Render Existing PDFs + Create Blank PDFs:** Clicking Open (in Home or File) opens any .pdf file from disk, parses its pages/text/dimensions via pdf-engine (and browser PDF canvas/object renderer), and renders every page interactively in both the main viewport and the left Pages thumbnail strip!
-   - **Page Tools Tab (Full Page Manipulation):**
-     - + Insert Blank Page (inserts a new page before/after current page and updates page count).
-     - Delete Page (removes selected page, with confirmation if >1 page).
-     - Duplicate Page (clones selected page and all its elements).
-     - Rotate CW 90Â° & Rotate CCW 90Â° (rotates the page dimensions and content).
-     - Move Page Up / Down & drag-and-drop thumbnail reordering.
-     - **Resize PDF Page Size (Requested Feature):** Modal & toolbar selector to change page dimensions (A4 210Ã—297mm, Letter 8.5Ã—11in, Legal 8.5Ã—14in, A3, A5, or Custom Width Ã— Height mm/px) with option to Scale Content to Fit New Page Size and apply to Current Page or All Pages!
-     - Split PDF (extract page range into a new PDF) & Merge PDF (append another .pdf file's pages into the current document).
-   - **Sign & Protect Tab (Password Encryption & Decryption â€” Requested Feature):**
-     - **Encrypt with Password:** Opens a security modal allowing the user to set an **Open Password (User Password)** and **Permissions Password (Owner Password â€” restrict printing/editing/copying)**. When saved or reopened, the PDF requires the password to unlock!
-     - **Decrypt / Remove Password:** Allows unlocking a password-protected PDF by entering its password and removing encryption restrictions.
-     - **Compress / Optimize PDF Size:** Reduces image resolution / strips unused objects and displays the before/after file size in KB.
-2. Write automated tests verifying PDF Open, + Insert Page, Delete Page, Rotate, Resize PDF Page Size, and Encrypt / Decrypt Password. Commit with [GEC-Verified].
+Invoke @pdf-architect and @adaptive-ui-builder under GEC-v5.0 Article III.4.
+1. **Remove Hardcoded \"John Doe\" Signature Bug (Seen in image_b643a0.png) & Build Real Signature Modal:**
+   - Delete \"John Doe\" completely from the codebase!
+   - When the user clicks Add Signature, Initials, or Sign in the Sign & Protect tab:
+     - Open an interactive **Signature & Initials Studio Modal** with 3 tabs:
+       1. **Draw Signature:** An HTML5 <canvas> pad where the user draws their real signature with mouse, trackpad, or touch/stylus (with ink color picker: Black, Classic Blue, Fountain Red, and Clear button). Captures the exact drawn stroke as a transparent PNG (canvas.toDataURL(\"image/png\")) and places it as a draggable, resizable signature stamp on the active PDF page!
+       2. **Type Signature:** An <input type=\"text\" placeholder=\"Enter your full name or initials...\" /> where the user types their own name (e.g., \"Dayanand T.\"), chooses from 4 signature script styles, and stamps their exact typed name + optional timestamp onto the PDF page!
+       3. **Upload Signature Image:** Upload a scan/photo of a real signature (.png/.jpg) and stamp it onto the page.
+2. **Fix Opening & Saving Real Local .pdf Files:**
+   - When the user clicks Open (in File, Home, or top quick bar) and selects any .pdf file from their computer:
+     - Parse the binary ArrayBuffer using pdf-engine / client PDF parser to extract the actual pages, page dimensions, embedded text blocks (BT..ET / Tj / TJ), and render high-resolution page views + thumbnails!
+   - When clicking Save or Export PDF, serialize all pages, edited text blocks, added shapes/images, form values, redactions, and drawn/typed signature images into a valid .pdf binary and download/save it to disk!
+3. Write automated tests verifying local .pdf buffer loading, drawing a signature on the canvas pad, typing a custom name (\"Custom Signer\"), asserting \"John Doe\" never appears, and saving the .pdf. Commit with [GEC-Verified].
 ```

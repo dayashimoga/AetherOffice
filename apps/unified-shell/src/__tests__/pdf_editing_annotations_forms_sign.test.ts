@@ -343,7 +343,7 @@ describe("PDF In-Place Text/Image Editor, Annotations, Redaction & AcroForms Fil
     it("clears all form fields, exports data dictionary, and imports JSON data", () => {
       // Export current form data
       const exported = state.exportFormData();
-      expect(exported["Full_Name"]).toBe("John Doe");
+      expect(exported["Full_Name"]).toBe("Jane Citizen");
       expect(exported["Agreed"]).toBe(true);
 
       // Clear form data
@@ -413,11 +413,11 @@ describe("PDF In-Place Text/Image Editor, Annotations, Redaction & AcroForms Fil
       expect(signedCallbackFired).toBe(true);
       const sigAnnot = page1.annotations!.find((a) => a.type === "signature");
       expect(sigAnnot).toBeDefined();
-      expect(sigAnnot?.signerName).toBe("John Doe");
+      expect(sigAnnot?.signerName).toBe("Authorized Signer");
 
       // Signature form field is also filled
       const sigField = page1.formFields!.find((f) => f.name === "ExecutiveSign");
-      expect(sigField?.value).toBe("John Doe");
+      expect(sigField?.value).toBe("Authorized Signer");
     });
   });
 

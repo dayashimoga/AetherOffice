@@ -1,8 +1,8 @@
-﻿# Subphase 33.1.1: Notepad / Notes Open/Save (.txt/.md) & Complete Home, Edit, View, Markdown Ribbons
+﻿# Subphase 33.1.1: Notepad / Notes Complete Ribbon Overhaul: File, Home, Edit, View, Markdown & Power Tools
 - **Stage:** 33 | **Phase:** 33.1
 - **Target Subsystem:** `render-core`
 - **Primary Agent Skill:** `@adaptive-ui-builder`
-- **Deliverable:** 100% working Notepad/Notes app with File Open/Save/Download, Find & Replace, Text Transformation Tools, and Split Markdown Preview.
+- **Deliverable:** 100% working Notepad/Markdown editor with expanded ribbons, encoding/EOL controls, JSON/XML formatter, regex find/replace, and live markdown preview.
 - **Validation Command:** `powershell -File tools/verify-contract.ps1`
 
 ---
@@ -11,11 +11,12 @@
 
 ```text
 /execute-subphase 33.1.1
-Invoke @adaptive-ui-builder under GEC-v4.0.
-1. Fix all missing and broken features in the **Notepad / Notes (N)** app:
-   - **Open & Save Existing .txt / .md / .json / .log Files:** Wire File -> Open and Home -> Open to load any text/markdown file from disk into a scratchpad tab; wire Save (Ctrl+S) and Save As to download/write the .txt or .md file to disk; add Rename Scratchpad (double-click filename in left SCRATCHPADS list).
-   - **Fix Live Status Bar Counts:** Wire both editor counters and global status bar to update on every keystroke and cursor movement!
-   - **Home & Edit Ribbons:** New Scratchpad, Open File, Save (.txt), Save (.md), Print, Undo, Redo, Cut, Copy, Paste, Select All, Find & Replace bar (with Find Next/Prev, Replace, Replace All, Case Sensitive, and Regex toggles), Go To Line (Ctrl+G), and **Text Power Tools** (UPPERCASE, lowercase, Title Case, Sort Lines A-Z, Sort Lines Z-A, Remove Duplicate Lines, Trim Trailing Whitespace, Insert Time/Date F5, Word/Line Statistics).
-   - **View & Markdown Ribbons:** Font Family selector (JetBrains Mono / Consolas, Inter, Serif), Font Size (11pxâ€“28px), Line # On/Off, Word Wrap On/Off, Editor / Split / Preview mode switcher, and working Markdown toolbar buttons (H1, H2, H3, > Quote, B Bold, i Italic, `  Code `, Code Block, â˜‘ Task Checkbox, Table, Link, Horizontal Rule) that insert syntax at the cursor position in the <textarea>.
-2. Verify all Notepad/Notes buttons and file Open/Save with automated DOM tests. Commit with [GEC-Verified].
+Invoke @adaptive-ui-builder under GEC-v5.0 Article III.5.
+1. Expand and fix **100% of the menu options** in the **Notepad / Notes (N)** workspace (image_b642e4.png):
+   - **Fix Zoom Default Bug:** In image_b642e4.png, the bottom-right zoom slider says 20% by default! Ensure all 5 apps (Word, Excel, PPT, PDF, Notes) initialize at **100% zoom** by default!
+   - **Home Tab:** New Note (+ Scratchpad), Open (.txt, .md, .json, .xml, .csv, .log, .ini, .yaml), Save (.txt), Save (.md), Rename Note, Delete Note, Print, Font Family (Consolas, JetBrains Mono, Courier New, Inter, System UI), Font Size (10pxâ€“32px), Zoom In / Out / 100%, Time/Date (F5).
+   - **Edit Tab:** Undo, Redo, Cut, Copy, Paste, Delete, Select All, Find (Ctrl+F interactive search bar with match counter & Next/Prev), Replace (Ctrl+H with Replace & Replace All, Case-Sensitive, and Regex mode), Go To Line (Ctrl+G), Duplicate Line (Ctrl+D), Delete Line (Ctrl+Shift+K), Move Line Up/Down.
+   - **Text Tools / Transform Tab (New Pro Features):** UPPERCASE, lowercase, Title Case, Sentence case, Invert Case, Sort Lines Aâ†’Z, Sort Lines Zâ†’A, Remove Duplicate Lines, Remove Empty Lines, Trim Leading/Trailing Whitespace, Format / Prettify JSON, Minify JSON, Base64 Encode / Decode, URL Encode / Decode, Word & Frequency Statistics.
+   - **View & Markdown Tabs:** Editor Only, Split View (Editor + Live Preview), Preview Only, Line Numbers On/Off, Word Wrap On/Off, Show Whitespace, Line Endings (CRLF / LF), Encoding (UTF-8 / UTF-16 / ASCII), and working Markdown formatting buttons (H1, H2, H3, Bold, Italic, Strikethrough, Inline Code, Code Block, Blockquote, Bullet List, Numbered List, Task Checkbox - [ ], Insert Table, Insert Link, Insert Image, Horizontal Rule).
+2. Verify all Notepad/Notes buttons, text transforms, JSON formatter, Find & Replace, and file I/O via automated DOM tests. Commit with [GEC-Verified].
 ```

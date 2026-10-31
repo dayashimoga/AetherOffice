@@ -1,48 +1,42 @@
-﻿---
-description: Automated execution workflow for Stage 28: Multi-Window Per Format, Full-App Theme, Ghost Sidebar Fix and Universal File IO
----
+﻿description: Automated execution workflow for Stage 28: Modern Visual Overhaul, Non-Overflowing Ribbon, High-Contrast Dark Mode and Multi-Document Split View
+Workflow: Execute Stage 28 (/stage-28)
+Objective: Stage 28: Modern Visual Overhaul, Non-Overflowing Ribbon, High-Contrast Dark Mode and Multi-Document Split View
 
-# Workflow: Execute Stage 28 (/stage-28)
+Execute every subphase sequentially under strict Global Engineering Contract (GEC-v5.0) compliance:
 
-## Objective: Stage 28: Multi-Window Per Format, Full-App Theme, Ghost Sidebar Fix and Universal File IO
-Execute every subphase sequentially under strict Global Engineering Contract (GEC-v4.0) compliance. Every button and feature must be implemented and verified via automated Vitest DOM tests before marking complete:
-
-### Subphase 28.1.1: Separate App Windows Per Document Type + Shared Session Manager
-- **Spec File:** `.agents/stages/stage-28/subphase-28.1.1.md`
+### Subphase 28.1.1: Modern Fluent/Linear Visual Overhaul, Full-App Dark Theme & High-Contrast Fix
+- Spec File: .agents/stages/stage-28/subphase-28.1.1.md
 /execute-subphase 28.1.1
-Invoke @adaptive-ui-builder under GEC-v4.0 Article I.
-1. **Separate Window Per Document Type (Without RAM Hang):**
-   - Implement Tauri multi-window routing (spawn_app_window(app_type: "word" | "excel" | "ppt" | "pdf" | "notes") in src-tauri/src/lib.rs using 	auri::WebviewWindowBuilder::new with ?app=<app_type> URL query parameter, plus an in-app multi-window workspace manager fallback when running in browser/test mode).
-   - Each window filters its tab bar strictly to its own document format (e.g., the **Aether Word** window shows only .docx tabs; **Aether Excel** shows only .xlsx tabs; **Aether PowerPoint** shows only .pptx tabs; **Aether PDF** shows only .pdf tabs; **Aether Notes** shows only .txt/.md tabs).
-   - Clicking an app icon (W, X, P, PDF, N) on the Left App Rail or Home Hub either focuses/spawns that app's dedicated window OR switches cleanly to that isolated app workspace, while a **Global Open Documents Drawer (All Open Files)** lists every active document across all 5 apps with live auto-save to localStorage/IndexedDB so zero work is ever lost!
-   - Also add an "Open in New Window â†—" button on every tab so any document can be popped out into a separate OS window on demand.
-2. Write automated Vitest tests verifying isolated per-app tab filtering, session persistence, and new window spawning. Commit with [GEC-Verified].
-- **Completion Gate:** `powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 28.1.1`
+Invoke @adaptive-ui-builder under GEC-v5.0 Article II.
+1. **Modern Visual Design Overhaul:**
+   - Upgrade the entire application shell (pps/unified-shell/src/) with a sleek, modern design system (crisp Inter / Segoe UI Variable typography, refined 6px border-radius buttons with subtle hover/active states, active state pill indicators, clean SVG iconography, and modern elevation shadows).
+2. **Fix Ribbon Overflow & Clipped Right-Side Controls (Seen in image_b6a07e.png & image_b64b07.png):**
+   - Fix the Ribbon container so controls on the right (Styles, Subtotal, Drawing & Arrange) are NEVER clipped off-screen!
+   - Give .ribbon-content display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 12px; height: auto; min-height: 76px; max-height: 136px; overflow-y: visible; AND compact group spacing so every single button and dropdown wraps cleanly into view on any screen width.
+3. **Fix Partial Dark Mode & Invisible Slide Thumbnail Text (Seen in image_b5d5ee.png):**
+   - Apply theme CSS variables (--bg-canvas-backdrop, --bg-panel, --bg-ribbon, --text-primary, --text-secondary, --border-color) across 100% of the viewport so switching to **Dark Mode** turns the gray workspace surround into a rich dark slate (#0b1120), styles all sidebars/dialogs/status bars in dark mode, and ensures **high contrast everywhere**.
+   - Specifically fix the bug in image_b5d5ee.png where slide thumbnail cards had white backgrounds with white/light-gray text: ensure thumbnail preview cards explicitly set color: #0f172a when their background is light, or style thumbnail cards with dark surfaces (#1e293b) and bright text (#f8fafc).
+4. Write automated DOM tests verifying zero horizontal overflow clipping on the ribbon and high-contrast theme propagation. Commit with [GEC-Verified].
 
-### Subphase 28.1.2: Fix Ghost Word Sidebar Bug, Hide Alt-Badges & Fix Global Dark/Light Theme
-- **Spec File:** `.agents/stages/stage-28/subphase-28.1.2.md`
+Completion Gate: powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 28.1.1
+
+### Subphase 28.1.2: Multi-Document Per Format Manager, Side-by-Side Split View & Real Binary File Open/Save
+- Spec File: .agents/stages/stage-28/subphase-28.1.2.md
 /execute-subphase 28.1.2
-Invoke @adaptive-ui-builder under GEC-v4.0 Article II.
-1. **Fix Ghost Navigation Sidebar Bug (Seen in image_2586db.png & image_258017.png):**
-   - Currently, Word's white Navigation sidebar is rendered globally outside the Word view, causing it to appear next to PDF's Pages sidebar and Notes' SCRATCHPADS sidebar!
-   - Move Word's Navigation sidebar strictly inside the Word editor component so it NEVER renders when viewing Excel, PowerPoint, PDF, or Notes.
-2. **Fix Permanent [F] [H] [N] [P] Badges on Ribbon Tabs:**
-   - Hide the black Alt-keytip badges (F, H, N, P, S, R, W) on Ribbon tabs by default; only show them when ltKeyTipsActive === true (toggled by pressing and releasing Alt).
-3. **Full-App Dark / Light Theme Cascade:**
-   - Fix the theme toggle so switching between â˜€ï¸ Light and ðŸŒ™ Dark updates the entire application root, Titlebar, Tab Bar, Ribbon, Left Sidebar, Workspace background, Modals, and Status Bar (while keeping an optional Dark Page / Paper Canvas toggle in View for Word/PDF).
-4. **Fix Hardcoded 22 words Status Bar:**
-   - Replace the static 22 words | English (US) string at the bottom of the screen with dynamic per-app status indicators (Word: real live word/char/page count; Excel: active sheet count + selected cell SUM/AVG/COUNT; PPT: slide index + shape count; PDF: page index + page size in mm/in + encryption status; Notes: line/col/word/char count).
-5. Write automated DOM tests verifying zero ghost sidebars in PDF/Notes, full-app theme class propagation, and live dynamic status bar counts. Commit with [GEC-Verified].
-- **Completion Gate:** `powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 28.1.2`
+Invoke @ecma376-architect and @adaptive-ui-builder under GEC-v5.0 Article I.
+1. **Seamless Multi-Document Management (Multiple .docx, .xlsx, .pptx, .pdf, .txt at the same time):**
+   - Upgrade the Left App Rail (Home, W, X, P, PDF, N):
+     - Clicking an app icon (W, X, P, PDF, N) shows a badge with the count of open files of that type (e.g., W (3), X (2)). If none are open, it creates one; if already viewing that app, clicking + on the tab bar or clicking the app icon's + New / ðŸ“‚ Open quick menu opens **additional simultaneous documents** of that format (Untitled 1.docx, Untitled 2.docx, Project.docx, Budget.xlsx, Forecast.xlsx, etc.)!
+     - Add a tab bar filter toggle: **Current App Tabs vs All Open Tabs (N)** so users can either focus strictly on their open Excel files OR see all open documents across all formats in one unified tab strip.
+     - Add a **â—« Split View (Side-by-Side Workspace)** button in the top bar: when enabled, splits the main workspace into **Left Pane** and **Right Pane** with independent tab selectors so a user can edit two Word docs, two Excel sheets, or a Word doc + PDF side-by-side simultaneously!
+2. **Fix Real Local File Open & Save for .docx, .xlsx, .pptx, .pdf, and .txt:**
+   - Use JSZip / ooxml-opc + FileReader.readAsArrayBuffer() so when a user clicks Open (Ctrl+O) and selects a real .docx, .xlsx, .pptx, .pdf, or .txt file from their computer:
+     - **.docx:** Unzips word/document.xml, parses paragraphs (<w:p>), runs (<w:r>, <w:t>, bold/italic/color/size), and tables (<w:tbl>) into editable HTML pages!
+     - **.xlsx / .csv:** Unzips xl/sharedStrings.xml and xl/worksheets/sheet*.xml (or parses CSV) and populates all sheets, cell values, and formulas into the grid!
+     - **.pptx:** Unzips ppt/slides/slide*.xml, extracts text shapes (<p:sp>, <a:t>) and geometry into editable slides!
+     - **.pdf:** Reads the binary PDF buffer, parses page count, dimensions, and text streams (via pdf-engine / PDF parser), and renders every page onto the PDF canvas!
+   - When clicking Save (Ctrl+S), package and download/write a valid binary .docx, .xlsx, .pptx, .pdf, or .txt file!
+3. Write automated tests verifying opening 3 simultaneous .docx and 2 .xlsx files, enabling Split View, and round-trip binary parsing/saving for all 5 formats. Commit with [GEC-Verified].
 
-### Subphase 28.2.1: Universal File Menu Backstage: Real Open, Save, Save As, Export & Print for All 5 Formats
-- **Spec File:** `.agents/stages/stage-28/subphase-28.2.1.md`
-/execute-subphase 28.2.1
-Invoke @ecma376-architect and @adaptive-ui-builder under GEC-v4.0 Article III.
-1. Build a unified, rock-solid File I/O service (pps/unified-shell/src/services/fileIoService.ts) connected to both the File Backstage menu AND top quick-action toolbar buttons (ðŸ“‚ Open, ðŸ’¾ Save, ðŸ–¨ï¸ Print):
-   - **Open Existing File (Ctrl+O):** Triggers a hidden <input type="file"> (plus Tauri file dialog when in desktop runtime) supporting .docx, .doc, .html, .xlsx, .csv, .tsv, .pptx, .pdf, .txt, .md, and .json. Parses the file immediately and populates the active editor canvas!
-   - **Save / Save As (Ctrl+S / Ctrl+Shift+S):** Serializes the current document state (Word HTML/OOXML package, Excel workbook/CSV, PPTX slide deck JSON/OOXML, PDF binary with edits, or TXT/MD string), writes it via Tauri FS or triggers an immediate browser file download with the exact filename, and clears the unsaved * indicator on the tab.
-   - **Print (Ctrl+P):** Opens a dedicated clean print view / iframe containing ONLY the formatted document pages/sheet/slides/PDF/note and invokes window.print().
-2. Write automated tests verifying File Open, Save, and Print across all 5 document types. Commit with [GEC-Verified].
-- **Completion Gate:** `powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 28.2.1`
+Completion Gate: powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 28.1.2
 

@@ -1,42 +1,40 @@
-﻿---
-description: Automated execution workflow for Stage 32: PDF Studio (.pdf) Complete Overhaul - Open/Save, Edit Text, Page Resize and Password Encrypt/Decrypt
----
+﻿description: Automated execution workflow for Stage 32: PDF Studio (.pdf) Fix - Local PDF Open/Save, Custom Drawn/Typed Signature Pad and Full Editing
+Workflow: Execute Stage 32 (/stage-32)
+Objective: Stage 32: PDF Studio (.pdf) Fix - Local PDF Open/Save, Custom Drawn/Typed Signature Pad and Full Editing
 
-# Workflow: Execute Stage 32 (/stage-32)
+Execute every subphase sequentially under strict Global Engineering Contract (GEC-v5.0) compliance:
 
-## Objective: Stage 32: PDF Studio (.pdf) Complete Overhaul - Open/Save, Edit Text, Page Resize and Password Encrypt/Decrypt
-Execute every subphase sequentially under strict Global Engineering Contract (GEC-v4.0) compliance. Every button and feature must be implemented and verified via automated Vitest DOM tests before marking complete:
-
-### Subphase 32.1.1: PDF Open/Save, Multi-Page Organizer, Page Resize & Password Encrypt/Decrypt
-- **Spec File:** `.agents/stages/stage-32/subphase-32.1.1.md`
+### Subphase 32.1.1: Fix Local PDF File Open/Render/Save & Replace Hardcoded 'John Doe' with Real Signature Pad
+- Spec File: .agents/stages/stage-32/subphase-32.1.1.md
 /execute-subphase 32.1.1
-Invoke @pdf-architect and @adaptive-ui-builder under GEC-v4.0.
-1. Fix the completely non-responsive PDF workspace so every single button works:
-   - **Open & Render Existing PDFs + Create Blank PDFs:** Clicking Open (in Home or File) opens any .pdf file from disk, parses its pages/text/dimensions via pdf-engine (and browser PDF canvas/object renderer), and renders every page interactively in both the main viewport and the left Pages thumbnail strip!
-   - **Page Tools Tab (Full Page Manipulation):**
-     - + Insert Blank Page (inserts a new page before/after current page and updates page count).
-     - Delete Page (removes selected page, with confirmation if >1 page).
-     - Duplicate Page (clones selected page and all its elements).
-     - Rotate CW 90Â° & Rotate CCW 90Â° (rotates the page dimensions and content).
-     - Move Page Up / Down & drag-and-drop thumbnail reordering.
-     - **Resize PDF Page Size (Requested Feature):** Modal & toolbar selector to change page dimensions (A4 210Ã—297mm, Letter 8.5Ã—11in, Legal 8.5Ã—14in, A3, A5, or Custom Width Ã— Height mm/px) with option to Scale Content to Fit New Page Size and apply to Current Page or All Pages!
-     - Split PDF (extract page range into a new PDF) & Merge PDF (append another .pdf file's pages into the current document).
-   - **Sign & Protect Tab (Password Encryption & Decryption â€” Requested Feature):**
-     - **Encrypt with Password:** Opens a security modal allowing the user to set an **Open Password (User Password)** and **Permissions Password (Owner Password â€” restrict printing/editing/copying)**. When saved or reopened, the PDF requires the password to unlock!
-     - **Decrypt / Remove Password:** Allows unlocking a password-protected PDF by entering its password and removing encryption restrictions.
-     - **Compress / Optimize PDF Size:** Reduces image resolution / strips unused objects and displays the before/after file size in KB.
-2. Write automated tests verifying PDF Open, + Insert Page, Delete Page, Rotate, Resize PDF Page Size, and Encrypt / Decrypt Password. Commit with [GEC-Verified].
-- **Completion Gate:** `powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 32.1.1`
+Invoke @pdf-architect and @adaptive-ui-builder under GEC-v5.0 Article III.4.
+1. **Remove Hardcoded \"John Doe\" Signature Bug (Seen in image_b643a0.png) & Build Real Signature Modal:**
+   - Delete \"John Doe\" completely from the codebase!
+   - When the user clicks Add Signature, Initials, or Sign in the Sign & Protect tab:
+     - Open an interactive **Signature & Initials Studio Modal** with 3 tabs:
+       1. **Draw Signature:** An HTML5 <canvas> pad where the user draws their real signature with mouse, trackpad, or touch/stylus (with ink color picker: Black, Classic Blue, Fountain Red, and Clear button). Captures the exact drawn stroke as a transparent PNG (canvas.toDataURL(\"image/png\")) and places it as a draggable, resizable signature stamp on the active PDF page!
+       2. **Type Signature:** An <input type=\"text\" placeholder=\"Enter your full name or initials...\" /> where the user types their own name (e.g., \"Dayanand T.\"), chooses from 4 signature script styles, and stamps their exact typed name + optional timestamp onto the PDF page!
+       3. **Upload Signature Image:** Upload a scan/photo of a real signature (.png/.jpg) and stamp it onto the page.
+2. **Fix Opening & Saving Real Local .pdf Files:**
+   - When the user clicks Open (in File, Home, or top quick bar) and selects any .pdf file from their computer:
+     - Parse the binary ArrayBuffer using pdf-engine / client PDF parser to extract the actual pages, page dimensions, embedded text blocks (BT..ET / Tj / TJ), and render high-resolution page views + thumbnails!
+   - When clicking Save or Export PDF, serialize all pages, edited text blocks, added shapes/images, form values, redactions, and drawn/typed signature images into a valid .pdf binary and download/save it to disk!
+3. Write automated tests verifying local .pdf buffer loading, drawing a signature on the canvas pad, typing a custom name (\"Custom Signer\"), asserting \"John Doe\" never appears, and saving the .pdf. Commit with [GEC-Verified].
 
-### Subphase 32.1.2: PDF Direct Text/Image Editing, Annotations, Redaction, Forms & Signatures
-- **Spec File:** `.agents/stages/stage-32/subphase-32.1.2.md`
+Completion Gate: powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 32.1.1
+
+### Subphase 32.1.2: PDF Studio Complete Ribbon Overhaul: Home, Edit PDF, Forms, Comment, Page Tools, Protect, View
+- Spec File: .agents/stages/stage-32/subphase-32.1.2.md
 /execute-subphase 32.1.2
-Invoke @pdf-architect and @adaptive-ui-builder under GEC-v4.0.
-1. Wire **100% of the buttons** across PDF Studio's Home, Edit PDF, Forms, Comment & Annotate, Sign & Protect, and View tabs:
-   - **Home Tab:** Make Open, Hand (drag-pan canvas), Select (select text/objects), Snapshot (captures selected region or current page as PNG to clipboard/download), 100%, Fit Page, Fit Width, Prev Page, Next Page, + In (Zoom In), - Out (Zoom Out), Search (opens live PDF text search bar highlighting matches across pages), Print, and Save (generates and downloads valid .pdf file) 100% functional!
-   - **Edit PDF Tab:** Edit Text & Objects mode (click any text block on the PDF page to edit its text, font, size, or color in-place, drag to reposition, or press Delete), + Add Text (click anywhere on the page to create a new formatted text block), + Add Image (upload and resize image on the PDF page), Add Links, Header & Footer (stamps page numbers/dates across all pages), Watermark (diagonal or centered text/image watermark with opacity slider), and Background Color.
-   - **Comment & Annotate Tab:** Highlight, Underline, Strikethrough, Sticky Note (places interactive comment marker + syncs with left Notes tab), Callout Text Box, Freehand Draw / Pencil (smooth ink drawing on the PDF canvas with color/thickness picker), Eraser, Shapes (Rect, Circle, Arrow, Line), Stamps (APPROVED, CONFIDENTIAL, DRAFT, REVIEWED, FINAL, VOID), and Redact Content (draws blackout redaction box that permanently strips underlying text/objects).
-   - **Forms & Sign Tabs:** + Text Field, + Checkbox, + Radio Button, + Dropdown, + Date Field, + Clear Form, Fill Form Mode, and Place Digital Signature (draw signature on canvas pad or type cursive signature + date stamp, and place resizable signature onto the PDF).
-2. Verify every single PDF tool and ribbon button with automated DOM tests. Commit with [GEC-Verified].
-- **Completion Gate:** `powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 32.1.2`
+Invoke @pdf-architect and @adaptive-ui-builder under GEC-v5.0.
+1. Make **100% of PDF Studio's Ribbon tabs and tools** work seamlessly on the active PDF page:
+   - **Home Tab:** Open PDF, Create Blank PDF, Save PDF, Print, Hand Tool (drag to scroll), Select Tool (click/drag to move/resize/edit any element on the page), Snapshot, Fit Page, Fit Width, Actual Size (100%), Zoom In (+), Zoom Out (-), First / Prev / Next / Last Page, and Search Text (highlights matching text across PDF pages).
+   - **Edit PDF Tab:** Edit Text Mode (makes all text blocks on the PDF page directly editable in-place with Font Family, Font Size, Color, Bold, Italic, Align, and Delete controls!), + Add Text Box (places a new editable text box on the page), + Add Image (uploads and places a resizable image on the page), Crop Page, Header & Footer (adds custom top/bottom text & page numbers across pages), Watermark (adds customizable diagonal/centered watermark text with opacity & rotation), Background Color.
+   - **Forms Tab:** + Text Field, + Checkbox, + Radio Button, + Dropdown List, + Date Picker, + Signature Field, Highlight Existing Fields, Clear All Form Fields, Export Form Data (JSON/CSV).
+   - **Comment & Annotate Tab:** Highlight, Underline, Strikethrough, Sticky Note (adds comment pin + syncs with left Notes list), Text Callout, Freehand Ink Pen (draw directly over the PDF page with color & thickness controls), Eraser, Shapes (Rectangle, Circle, Arrow, Line), Stamps (APPROVED, CONFIDENTIAL, DRAFT, FINAL, SIGNED, URGENT).
+   - **Page Tools Tab:** + Insert Blank Page, Duplicate Page, Delete Page, Rotate 90Â° CW, Rotate 90Â° CCW, Move Page Up/Down, **Resize Page Size (A4, Letter, Legal, A3, Custom Width Ã— Height with content scaling)**, Extract Page, Split PDF, Merge Another PDF.
+   - **Sign & Protect Tab:** Add Signature (Draw/Type/Upload modal), Add Initials, Encrypt with Password (locks PDF with password + shows lock screen until unlocked), Decrypt / Remove Password, Restrict Editing, Mark for Redaction & Apply Redactions (permanently blacks out and deletes underlying content), Compress PDF.
+2. Verify every single PDF button and modal with automated DOM tests. Commit with [GEC-Verified].
+
+Completion Gate: powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 32.1.2
 

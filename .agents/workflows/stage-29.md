@@ -1,46 +1,40 @@
-﻿---
-description: Automated execution workflow for Stage 29: Word (.docx) Complete Fix - Typing, Multi-Page, Shapes and All 7 Ribbons
----
+﻿description: Automated execution workflow for Stage 29: Word (.docx) Fix - 100% Zoom Text Visibility, Scroll Flicker Fix, Headers/Footers and All Ribbons
+Workflow: Execute Stage 29 (/stage-29)
+Objective: Stage 29: Word (.docx) Fix - 100% Zoom Text Visibility, Scroll Flicker Fix, Headers/Footers and All Ribbons
 
-# Workflow: Execute Stage 29 (/stage-29)
+Execute every subphase sequentially under strict Global Engineering Contract (GEC-v5.0) compliance:
 
-## Objective: Stage 29: Word (.docx) Complete Fix - Typing, Multi-Page, Shapes and All 7 Ribbons
-Execute every subphase sequentially under strict Global Engineering Contract (GEC-v4.0) compliance. Every button and feature must be implemented and verified via automated Vitest DOM tests before marking complete:
-
-### Subphase 29.1.1: Fix Word Typing, Cursor Focus, Multi-Page Creation & Draggable/Resizable Shapes
-- **Spec File:** `.agents/stages/stage-29/subphase-29.1.1.md`
+### Subphase 29.1.1: Fix Word 100% Zoom Text Clipping, Fix Scroll Flicker/Jump, Visible Headers/Footers & + New Page
+- Spec File: .agents/stages/stage-29/subphase-29.1.1.md
 /execute-subphase 29.1.1
-Invoke @adaptive-ui-builder under GEC-v4.0.
-1. **Fix Word Typing & Cursor Loss Bug:**
-   - Fix the React/DOM controlled-input bug that prevented typing inside Word pages! Each page's .word-page-body must use an uncontrolled contentEditable="true" ref (synchronized via onInput without overwriting innerHTML while the element is focused) AND support programmatic insertion at the saved Selection range so users can type continuously at 120fps, press Enter, Backspace, Delete, Tab, and select text freely.
-2. **Fix Giant Blue Shapes Bug (Seen in image_25f41c.png):**
-   - In image_25f41c.png, inserting shapes created massive full-width blue rectangles/ovals stacked across the entire page!
-   - Fix Insert -> Shape and Insert -> Picture so shapes insert at a sensible default size (140px Ã— 90px), with an interactive selection border, **drag-to-move**, **8-corner resize handles**, **color picker**, **text inside shape**, and **Delete (Del key or trash icon)**.
-3. **Working Multi-Page Creation (+ New Page, Page Break, Auto-Overflow):**
-   - Add a floating **+ Add Page** button between/below pages AND wire Insert -> Blank Page and Insert -> Page Break (Ctrl+Enter) to immediately create Page 2, Page 3, etc., and scroll/focus the new page.
-   - Allow deleting any extra page via a Delete Page button on the page header/ribbon.
-4. Write automated DOM tests simulating continuous typing, creating 3 pages, inserting/resizing a shape, and deleting it. Commit with [GEC-Verified].
-- **Completion Gate:** `powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 29.1.1`
+Invoke @adaptive-ui-builder under GEC-v5.0 Article III.1.
+1. **Fix the 100% Zoom Invisible/Clipped Text Bug (Seen in image_b6a07e.png vs image_b64ac6.png):**
+   - Look at why text was only visible at 20% zoom in image_b64ac6.png: the scroll parent had vertical centering (justify-content: center) or 	ransform: scale() without 	ransform-origin: top center, clipping the top half of the page off-screen at 100% zoom!
+   - Fix .word-scroll-viewport: set display: block; overflow-y: auto; overflow-x: auto; padding: 32px 24px; position: relative; and center each .word-page-sheet horizontally with margin: 0 auto 32px auto; transform-origin: top center; (or scale width/padding/font-size proportionally by zoom / 100 so layout flow is 100% native and never clips!).
+   - Ensure text inside .word-page-body has ont-size: 11pt (14.67px); color: #0f172a; line-height: 1.5; min-height: 860px; so typed characters are immediately large, dark, and crystal clear at 100% zoom!
+2. **Fix the Scroll Flicker & Jump-to-Top Bug:**
+   - Remove any key={...} on the scroll container or page list that changes on keystroke/scroll, and remove any useEffect calling scrollTo(0, 0) or element.focus({ preventScroll: false }) on re-render! When focusing a page programmatically, always pass { preventScroll: true } so scrolling down a multi-page document NEVER flickers or snaps back to the top.
+3. **Visible, Always-Accessible Header, Footer & + Add New Page:**
+   - Render a clearly delineated **Header Zone** (order-bottom: 1px dashed #cbd5e1, placeholder \"Click to edit header\") at the top of every page and a **Footer Zone** (order-top: 1px dashed #cbd5e1, placeholder \"Click to edit footer\", plus Page X of Y) at the bottom of every page.
+   - Make **+ Page / Blank Page / + Blank Page / New Page** immediately append a new page object to doc.pages, scroll smoothly to the new page, and place the cursor inside the new page's body.
+4. Write automated DOM tests verifying that at zoom = 100%, typed text is rendered inside the visible viewport (getBoundingClientRect().top >= 0), scrolling down preserves scrollTop, Header/Footer inputs are editable, and clicking + Page increases page count from 1 to 2. Commit with [GEC-Verified].
 
-### Subphase 29.1.2: Fix Word Home, Insert & Layout Ribbons (100% Working Controls)
-- **Spec File:** `.agents/stages/stage-29/subphase-29.1.2.md`
+Completion Gate: powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 29.1.1
+
+### Subphase 29.1.2: Word Complete Ribbon Overhaul: Font Type/Size, Home, Insert, Layout, References, Review, View
+- Spec File: .agents/stages/stage-29/subphase-29.1.2.md
 /execute-subphase 29.1.2
-Invoke @adaptive-ui-builder under GEC-v4.0.
-1. Fix and wire **100% of the buttons** in Word's Home, Insert, and Layout ribbons (preserving editor selection before executing commands using onMouseDown={(e) => e.preventDefault()} on toolbar buttons so clicking a button NEVER steals focus from the selected text!):
-   - **Home Tab:** Clipboard (Cut, Copy, Paste, Format Painter), Font Family (Calibri, Arial, Times New Roman, Georgia, Verdana, Consolas, Inter â€” wraps selection or sets active typing style), Font Size (8pt to 72pt), Grow/Shrink Font (A+, A-), Change Case (Aa), Clear Formatting, Bold (B), Italic (I), Underline (U), Strikethrough (S), Subscript (Xâ‚‚), Superscript (XÂ²), Text Color palette, Highlight Color palette, Bullet List, Numbered List, Multilevel List, Decrease/Increase Indent, Sort Paragraphs, Show/Hide Â¶ Formatting Marks, Align Left/Center/Right/Justify, Line & Paragraph Spacing (1.0, 1.15, 1.5, 2.0), Shading fill, Borders, and Styles (Normal, No Spacing, Heading 1, Heading 2, Heading 3, Title, Subtitle, Quote).
-   - **Insert Tab:** Cover Page (inserts a styled title cover page), Blank Page, Page Break, Table (interactive grid size selector + add/remove row/column/border toolbar), Picture (file upload), Shapes (Rectangle, Rounded Rect, Circle/Oval, Triangle, Arrow, Star, Callout), Chart (inserts editable inline bar/line/pie chart), Hyperlink, Bookmark, Header, Footer, Page Number, Text Box, WordArt, Drop Cap, Date & Time, Symbol (Î©, â‚¬, Â£, Â©, â„¢, Â±, â‰ , â‰¤, â‰¥), and Horizontal Line.
-   - **Layout Tab:** Margins (Normal 1", Narrow 0.5", Moderate, Wide â€” visibly updates page padding!), Orientation (Portrait vs Landscape â€” visibly swaps page width/height 816px Ã— 1056px vs 1056px Ã— 816px!), Size (Letter, A4, Legal), Columns (One, Two, Three â€” applies CSS multi-column layout to the page body!), Breaks, Line Numbers toggle, Hyphenation, Page Color picker, Page Borders selector, and Watermark (CONFIDENTIAL, DRAFT, custom).
-2. Write automated tests clicking and asserting every single control in Home, Insert, and Layout. Commit with [GEC-Verified].
-- **Completion Gate:** `powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 29.1.2`
+Invoke @adaptive-ui-builder under GEC-v5.0.
+1. **Fix Word Font Family, Font Size & Home Ribbon Not Working:**
+   - Why Font Type & Font Size failed: clicking a <select> dropdown steals DOM focus from the contentEditable page, losing the user's text selection!
+   - **Solution:** Track the last valid Selection Range in a ref (savedSelectionRangeRef) on onSelect/onKeyUp/onMouseUp inside the page editor. Whenever the user changes **Font Family**, **Font Size**, **Text Color**, **Highlight Color**, or clicks **Bold, Italic, Underline, Strikethrough, Subscript, Superscript, Align, Bullets, Numbering, Line Spacing, or Styles (Heading 1..3, Title)**, first restore savedSelectionRangeRef (or if collapsed, apply directly to the active paragraph / current typing span style) so it works 100% of the time whether text is highlighted or the user is about to type!
+2. **Fix All Remaining Word Ribbon Tabs (Insert, Layout, References, Review, View):**
+   - **Insert Tab:** Cover Page, Blank Page, Page Break, Table (inserts editable table with + Row, + Col, Delete Table mini-bar), Picture (uploads local image file onto the page with resize slider), Shapes (inserts draggable/resizable SVG shape with text edit & delete button), Hyperlink (modal to insert clickable <a href>), Header & Footer (focuses header/footer), Page Number, Text Box, Date & Time, Symbol, Horizontal Line, Equation (âˆ‘, âˆš, Ï€, âˆ«).
+   - **Layout Tab:** Margins (Normal, Narrow, Wide, Custom â€” updates page padding), Orientation (Portrait / Landscape â€” swaps page width/height), Size (A4, Letter, Legal), Columns (1, 2, 3 â€” sets columnCount on page body), Page Color (changes paper background color), Page Borders (adds solid/double/dashed frame around page), Watermark (renders diagonal watermark text behind page content).
+   - **References Tab:** Insert Table of Contents (generates live linked TOC from all headings), Insert Footnote (adds superscript number + footnote at bottom of page), Insert Endnote, Insert Citation & Bibliography, Insert Caption.
+   - **Review Tab:** Spell Check & Grammar, Word Count dialog, Read Aloud (TTS), New Comment (adds comment card in right sidebar linked to selected text), Delete Comment, Track Changes (on/off), Accept All, Reject All, Protect Document.
+   - **View Tab:** Print Layout, Web Layout, Read Mode, Ruler, Gridlines, Nav Pane, Zoom (50%..200%), One Page, Multi Pages (displays pages side-by-side in a 2-column grid!), Page Width.
+3. Write automated tests clicking and asserting every single Word menu item. Commit with [GEC-Verified].
 
-### Subphase 29.2.1: Fix Word References, Review & View Ribbons (100% Working Controls)
-- **Spec File:** `.agents/stages/stage-29/subphase-29.2.1.md`
-/execute-subphase 29.2.1
-Invoke @adaptive-ui-builder under GEC-v4.0.
-1. Fix and wire **100% of the buttons** in Word's References, Review, and View ribbons:
-   - **References Tab:** Table of Contents (automatically scans all Heading 1/2/3 elements in the document and inserts a clickable Table of Contents block at the top of the document + Update Table), Insert Footnote (inserts a superscript [1] reference at the cursor and appends a numbered footnote entry in the page footer area), Insert Endnote, Insert Citation & Insert Bibliography (APA/MLA/IEEE citation manager modal), and Insert Caption (for figures/tables).
-   - **Review Tab:** Spelling & Grammar check drawer, Thesaurus lookup, Word Count modal (showing Pages, Words, Characters no spaces, Characters with spaces, Paragraphs, Lines), Read Aloud (uses browser window.speechSynthesis TTS to read the document aloud with Play/Pause/Stop!), Translate Selection, New Comment (attaches a comment card in a right-hand Comments gutter), Delete/Next/Prev Comment, Track Changes toggle (records subsequent typing in <ins> and deletions in <del>), Accept All Changes, Reject All Changes, and Protect Document (Read-Only Lock).
-   - **View Tab:** Print Layout (standard paged sheets), Web Layout (full-width fluid canvas), Read Mode (distraction-free two-column book reader), Focus Mode (hides ribbon), Ruler checkbox, Gridlines checkbox (renders subtle alignment grid overlay on the page), Navigation Pane checkbox, Dark Page Canvas toggle, Zoom (50%, 75%, 100%, 150%, 200%), One Page, Multi Pages (side-by-side pages), and Page Width.
-2. Verify every button in References, Review, and View with automated Vitest DOM assertions. Commit with [GEC-Verified].
-- **Completion Gate:** `powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 29.2.1`
+Completion Gate: powershell -ExecutionPolicy Bypass -File tools/stage-runner.ps1 -Complete 29.1.2
 
