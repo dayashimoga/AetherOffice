@@ -1249,11 +1249,11 @@ export class PdfState {
         });
       }
 
-      writeObject(contentObjId, `<< /Length ${pStream.length} >>\r\nstream\r\n${pStream}endstream`);
       writeObject(
         pageObjId,
         `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pW} ${pH}] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentObjId} 0 R >>`
       );
+      writeObject(contentObjId, `<< /Length ${pStream.length} >>\r\nstream\r\n${pStream}endstream`);
     }
 
     const totalObjs = 3 + pageCount * 2;

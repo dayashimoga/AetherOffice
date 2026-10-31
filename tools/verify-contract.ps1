@@ -1,5 +1,5 @@
 ﻿$ErrorActionPreference = "Stop"
-Write-Host "=== [GEC-v5.0] Running Production Readiness, Security & Full UI Audit ===" -ForegroundColor Cyan
+Write-Host "=== [GEC-v6.0] Running File I/O, Word Body/Header Isolation & Full UI Audit ===" -ForegroundColor Cyan
 
 # Gate 1: Rust Safety Check
 Write-Host "[1/5] Checking Rust crates for banned .unwrap() / .expect()..."
@@ -23,7 +23,7 @@ if (Test-Path "apps/unified-shell/src") {
     foreach ($uf in $uiFiles) {
         $raw = Get-Content $uf.FullName -Raw
         if ($raw -match "John Doe") {
-            Write-Host "CONTRACT VIOLATION (Article III.4): Hardcoded 'John Doe' signature found in $($uf.FullName)!" -ForegroundColor Red
+            Write-Host "CONTRACT VIOLATION (GEC-v6.0): Hardcoded 'John Doe' signature found in $($uf.FullName)!" -ForegroundColor Red
             exit 1
         }
     }
@@ -42,9 +42,9 @@ Write-Host "[4/5] Running Rust workspace unit tests..."
 cargo test --workspace --all-targets --jobs 2
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
-# Gate 5: Frontend Build & Exhaustive Automated E2E Tests
+# Gate 5: Frontend Build & Exhaustive Automated E2E + File Round-Trip Tests
 if (Test-Path "apps/unified-shell/package.json") {
-    Write-Host "[5/5] Running Frontend Build & Automated Menu/Feature Verification..."
+    Write-Host "[5/5] Running Frontend Build & GEC-v6.0 Automated Test Suite..."
     Push-Location "apps/unified-shell"
     npm run build
     if ($LASTEXITCODE -ne 0) { Pop-Location; exit 1 }
@@ -53,5 +53,5 @@ if (Test-Path "apps/unified-shell/package.json") {
     Pop-Location
 }
 
-Write-Host "=== [GEC-v5.0] ALL PRODUCTION READINESS GATES PASSED! ===" -ForegroundColor Green
+Write-Host "=== [GEC-v6.0] ALL PRODUCTION & FILE I/O GATES PASSED! ===" -ForegroundColor Green
 exit 0

@@ -1,8 +1,8 @@
 ﻿{
     "project":  "OpenOfficeRS",
-    "contract":  "GEC-v5.0",
-    "total_stages":  34,
-    "total_subphases":  101,
+    "contract":  "GEC-v6.0",
+    "total_stages":  41,
+    "total_subphases":  110,
     "subphases":  [
                       {
                           "id":  "1.1.1",
@@ -1114,6 +1114,105 @@
                           "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-34/subphase-34.1.1.md",
                           "completed_at":  "2026-10-31T06:27:51Z"
+                      },
+                      {
+                          "id":  "35.1.1",
+                          "stage":  35,
+                          "phase":  "35.1",
+                          "title":  "Native Tauri + Browser File Save \u0026 Open Bridge for All 5 Formats",
+                          "crate":  "ooxml-opc",
+                          "rea_required":  false,
+                          "status":  "COMPLETED",
+                          "prompt_file":  ".agents/stages/stage-35/subphase-35.1.1.md",
+                          "completed_at":  "2026-10-31T10:22:21Z"
+                      },
+                      {
+                          "id":  "35.1.2",
+                          "stage":  35,
+                          "phase":  "35.1",
+                          "title":  "App-Scoped Multi-Instance Workspace Manager \u0026 Modern Visual Polish",
+                          "crate":  "render-core",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-35/subphase-35.1.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "36.1.1",
+                          "stage":  36,
+                          "phase":  "36.1",
+                          "title":  "Fix Word Header/Body Duplicate Typing Bug \u0026 Independent Header/Body/Footer Zones",
+                          "crate":  "word-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-36/subphase-36.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "36.1.2",
+                          "stage":  36,
+                          "phase":  "36.1",
+                          "title":  "Word Complete Ribbon Fix: All 7 Tabs Working \u0026 Visible (Zero Clipped Groups)",
+                          "crate":  "word-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-36/subphase-36.1.2.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "37.1.1",
+                          "stage":  37,
+                          "phase":  "37.1",
+                          "title":  "Excel Save/Open (.xlsx \u0026 .csv) Fix \u0026 Complete 7-Tab Ribbon Functionality",
+                          "crate":  "excel-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-37/subphase-37.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "38.1.1",
+                          "stage":  38,
+                          "phase":  "38.1",
+                          "title":  "PowerPoint Save/Open (.pptx) Round-Trip \u0026 Complete 8-Tab Ribbon Functionality",
+                          "crate":  "ppt-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-38/subphase-38.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "39.1.1",
+                          "stage":  39,
+                          "phase":  "39.1",
+                          "title":  "PDF Studio Real File Open/Save \u0026 Interactive Layer Canvas (Text, Images, Shapes, Ink, Forms)",
+                          "crate":  "pdf-engine",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-39/subphase-39.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "40.1.1",
+                          "stage":  40,
+                          "phase":  "40.1",
+                          "title":  "Notepad / TXT File Open/Save Round-Trip \u0026 Complete 5-Tab Ribbon Functionality",
+                          "crate":  "render-core",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-40/subphase-40.1.1.md",
+                          "completed_at":  null
+                      },
+                      {
+                          "id":  "41.1.1",
+                          "stage":  41,
+                          "phase":  "41.1",
+                          "title":  "Responsive Desktop / Tablet / Mobile Adaptation \u0026 Exhaustive Automated Test Suite",
+                          "crate":  "render-core",
+                          "rea_required":  false,
+                          "status":  "PENDING",
+                          "prompt_file":  ".agents/stages/stage-41/subphase-41.1.1.md",
+                          "completed_at":  null
                       }
                   ]
 }

@@ -23,6 +23,9 @@ pub use macro_commands::*;
 pub mod window_commands;
 pub use window_commands::*;
 
+pub mod file_commands;
+pub use file_commands::*;
+
 pub struct ShellState {
     pub session_manager: Mutex<DesktopSessionManager>,
     pub formatting: Mutex<FormattingState>,
@@ -552,7 +555,11 @@ pub fn focus_app_instance(state: &ShellState, instance_id: &str) -> Result<bool,
 #[cfg(not(test))]
 pub fn run() {
     if let Err(e) = tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![window_commands::spawn_app_window])
+        .invoke_handler(tauri::generate_handler![
+            window_commands::spawn_app_window,
+            file_commands::save_file_bytes,
+            file_commands::read_file_bytes
+        ])
         .run(tauri::generate_context!())
     {
         eprintln!("Error while running AetherOffice: {e}");

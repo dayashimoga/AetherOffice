@@ -217,6 +217,14 @@ async function invokeTauri<T>(cmd: string, args?: Record<string, unknown>): Prom
       const path = (args?.file_path as string) || "Saved_Document.docx";
       return path as unknown as T;
     }
+    if (cmd === "save_file_bytes") {
+      const fileName = (args?.file_name as string) || "document.bin";
+      const customPath = args?.custom_path as string | undefined;
+      return (customPath || `/mock/saved/${fileName}`) as unknown as T;
+    }
+    if (cmd === "read_file_bytes") {
+      return [] as unknown as T;
+    }
     if (cmd === "export_pdf") {
       const path = (args?.output_path as string) || "Exported_Document.pdf";
       return path as unknown as T;
@@ -342,5 +350,17 @@ export const IPC = {
 
   spawnAppWindow: (appType: string, filePath?: string): Promise<string> =>
     invokeTauri("spawn_app_window", { app_type: appType, file_path: filePath }),
+
+  saveFileBytes: (fileName: string, bytes: number[] | Uint8Array, customPath?: string): Promise<string> => {
+    const byteArr = bytes instanceof Uint8Array ? Array.from(bytes) : bytes;
+    return invokeTauri("save_file_bytes", { file_name: fileName, bytes: byteArr, custom_path: customPath });
+  },
+
+  readFileBytes: (filePath: string): Promise<Uint8Array> => {
+    return invokeTauri<number[] | Uint8Array>("read_file_bytes", { file_path: filePath }).then((res) => {
+      if (res instanceof Uint8Array) return res;
+      return new Uint8Array(res || []);
+    });
+  },
 };
 

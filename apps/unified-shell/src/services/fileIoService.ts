@@ -4,7 +4,7 @@ import { calcState } from "../state/calcState";
 import { slidesState } from "../state/slidesState";
 import { pdfState } from "../state/pdfState";
 import { notesState } from "../state/notesState";
-import { binaryPackageService } from "./binaryPackageService";
+import { fileCodec } from "./fileCodec";
 
 export interface OpenedFileResult {
   file?: File;
@@ -100,49 +100,17 @@ export class FileIoService {
     isSaveAs = false
   ): Promise<string> {
     const targetPath = existingPath || title;
-    let savedPath = targetPath;
+    const filename = targetPath.split(/[/\\]/).pop() || title;
+
+    const savedPath = await fileCodec.saveFile(docType, {
+      filename,
+      customPath: existingPath,
+    });
 
     try {
-      const res = await IPC.saveDocument(sessionId, isSaveAs ? targetPath : existingPath);
-      if (res) savedPath = res;
+      await IPC.saveDocument(sessionId, isSaveAs ? targetPath : existingPath);
     } catch {
-      // IPC fallback to browser download
-    }
-
-    const hasTauri =
-      typeof window !== "undefined" &&
-      Boolean((window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__);
-
-    if (!hasTauri) {
-      let content: BlobPart = "";
-      let mime = "text/plain";
-
-      if (docType === "Word") {
-        content = (await binaryPackageService.buildDocx(writerState.getTextContent())) as unknown as BlobPart;
-        mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-      } else if (docType === "Excel") {
-        const activeSheet = calcState.getActiveSheet();
-        const cells: Record<string, string> = {};
-        if (activeSheet) {
-          for (const [coord, c] of Object.entries(activeSheet.cells)) {
-            if (c.value !== undefined && c.value !== null) cells[coord] = String(c.value);
-          }
-        }
-        content = (await binaryPackageService.buildXlsx(cells)) as unknown as BlobPart;
-        mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-      } else if (docType === "PowerPoint") {
-        content = (await binaryPackageService.buildPptx(slidesState.slides)) as unknown as BlobPart;
-        mime = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-      } else if (docType === "PDF") {
-        content = pdfState.exportBinaryPdf() as unknown as BlobPart;
-        mime = "application/pdf";
-      } else {
-        content = notesState.getContent();
-        mime = targetPath.endsWith(".md") ? "text/markdown" : "text/plain";
-      }
-
-      const filename = targetPath.split(/[/\\]/).pop() || title;
-      this.downloadFile(content, filename, mime);
+      // IPC fallback
     }
 
     return savedPath;
@@ -153,96 +121,7 @@ export class FileIoService {
     docType: DocumentType,
     fileName: string
   ): Promise<boolean> {
-    const isBuffer = typeof bufferOrText !== "string";
-    const uint8: Uint8Array = isBuffer
-      ? bufferOrText instanceof Uint8Array
-        ? bufferOrText
-        : new Uint8Array(bufferOrText)
-      : new TextEncoder().encode(bufferOrText);
-
-    try {
-      if (docType === "Word") {
-        if (fileName.toLowerCase().endsWith(".docx")) {
-          const parsed = await binaryPackageService.parseDocx(uint8);
-          writerState.loadDocumentFromText(parsed.text, fileName);
-        } else {
-          const text = new TextDecoder().decode(uint8);
-          writerState.loadDocumentFromText(text, fileName);
-        }
-      } else if (docType === "Excel") {
-        if (fileName.toLowerCase().endsWith(".xlsx")) {
-          const parsed = await binaryPackageService.parseXlsx(uint8);
-          for (const [coord, val] of Object.entries(parsed.cells)) {
-            calcState.setCellValue(coord, val);
-          }
-        } else {
-          calcState.importFromCsv(new TextDecoder().decode(uint8));
-        }
-      } else if (docType === "PowerPoint") {
-        if (fileName.toLowerCase().endsWith(".pptx")) {
-          const parsed = await binaryPackageService.parsePptx(uint8);
-          if (parsed.slides.length > 0) {
-            slidesState.slides = parsed.slides.map((s, idx) => ({
-              id: String(idx + 1),
-              title: s.title,
-              shapes: s.text.map((t, tIdx) => ({
-                id: `shape-${idx}-${tIdx}`,
-                type: "text" as const,
-                x: 100,
-                y: 100 + tIdx * 50,
-                w: 400,
-                h: 40,
-                fill: "transparent",
-                text: t,
-              })),
-            }));
-            slidesState.currentSlideIndex = 0;
-          }
-        }
-      } else if (docType === "PDF") {
-        const parsed = binaryPackageService.parsePdf(uint8);
-        if (parsed.pages && parsed.pages.length > 0) {
-          pdfState.loadPdfDocument(
-            parsed.pages.map((p, i) => ({
-              id: `page-${i + 1}`,
-              pageNumber: i + 1,
-              width: p.width,
-              height: p.height,
-              rotation: 0,
-              title: `Page ${i + 1}`,
-              textBlocks: p.textBlocks.map((tb, tbIdx) => ({
-                id: `tb-${i + 1}-${tbIdx + 1}`,
-                x: tb.x,
-                y: tb.y,
-                text: tb.text,
-                fontSize: tb.fontSize || 12,
-              })),
-            }))
-          );
-        } else if (parsed.pageCount > 0) {
-          pdfState.resetToBlank(fileName);
-          while (pdfState.pages.length < parsed.pageCount) {
-            pdfState.insertBlankPage(pdfState.pages.length);
-          }
-          if (pdfState.pages[0]) {
-            pdfState.pages[0].textBlocks = [
-              {
-                id: "tb-1",
-                x: 72,
-                y: 120,
-                text: parsed.text,
-                fontSize: 14,
-              },
-            ];
-          }
-        }
-      } else {
-        notesState.setContent(new TextDecoder().decode(uint8));
-      }
-      return true;
-    } catch {
-      return false;
-    }
+    return await fileCodec.openFile(bufferOrText, fileName, docType);
   }
 
   public async exportDocument(

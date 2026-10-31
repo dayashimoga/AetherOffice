@@ -53,7 +53,8 @@ import { DiffPreviewModal } from "./components/DiffPreviewModal";
 import { themeManager } from "./components/ThemeManager";
 import { OpenDocumentsDrawer } from "./components/OpenDocumentsDrawer";
 import { fileIoService, downloadFile } from "./services/fileIoService";
-export { downloadFile, fileIoService };
+import { fileCodec, showSavedToast } from "./services/fileCodec";
+export { downloadFile, fileIoService, fileCodec, showSavedToast };
 import { pluginHost } from "./plugins/pluginHost";
 
 export class UnifiedShellApp {
@@ -1820,7 +1821,7 @@ export class UnifiedShellApp {
     }
   }
 
-  public handleRibbonAction(action: string, payload?: unknown) {
+  public async handleRibbonAction(action: string, payload?: unknown) {
     console.log("Ribbon Action:", action, payload);
 
     if (action === "ToggleBackstage") {
@@ -1840,7 +1841,7 @@ export class UnifiedShellApp {
           docInfo.textContent = `Saved: ${active.title}`;
         }
       }
-      void this.saveActiveDocument();
+      await this.saveActiveDocument();
       return;
     }
     if (action === "SaveAs" || action === "SaveAsDocument") {
@@ -2857,6 +2858,8 @@ export class UnifiedShellApp {
     });
     this.tabBar.setDirty(active.id, false);
 
+    showSavedToast(savedPath);
+
     const docInfo = document.getElementById("status-doc-info");
     if (docInfo) {
       docInfo.textContent = `Saved: ${savedPath.split(/[/\\]/).pop()}`;
@@ -2865,35 +2868,20 @@ export class UnifiedShellApp {
   }
 
   public async handleOpenFile(filePath: string, fileContent?: string): Promise<void> {
-    const lower = filePath.toLowerCase();
-    const docType: DocumentType =
-      lower.endsWith(".xlsx") || lower.endsWith(".xls") || lower.endsWith(".csv")
-        ? "Excel"
-        : lower.endsWith(".pptx") || lower.endsWith(".ppt")
-        ? "PowerPoint"
-        : lower.endsWith(".pdf")
-        ? "PDF"
-        : lower.endsWith(".txt") || lower.endsWith(".md") || lower.endsWith(".log") || lower.endsWith(".json")
-        ? "Notes"
-        : "Word";
+    const docType: DocumentType = fileIoService.detectDocType(filePath);
 
     let sessionId = `tab-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     let title = filePath.split(/[/\\]/).pop() || filePath;
 
     if (fileContent !== undefined) {
-      if (docType === "Notes") {
-        notesState.resetToBlank(title);
-        notesState.setContent(fileContent);
-      } else if (docType === "Excel" && lower.endsWith(".csv")) {
-        calcState.loadCSV(fileContent);
-      } else if (docType === "Word") {
-        writerState.loadDocumentFromText(fileContent, title);
-      } else if (docType === "PDF") {
-        pdfState.resetToBlank(title);
-      } else if (docType === "PowerPoint") {
-        slidesState.resetToBlank(title);
-      }
+      await fileCodec.openFile(fileContent, title, docType);
     } else {
+      // If path given without content, try reading from disk via fileCodec
+      try {
+        await fileCodec.openFileFromDisk(filePath);
+      } catch (e) {
+        console.warn("openFileFromDisk error:", e);
+      }
       try {
         const summary = await IPC.openDocument(filePath);
         if (summary) {
