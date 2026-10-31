@@ -503,7 +503,6 @@ body.alt-keytips-active .ribbon-keytip-badge,
   padding: 6px 12px;
   height: auto;
   min-height: 76px;
-  max-height: 136px;
   overflow-y: visible;
   overflow-x: visible;
   align-items: center;
@@ -513,7 +512,8 @@ body.alt-keytips-active .ribbon-keytip-badge,
 .ribbon-group {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
+  align-items: center;
   border-right: 1px solid var(--border-color);
   padding: 0 8px;
   margin: 2px 0;
@@ -532,8 +532,10 @@ body.alt-keytips-active .ribbon-keytip-badge,
   text-align: center;
   font-size: 10px;
   color: var(--text-muted);
-  margin-top: 2px;
+  margin-top: auto;
+  padding-top: 2px;
   white-space: nowrap;
+  order: 99;
 }
 
 .ribbon-btn {
@@ -1641,6 +1643,121 @@ body.theme-dark .tab-popout-btn:hover {
   padding: 16px;
   display: flex;
   justify-content: center;
+}
+
+/* GEC-v6.0 Article III: Full Dark Theme for PDF Studio & Quick Tab Bar Actions */
+.tab-quick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-surface, #ffffff);
+  color: var(--text-primary, #0f172a);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: var(--radius-sm, 4px);
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-left: 4px;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.tab-quick-btn:hover {
+  background: var(--hover-bg, #f1f5f9);
+  border-color: var(--primary-accent, #38bdf8);
+  color: var(--primary-accent, #38bdf8);
+}
+
+.tab-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-surface, #ffffff);
+  color: var(--text-secondary, #475569);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  margin-right: 6px;
+  white-space: nowrap;
+}
+
+.tab-filter-toggle .pill-active {
+  font-weight: 700;
+  color: var(--primary-accent, #0f6cbd);
+}
+
+.tab-filter-toggle .pill-divider {
+  opacity: 0.4;
+  margin: 0 2px;
+}
+
+/* Dark Mode Overrides for PDF Studio */
+html[data-theme="dark"] .pdf-studio-workspace,
+body.theme-dark .pdf-studio-workspace,
+#app.theme-dark .pdf-studio-workspace {
+  background-color: var(--bg-canvas-backdrop, #090d16) !important;
+  color: var(--text-primary, #f8fafc) !important;
+}
+
+html[data-theme="dark"] .pdf-sidebar,
+body.theme-dark .pdf-sidebar,
+#app.theme-dark .pdf-sidebar {
+  background-color: var(--bg-sidebar, #1e293b) !important;
+  border-right-color: var(--border-color, #334155) !important;
+  color: var(--text-primary, #f8fafc) !important;
+}
+
+html[data-theme="dark"] .pdf-sidebar-header,
+body.theme-dark .pdf-sidebar-header,
+#app.theme-dark .pdf-sidebar-header {
+  background-color: var(--bg-surface, #0f172a) !important;
+  border-bottom-color: var(--border-color, #334155) !important;
+}
+
+html[data-theme="dark"] .pdf-sidebar-tab-btn,
+body.theme-dark .pdf-sidebar-tab-btn,
+#app.theme-dark .pdf-sidebar-tab-btn {
+  color: var(--text-secondary, #94a3b8) !important;
+}
+
+html[data-theme="dark"] .pdf-sidebar-tab-btn.is-active,
+body.theme-dark .pdf-sidebar-tab-btn.is-active,
+#app.theme-dark .pdf-sidebar-tab-btn.is-active {
+  background-color: var(--bg-sidebar, #1e293b) !important;
+  color: #ef4444 !important;
+  border-bottom-color: #ef4444 !important;
+}
+
+html[data-theme="dark"] .pdf-thumbnail-card,
+body.theme-dark .pdf-thumbnail-card,
+#app.theme-dark .pdf-thumbnail-card {
+  background-color: var(--bg-surface, #1e293b) !important;
+  border-color: var(--border-color, #334155) !important;
+  color: var(--text-primary, #f8fafc) !important;
+}
+
+html[data-theme="dark"] .pdf-thumbnail-card.is-selected,
+body.theme-dark .pdf-thumbnail-card.is-selected,
+#app.theme-dark .pdf-thumbnail-card.is-selected {
+  border-color: #ef4444 !important;
+  background-color: rgba(239, 68, 68, 0.15) !important;
+}
+
+html[data-theme="dark"] .pdf-annotation-item,
+body.theme-dark .pdf-annotation-item,
+#app.theme-dark .pdf-annotation-item {
+  background-color: var(--bg-surface, #1e293b) !important;
+  border-color: var(--border-color, #334155) !important;
+  color: var(--text-primary, #f8fafc) !important;
+}
+
+html[data-theme="dark"] .pdf-viewport,
+body.theme-dark .pdf-viewport,
+#app.theme-dark .pdf-viewport {
+  background-color: var(--bg-canvas-backdrop, #090d16) !important;
 }
 
 

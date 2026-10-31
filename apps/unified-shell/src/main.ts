@@ -243,15 +243,20 @@ export class UnifiedShellApp {
       btnQuickPrint.onclick = () => this.handlePrint();
     }
 
-    // 1. Initialize Tab Bar
+    // 1. Initialize Tab Bar (GEC-v6.0 Article III: Default to current app scoped tabs)
     this.tabBar = new TabBar("tab-bar-container");
-    if (this.appFilter) {
-      this.tabBar.setFilterDocType(this.appFilter);
-    }
+    this.tabBar.setFilterDocType(this.appFilter || "Word");
     this.tabBar.setCallbacks({
       onTabChange: (tab) => this.handleTabChange(tab),
       onTabClose: (id) => this.handleTabClose(id),
       onNewTab: (docType) => this.handleNewTab(docType),
+      onOpenTab: async (_docType, file) => {
+        if (file) {
+          await this.handleOpenFileObject(file);
+        } else {
+          this.openFilePickerOrBackstage();
+        }
+      },
       onTabPopout: (tab) => this.handlePopoutTab(tab),
     });
 
@@ -1797,6 +1802,8 @@ export class UnifiedShellApp {
       return;
     }
     const docType = this.mapRailModeToDocType(mode);
+    this.tabBar.setFilterDocType(docType);
+    this.tabBar.setFilterMode("current");
     this.switchToOrCreateApp(docType);
   }
 

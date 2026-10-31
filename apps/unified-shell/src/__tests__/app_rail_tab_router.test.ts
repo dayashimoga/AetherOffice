@@ -237,6 +237,9 @@ describe("Unified Left App Switcher Rail, Home Hub & Multi-Document Tab Router (
     app.handleNewTab("Excel");
     expect(app.getTabBar().getTabs().length).toBe(2);
 
+    // Switch to all open tabs to view and close tabs across apps
+    app.getTabBar().setFilterMode("all");
+
     // Close the second tab
     const closeBtns = document.querySelectorAll<HTMLButtonElement>(".tab-close-btn");
     expect(closeBtns.length).toBe(2);

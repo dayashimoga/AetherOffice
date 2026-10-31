@@ -148,33 +148,51 @@ export class WriterRibbon implements AppRibbonComponent {
     paraGroup.appendChild(paraRow2);
     body.appendChild(paraGroup);
 
-    // 4. Styles Group
+    // 4. Styles Group (2-row gallery layout, no horizontal or vertical overflow)
     const stylesGroup = createRibbonGroup("Styles");
-    const stylesRow = document.createElement("div");
-    stylesRow.className = "ribbon-group-row";
-    stylesRow.appendChild(createRibbonButton("Normal", "Normal", () => emit("SetStyle", "Normal"), false, "btn-style-normal"));
-    stylesRow.appendChild(createRibbonButton("No Spacing", "No Spacing", () => emit("SetStyle", "No Spacing"), false, "btn-style-no-spacing"));
-    stylesRow.appendChild(createRibbonButton("Heading 1", "Heading 1", () => emit("SetStyle", "Heading 1"), false, "btn-style-h1"));
-    stylesRow.appendChild(createRibbonButton("Heading 2", "Heading 2", () => emit("SetStyle", "Heading 2"), false, "btn-style-h2"));
-    stylesRow.appendChild(createRibbonButton("Heading 3", "Heading 3", () => emit("SetStyle", "Heading 3"), false, "btn-style-h3"));
-    stylesRow.appendChild(createRibbonButton("Title", "Title", () => emit("SetStyle", "Title"), false, "btn-style-title"));
-    stylesRow.appendChild(createRibbonButton("Subtitle", "Subtitle", () => emit("SetStyle", "Subtitle"), false, "btn-style-subtitle"));
-    stylesRow.appendChild(createRibbonButton("Quote", "❝ Quote", () => emit("SetStyle", "Quote"), false, "btn-style-quote"));
-    stylesGroup.appendChild(stylesRow);
+    const stylesRow1 = document.createElement("div");
+    stylesRow1.className = "ribbon-group-row";
+    stylesRow1.appendChild(createRibbonButton("Normal", "Normal", () => emit("SetStyle", "Normal"), false, "btn-style-normal"));
+    stylesRow1.appendChild(createRibbonButton("No Spacing", "No Spacing", () => emit("SetStyle", "No Spacing"), false, "btn-style-no-spacing"));
+    stylesRow1.appendChild(createRibbonButton("Heading 1", "Heading 1", () => emit("SetStyle", "Heading 1"), false, "btn-style-h1"));
+    stylesRow1.appendChild(createRibbonButton("Heading 2", "Heading 2", () => emit("SetStyle", "Heading 2"), false, "btn-style-h2"));
+
+    const stylesRow2 = document.createElement("div");
+    stylesRow2.className = "ribbon-group-row";
+    stylesRow2.appendChild(createRibbonButton("Heading 3", "Heading 3", () => emit("SetStyle", "Heading 3"), false, "btn-style-h3"));
+    stylesRow2.appendChild(createRibbonButton("Title", "Title", () => emit("SetStyle", "Title"), false, "btn-style-title"));
+    stylesRow2.appendChild(createRibbonButton("Subtitle", "Subtitle", () => emit("SetStyle", "Subtitle"), false, "btn-style-subtitle"));
+    stylesRow2.appendChild(createRibbonButton("Quote", "❝ Quote", () => emit("SetStyle", "Quote"), false, "btn-style-quote"));
+
+    stylesGroup.appendChild(stylesRow1);
+    stylesGroup.appendChild(stylesRow2);
     body.appendChild(stylesGroup);
 
     // 5. Editing Group
     const editGroup = createRibbonGroup("Editing");
-    editGroup.appendChild(createRibbonButton("Find", "🔍 Find", () => emit("Find"), false, "btn-find"));
-    editGroup.appendChild(createRibbonButton("Replace", "🔄 Replace", () => emit("Replace"), false, "btn-replace"));
-    editGroup.appendChild(createRibbonButton("Select All", "Select All", () => emit("SelectAll"), false, "btn-select-all"));
+    const editRow1 = document.createElement("div");
+    editRow1.className = "ribbon-group-row";
+    editRow1.appendChild(createRibbonButton("Find", "🔍 Find", () => emit("Find"), false, "btn-find"));
+    editRow1.appendChild(createRibbonButton("Replace", "🔄 Replace", () => emit("Replace"), false, "btn-replace"));
+
+    const editRow2 = document.createElement("div");
+    editRow2.className = "ribbon-group-row";
+    editRow2.appendChild(createRibbonButton("Select All", "Select All", () => emit("SelectAll"), false, "btn-select-all"));
+
+    editGroup.appendChild(editRow1);
+    editGroup.appendChild(editRow2);
     body.appendChild(editGroup);
 
     // 6. Copilot Group (Subphase 20.1.3)
     const copilotGroup = createRibbonGroup("Copilot");
-    copilotGroup.appendChild(
-      createRibbonButton("Aether Copilot", "✨ Copilot", () => emit("ToggleCopilot"), false, "btn-copilot")
-    );
+    const copilotRow = document.createElement("div");
+    copilotRow.className = "ribbon-group-row";
+    const copilotBtn = createRibbonButton("Aether Copilot", "✨ Copilot", () => emit("ToggleCopilot"), false, "btn-copilot");
+    copilotBtn.style.minHeight = "28px";
+    copilotBtn.style.padding = "4px 10px";
+    copilotBtn.style.fontWeight = "600";
+    copilotRow.appendChild(copilotBtn);
+    copilotGroup.appendChild(copilotRow);
     body.appendChild(copilotGroup);
   }
 
@@ -415,9 +433,12 @@ export class WriterRibbon implements AppRibbonComponent {
 
     // 6. Protect Group
     const protectGroup = createRibbonGroup("Protect");
-    protectGroup.appendChild(
+    const protectRow = document.createElement("div");
+    protectRow.className = "ribbon-group-row";
+    protectRow.appendChild(
       createRibbonButton("Protect Document", "🔒 Protect", () => emit("ProtectDocument"), true, "btn-protect-doc")
     );
+    protectGroup.appendChild(protectRow);
     body.appendChild(protectGroup);
   }
 

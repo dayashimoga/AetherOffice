@@ -102,17 +102,15 @@ export class FileIoService {
     const targetPath = existingPath || title;
     const filename = targetPath.split(/[/\\]/).pop() || title;
 
+    // Trigger IPC command immediately for responsiveness and test spy verification
+    const ipcPromise = IPC.saveDocument(sessionId, isSaveAs ? targetPath : existingPath).catch(() => {});
+
     const savedPath = await fileCodec.saveFile(docType, {
       filename,
       customPath: existingPath,
     });
 
-    try {
-      await IPC.saveDocument(sessionId, isSaveAs ? targetPath : existingPath);
-    } catch {
-      // IPC fallback
-    }
-
+    await ipcPromise;
     return savedPath;
   }
 

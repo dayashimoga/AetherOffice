@@ -51,7 +51,7 @@ export class PdfWorkspace {
     this.rootEl.style.display = "flex";
     this.rootEl.style.width = "100%";
     this.rootEl.style.height = "100%";
-    this.rootEl.style.backgroundColor = "#e2e8f0";
+    this.rootEl.style.backgroundColor = "var(--bg-canvas-backdrop, #e2e8f0)";
     this.rootEl.style.overflow = "hidden";
     this.rootEl.style.fontFamily = "Segoe UI, sans-serif";
 
@@ -61,8 +61,8 @@ export class PdfWorkspace {
     this.sidebarEl.setAttribute("data-testid", "pdf-sidebar");
     this.sidebarEl.style.width = "260px";
     this.sidebarEl.style.height = "100%";
-    this.sidebarEl.style.backgroundColor = "#f8fafc";
-    this.sidebarEl.style.borderRight = "1px solid #cbd5e1";
+    this.sidebarEl.style.backgroundColor = "var(--bg-sidebar, #f8fafc)";
+    this.sidebarEl.style.borderRight = "1px solid var(--border-color, #cbd5e1)";
     this.sidebarEl.style.display = "flex";
     this.sidebarEl.style.flexDirection = "column";
     this.sidebarEl.style.flexShrink = "0";
@@ -71,8 +71,8 @@ export class PdfWorkspace {
     this.sidebarHeaderEl = document.createElement("div");
     this.sidebarHeaderEl.className = "pdf-sidebar-header";
     this.sidebarHeaderEl.style.display = "flex";
-    this.sidebarHeaderEl.style.borderBottom = "1px solid #cbd5e1";
-    this.sidebarHeaderEl.style.backgroundColor = "#f1f5f9";
+    this.sidebarHeaderEl.style.borderBottom = "1px solid var(--border-color, #cbd5e1)";
+    this.sidebarHeaderEl.style.backgroundColor = "var(--bg-surface, #f1f5f9)";
 
     this.sidebarBodyEl = document.createElement("div");
     this.sidebarBodyEl.className = "pdf-sidebar-body";
@@ -168,12 +168,12 @@ export class PdfWorkspace {
       btn.style.flex = "1";
       btn.style.padding = "8px 4px";
       btn.style.border = "none";
-      btn.style.backgroundColor = this.state.sidebarTab === t.key ? "#ffffff" : "transparent";
-      btn.style.borderBottom = this.state.sidebarTab === t.key ? "2px solid #b30b00" : "2px solid transparent";
+      btn.style.backgroundColor = this.state.sidebarTab === t.key ? "var(--bg-surface, #ffffff)" : "transparent";
+      btn.style.borderBottom = this.state.sidebarTab === t.key ? "2px solid var(--accent-color, #ef4444)" : "2px solid transparent";
       btn.style.cursor = "pointer";
       btn.style.fontSize = "12px";
       btn.style.fontWeight = this.state.sidebarTab === t.key ? "600" : "normal";
-      btn.style.color = this.state.sidebarTab === t.key ? "#b30b00" : "#475569";
+      btn.style.color = this.state.sidebarTab === t.key ? "var(--accent-color, #ef4444)" : "var(--text-secondary, #475569)";
       btn.innerHTML = `<span>${t.icon}</span> ${t.label}`;
       btn.onclick = () => {
         this.state.setSidebarTab(t.key);
@@ -216,8 +216,8 @@ export class PdfWorkspace {
       item.style.padding = "8px";
       item.style.borderRadius = "6px";
       item.style.cursor = "pointer";
-      item.style.backgroundColor = page.pageNumber === this.state.currentPage ? "#e2e8f0" : "#ffffff";
-      item.style.border = page.pageNumber === this.state.currentPage ? "2px solid #b30b00" : "1px solid #cbd5e1";
+      item.style.backgroundColor = page.pageNumber === this.state.currentPage ? "var(--hover-bg, #e2e8f0)" : "var(--bg-surface, #ffffff)";
+      item.style.border = page.pageNumber === this.state.currentPage ? "2px solid var(--accent-color, #ef4444)" : "1px solid var(--border-color, #cbd5e1)";
       item.style.position = "relative";
 
       // Mini Canvas Thumbnail

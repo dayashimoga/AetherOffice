@@ -108,16 +108,14 @@ describe("Subphase 28.1.2: Multi-Document Management, Split View & Real Binary F
     expect(excelBadge).not.toBeNull();
     expect(excelBadge?.textContent).toBe("2");
 
-    // Test Tab Filter Toggle: Current App Tabs vs All Open Tabs
-    expect(tabBar.getFilterMode()).toBe("all");
-    tabBar.setFilterDocType("Excel");
-    tabBar.setFilterMode("current");
+    // Test Tab Filter Toggle: Current App Tabs vs All Open Tabs (Defaults to current under GEC-v6.0)
     expect(tabBar.getFilterMode()).toBe("current");
-
     const filterBtn = document.querySelector<HTMLButtonElement>('[data-testid="tab-filter-toggle"]');
     expect(filterBtn).not.toBeNull();
     filterBtn?.click();
     expect(tabBar.getFilterMode()).toBe("all");
+    filterBtn?.click();
+    expect(tabBar.getFilterMode()).toBe("current");
   });
 
   // =========================================================================

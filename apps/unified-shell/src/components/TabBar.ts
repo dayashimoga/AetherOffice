@@ -17,6 +17,7 @@ export class TabBar {
   private onTabChangeCallback?: (tab: TabItem) => void;
   private onTabCloseCallback?: (id: string) => void;
   private onNewTabCallback?: (docType?: DocumentType) => void;
+  private onOpenTabCallback?: (docType?: DocumentType, file?: File) => void;
   private onTabPopoutCallback?: (tab: TabItem) => void;
   private outsideClickListener?: (e: MouseEvent) => void;
 
@@ -31,11 +32,13 @@ export class TabBar {
     onTabChange?: (tab: TabItem) => void;
     onTabClose?: (id: string) => void;
     onNewTab?: (docType?: DocumentType) => void;
+    onOpenTab?: (docType?: DocumentType, file?: File) => void;
     onTabPopout?: (tab: TabItem) => void;
   }) {
     this.onTabChangeCallback = callbacks.onTabChange;
     this.onTabCloseCallback = callbacks.onTabClose;
     this.onNewTabCallback = callbacks.onNewTab;
+    this.onOpenTabCallback = callbacks.onOpenTab;
     this.onTabPopoutCallback = callbacks.onTabPopout;
   }
 
@@ -43,6 +46,8 @@ export class TabBar {
     this.filterDocType = docType;
     if (docType) {
       this.filterMode = "current";
+    } else {
+      this.filterMode = "all";
     }
     this.render();
   }
@@ -63,6 +68,9 @@ export class TabBar {
   public addTab(tab: TabItem) {
     this.tabs.push(tab);
     this.activeTabId = tab.id;
+    if (this.filterMode === "current") {
+      this.filterDocType = tab.docType;
+    }
     this.render();
     if (this.onTabChangeCallback) this.onTabChangeCallback(tab);
   }
@@ -71,6 +79,9 @@ export class TabBar {
     const target = this.tabs.find((t) => t.id === id);
     if (target && this.activeTabId !== id) {
       this.activeTabId = id;
+      if (this.filterMode === "current") {
+        this.filterDocType = target.docType;
+      }
       this.render();
       if (this.onTabChangeCallback) this.onTabChangeCallback(target);
     }
@@ -85,6 +96,9 @@ export class TabBar {
       if (this.tabs.length > 0) {
         const nextActive = this.tabs[Math.min(index, this.tabs.length - 1)];
         this.activeTabId = nextActive.id;
+        if (this.filterMode === "current") {
+          this.filterDocType = nextActive.docType;
+        }
         if (this.onTabChangeCallback) this.onTabChangeCallback(nextActive);
       } else {
         this.activeTabId = null;
@@ -139,15 +153,16 @@ export class TabBar {
   public render() {
     this.container.innerHTML = "";
 
-    // Tab Filter Mode Toggle (Current App Tabs vs All Open Tabs)
+    // 1. Tab Filter Mode Toggle (Pill: App Tabs | All Tabs (N))
     const filterToggleBtn = document.createElement("button");
     filterToggleBtn.className = `tab-filter-toggle ${this.filterMode === "all" ? "active" : ""}`;
     filterToggleBtn.dataset.testid = "tab-filter-toggle";
     filterToggleBtn.title = "Toggle Tab Bar view: Current App Tabs vs All Open Tabs";
-    filterToggleBtn.innerHTML =
-      this.filterMode === "all"
-        ? `<span>📑 All Open Tabs (${this.tabs.length})</span>`
-        : `<span>🔍 Current App Tabs</span>`;
+    filterToggleBtn.innerHTML = `
+      <span class="pill-app ${this.filterMode === "current" ? "pill-active" : ""}">App Tabs</span>
+      <span class="pill-divider">|</span>
+      <span class="pill-all ${this.filterMode === "all" ? "pill-active" : ""}">All Tabs (${this.tabs.length})</span>
+    `;
     filterToggleBtn.onclick = (e) => {
       e.stopPropagation();
       this.filterMode = this.filterMode === "all" ? "current" : "all";
@@ -155,6 +170,7 @@ export class TabBar {
     };
     this.container.appendChild(filterToggleBtn);
 
+    // 2. Visible Tabs
     const visibleTabs =
       this.filterMode === "current" && this.filterDocType
         ? this.tabs.filter((t) => t.docType === this.filterDocType)
@@ -222,7 +238,58 @@ export class TabBar {
       this.container.appendChild(tabEl);
     });
 
-    // Add Tab Container with New Document Dropdown Menu
+    // 3. Quick + New and 📂 Open actions right next to tabs
+    const currentType = this.filterDocType || "Word";
+    const extInfo: Record<DocumentType, { ext: string; accept: string }> = {
+      Word: { ext: ".docx", accept: ".docx" },
+      Excel: { ext: ".xlsx", accept: ".xlsx,.xls,.csv" },
+      PowerPoint: { ext: ".pptx", accept: ".pptx,.ppt" },
+      PDF: { ext: ".pdf", accept: ".pdf" },
+      Notes: { ext: ".txt", accept: ".txt,.md,.json,.log" },
+    };
+    const info = extInfo[currentType] || { ext: ".docx", accept: ".docx" };
+    const cleanExt = info.ext.replace(".", "");
+
+    // Quick New button: + New .<ext>
+    const quickNewBtn = document.createElement("button");
+    quickNewBtn.className = "tab-quick-btn tab-quick-new";
+    quickNewBtn.dataset.testid = `tab-new-${cleanExt}`;
+    quickNewBtn.title = `Create New ${currentType} (${info.ext})`;
+    quickNewBtn.innerHTML = `+ New ${info.ext}`;
+    quickNewBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (this.onNewTabCallback) {
+        this.onNewTabCallback(currentType);
+      }
+    };
+    this.container.appendChild(quickNewBtn);
+
+    // Quick Open button: 📂 Open .<ext>
+    const quickOpenBtn = document.createElement("button");
+    quickOpenBtn.className = "tab-quick-btn tab-quick-open";
+    quickOpenBtn.dataset.testid = `tab-open-${cleanExt}`;
+    quickOpenBtn.title = `Open ${currentType} from Disk (${info.ext})`;
+    quickOpenBtn.innerHTML = `📂 Open ${info.ext}`;
+
+    const quickFileInput = document.createElement("input");
+    quickFileInput.type = "file";
+    quickFileInput.accept = info.accept;
+    quickFileInput.style.display = "none";
+    quickFileInput.dataset.testid = `tab-file-input-${cleanExt}`;
+    quickFileInput.onchange = () => {
+      const file = quickFileInput.files?.[0];
+      if (file && this.onOpenTabCallback) {
+        this.onOpenTabCallback(currentType, file);
+      }
+    };
+    quickOpenBtn.onclick = (e) => {
+      e.stopPropagation();
+      quickFileInput.click();
+    };
+    this.container.appendChild(quickOpenBtn);
+    this.container.appendChild(quickFileInput);
+
+    // 4. Add Tab Container with New Document Dropdown Menu (+ icon)
     const addContainer = document.createElement("div");
     addContainer.className = "tab-add-container";
     addContainer.style.position = "relative";
@@ -233,7 +300,7 @@ export class TabBar {
     addBtn.className = "tab-add-btn";
     addBtn.dataset.testid = "tab-add-btn";
     addBtn.textContent = "+";
-    addBtn.title = this.filterDocType ? `New ${this.filterDocType} Document` : "New Document (Click for options)";
+    addBtn.title = "New Document (Click for all formats)";
 
     const dropdown = document.createElement("div");
     dropdown.className = "tab-new-dropdown";
@@ -264,12 +331,8 @@ export class TabBar {
 
     addBtn.onclick = (e) => {
       e.stopPropagation();
-      if (this.filterDocType) {
-        if (this.onNewTabCallback) this.onNewTabCallback(this.filterDocType);
-      } else {
-        const isVisible = dropdown.style.display === "block";
-        dropdown.style.display = isVisible ? "none" : "block";
-      }
+      const isVisible = dropdown.style.display === "block";
+      dropdown.style.display = isVisible ? "none" : "block";
     };
 
     if (this.outsideClickListener) {
