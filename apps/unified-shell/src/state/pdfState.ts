@@ -63,6 +63,7 @@ export interface PdfTextBlock {
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
+  align?: "left" | "center" | "right";
 }
 
 export interface PdfImageBlock {
@@ -196,6 +197,9 @@ export class PdfState {
   public activeFontColor = "#1e293b";
   public activeBold = false;
   public activeItalic = false;
+  public highlightFields = false;
+  public searchQuery = "";
+  public searchMatches: { pageNumber: number; textBlockId: string; text: string }[] = [];
 
   private undoStack: string[] = [];
   private redoStack: string[] = [];
@@ -1088,6 +1092,30 @@ export class PdfState {
     return count;
   }
 
+  public searchText(query: string): { pageNumber: number; textBlockId: string; text: string }[] {
+    this.searchQuery = query.trim().toLowerCase();
+    this.searchMatches = [];
+    if (!this.searchQuery) return [];
+
+    for (const page of this.pages) {
+      if (page.textBlocks) {
+        for (const tb of page.textBlocks) {
+          if (tb.text.toLowerCase().includes(this.searchQuery)) {
+            this.searchMatches.push({
+              pageNumber: page.pageNumber,
+              textBlockId: tb.id,
+              text: tb.text,
+            });
+          }
+        }
+      }
+    }
+    if (this.searchMatches.length > 0) {
+      this.setCurrentPage(this.searchMatches[0].pageNumber);
+    }
+    return this.searchMatches;
+  }
+
   // --- Sign Document ---
 
   public addSignature(
@@ -1307,6 +1335,10 @@ export class PdfState {
       case "PrevPage":
       case "PreviousPage":
         return this.setCurrentPage(this.currentPage - 1);
+      case "FirstPage":
+        return this.setCurrentPage(1);
+      case "LastPage":
+        return this.setCurrentPage(this.pages.length);
       case "SetPdfTool":
         if (typeof payload === "string") {
           this.setTool(payload as PdfActiveTool);
@@ -1351,6 +1383,51 @@ export class PdfState {
       case "TogglePdfItalic":
         this.activeItalic = !this.activeItalic;
         return true;
+      case "SetPdfAlign": {
+        this.commitSnapshot();
+        const align = (typeof payload === "string" ? payload : "left") as "left" | "center" | "right";
+        const p = this.getPage(this.currentPage);
+        if (p?.textBlocks) {
+          p.textBlocks.forEach((tb) => {
+            tb.align = align;
+          });
+        }
+        return true;
+      }
+      case "DeletePdfElement":
+      case "DeleteSelectedTextBlock": {
+        this.commitSnapshot();
+        const p = this.getPage(this.currentPage);
+        if (p) {
+          if (p.textBlocks && p.textBlocks.length > 0) {
+            p.textBlocks.pop();
+            return true;
+          }
+          if (p.imageBlocks && p.imageBlocks.length > 0) {
+            p.imageBlocks.pop();
+            return true;
+          }
+          if (p.annotations && p.annotations.length > 0) {
+            p.annotations.pop();
+            return true;
+          }
+        }
+        return false;
+      }
+      case "CropPage": {
+        this.commitSnapshot();
+        const p = this.getPage(this.currentPage);
+        if (p) {
+          p.width = Math.max(300, Math.round(p.width * 0.9));
+          p.height = Math.max(400, Math.round(p.height * 0.9));
+          return true;
+        }
+        return false;
+      }
+      case "HighlightFormFields": {
+        this.highlightFields = !this.highlightFields;
+        return true;
+      }
       case "OpenPdf":
         if (Array.isArray(payload)) {
           this.loadPdfDocument(payload as PdfPageModel[]);
@@ -1431,13 +1508,16 @@ export class PdfState {
         return false;
       case "AddStamp": {
         const stampType = typeof payload === "string" ? payload.toLowerCase() : "approved";
-        const color = stampType === "confidential" || stampType === "void"
-          ? "#dc2626"
-          : stampType === "draft"
-          ? "#ea580c"
-          : stampType === "reviewed"
-          ? "#2563eb"
-          : "#16a34a";
+        const color =
+          stampType === "confidential" || stampType === "void" || stampType === "urgent"
+            ? "#dc2626"
+            : stampType === "draft"
+            ? "#ea580c"
+            : stampType === "reviewed"
+            ? "#2563eb"
+            : stampType === "signed"
+            ? "#1e40af"
+            : "#16a34a";
         this.addAnnotation({
           type: "stamp",
           pageNumber: this.currentPage,
@@ -1511,6 +1591,21 @@ export class PdfState {
       case "AddSignature":
       case "SignPdf":
         this.setTool("sign");
+        return true;
+      case "Find":
+      case "SearchText":
+        if (typeof payload === "string") {
+          this.searchText(payload);
+          return true;
+        } else {
+          const res = this.searchText("Section");
+          return res.length > 0;
+        }
+      case "PrintDocument":
+      case "Print":
+        return true;
+      case "SaveDocument":
+      case "Save":
         return true;
       case "Undo":
         return this.undo();

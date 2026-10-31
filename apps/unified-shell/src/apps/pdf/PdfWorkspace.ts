@@ -450,6 +450,49 @@ export class PdfWorkspace {
     this.pageCanvases.clear();
     this.closeCommentPopover();
 
+    if (this.state.isEncrypted) {
+      const lockOverlay = document.createElement("div");
+      lockOverlay.className = "pdf-lock-screen";
+      lockOverlay.setAttribute("data-testid", "pdf-lock-screen");
+      lockOverlay.style.display = "flex";
+      lockOverlay.style.flexDirection = "column";
+      lockOverlay.style.alignItems = "center";
+      lockOverlay.style.justifyContent = "center";
+      lockOverlay.style.height = "100%";
+      lockOverlay.style.padding = "40px";
+      lockOverlay.style.textAlign = "center";
+      lockOverlay.innerHTML = `
+        <div style="font-size: 48px; margin-bottom: 16px;">🔒</div>
+        <h2 style="font-size: 20px; font-weight: 600; margin-bottom: 8px; color: #0f172a;">Document is Password Protected</h2>
+        <p style="font-size: 14px; color: #64748b; margin-bottom: 20px;">Enter password to unlock and view contents.</p>
+        <div style="display: flex; gap: 8px;">
+          <input type="password" id="pdf-unlock-password-input" data-testid="pdf-unlock-input" placeholder="Enter password..." style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; width: 220px;" />
+          <button id="pdf-unlock-btn" data-testid="pdf-unlock-btn" style="padding: 8px 16px; background: #2563eb; color: #fff; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">Unlock</button>
+        </div>
+        <div id="pdf-unlock-error" data-testid="pdf-unlock-error" style="color: #ef4444; font-size: 13px; margin-top: 8px; display: none;">Incorrect password</div>
+      `;
+      const input = lockOverlay.querySelector<HTMLInputElement>("#pdf-unlock-password-input");
+      const btn = lockOverlay.querySelector<HTMLButtonElement>("#pdf-unlock-btn");
+      const err = lockOverlay.querySelector<HTMLElement>("#pdf-unlock-error");
+      const tryUnlock = () => {
+        const pass = input?.value || "";
+        if (this.state.decryptPassword(pass)) {
+          this.render();
+          if (this.callbacks.onDirty) this.callbacks.onDirty();
+        } else {
+          if (err) err.style.display = "block";
+        }
+      };
+      if (btn) btn.onclick = tryUnlock;
+      if (input) {
+        input.onkeydown = (e) => {
+          if (e.key === "Enter") tryUnlock();
+        };
+      }
+      this.viewportEl.appendChild(lockOverlay);
+      return;
+    }
+
     const zoom = this.state.zoom;
     const viewMode = this.state.viewMode;
 
@@ -609,6 +652,11 @@ export class PdfWorkspace {
         fieldEl.style.width = `${fw * zoom}px`;
         fieldEl.style.height = `${fh * zoom}px`;
         fieldEl.style.cursor = "pointer";
+
+        if (this.state.highlightFields) {
+          fieldEl.style.backgroundColor = "rgba(59, 130, 246, 0.25)";
+          fieldEl.style.outline = "2px dashed #2563eb";
+        }
 
         if (field.type === "checkbox") {
           fieldEl.onclick = (e) => {
@@ -1064,7 +1112,13 @@ export class PdfWorkspace {
         const weight = tb.bold ? "bold " : "";
         const italic = tb.italic ? "italic " : "";
         ctx.font = `${weight}${italic}${tb.fontSize || 14}px ${tb.fontFamily || "Segoe UI, sans-serif"}`;
-        ctx.textAlign = "left";
+        if (tb.align === "center") {
+          ctx.textAlign = "center";
+        } else if (tb.align === "right") {
+          ctx.textAlign = "right";
+        } else {
+          ctx.textAlign = "left";
+        }
         ctx.textBaseline = "alphabetic";
         ctx.fillText(tb.text, tb.x, tb.y);
 
@@ -1076,6 +1130,14 @@ export class PdfWorkspace {
           ctx.moveTo(tb.x, tb.y + 2);
           ctx.lineTo(tb.x + metrics.width, tb.y + 2);
           ctx.stroke();
+        }
+
+        if (this.state.searchQuery && tb.text.toLowerCase().includes(this.state.searchQuery)) {
+          const metrics = ctx.measureText(tb.text);
+          ctx.save();
+          ctx.fillStyle = "rgba(253, 224, 71, 0.4)";
+          ctx.fillRect(tb.x - 2, tb.y - (tb.fontSize || 14), metrics.width + 4, (tb.fontSize || 14) + 4);
+          ctx.restore();
         }
       });
     }
