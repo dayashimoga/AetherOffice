@@ -245,6 +245,7 @@ export class WriterRibbon implements AppRibbonComponent {
     textRow.appendChild(createRibbonButton("Line", "━ Line", () => emit("InsertHorizontalLine"), false, "btn-insert-line"));
     textRow.appendChild(createRibbonButton("Date/Time", "🕒 Date", () => emit("InsertDateTime"), false, "btn-insert-datetime"));
     textRow.appendChild(createRibbonButton("Symbol", "Ω Symbol", () => emit("InsertSymbol", "©"), false, "btn-insert-symbol"));
+    textRow.appendChild(createRibbonButton("Equation", "∑ Equation", () => emit("InsertEquation", "∑(x) = ∫ 2π r dr"), false, "btn-insert-equation"));
     textGroup.appendChild(textRow);
     body.appendChild(textGroup);
 
@@ -252,6 +253,7 @@ export class WriterRibbon implements AppRibbonComponent {
     const linksGroup = createRibbonGroup("Links & Comments");
     const linksRow = document.createElement("div");
     linksRow.className = "ribbon-group-row";
+    linksRow.appendChild(createRibbonButton("Hyperlink", "🔗 Link", () => emit("InsertHyperlink"), false, "btn-insert-hyperlink"));
     linksRow.appendChild(createRibbonButton("Link", "🔗 Link", () => emit("InsertLink"), false, "btn-insert-link"));
     linksRow.appendChild(createRibbonButton("Comment", "💬 Comment", () => emit("InsertComment"), false, "btn-insert-comment"));
     linksRow.appendChild(createRibbonButton("Bookmark", "🔖 Bookmark", () => emit("InsertBookmark"), false, "btn-insert-bookmark"));
@@ -268,6 +270,7 @@ export class WriterRibbon implements AppRibbonComponent {
     pageRow1.appendChild(createRibbonButton("Narrow Margins", "📐 Narrow", () => emit("SetMargins", "narrow"), false, "btn-margins-narrow"));
     pageRow1.appendChild(createRibbonButton("Moderate Margins", "📐 Moderate", () => emit("SetMargins", "moderate"), false, "btn-margins-moderate"));
     pageRow1.appendChild(createRibbonButton("Wide Margins", "📐 Wide", () => emit("SetMargins", "wide"), false, "btn-margins-wide"));
+    pageRow1.appendChild(createRibbonButton("Custom Margins", "📐 Custom", () => emit("SetMargins", "custom"), false, "btn-margins-custom"));
     pageGroup.appendChild(pageRow1);
 
     const pageRow2 = document.createElement("div");
@@ -405,6 +408,8 @@ export class WriterRibbon implements AppRibbonComponent {
     );
     trackRow.appendChild(createRibbonButton("Accept Change", "✓ Accept", () => emit("AcceptChange"), false, "btn-accept-change"));
     trackRow.appendChild(createRibbonButton("Reject Change", "✕ Reject", () => emit("RejectChange"), false, "btn-reject-change"));
+    trackRow.appendChild(createRibbonButton("Accept All", "✓✓ All", () => emit("AcceptAll"), false, "btn-accept-all"));
+    trackRow.appendChild(createRibbonButton("Reject All", "✕✕ All", () => emit("RejectAll"), false, "btn-reject-all"));
     trackGroup.appendChild(trackRow);
     body.appendChild(trackGroup);
 

@@ -1872,16 +1872,41 @@ export class UnifiedShellApp {
         this.writerCanvas?.insertNewPage();
       } else if (action === "DeleteEmptyPage" || action === "DeletePage") {
         this.writerCanvas?.deletePage();
+      } else if (action === "InsertHeader") {
+        writerState.execCommand("InsertHeader", payload);
+        this.writerCanvas?.render();
+        this.writerCanvas?.focusHeader();
+      } else if (action === "InsertFooter") {
+        writerState.execCommand("InsertFooter", payload);
+        this.writerCanvas?.render();
+        this.writerCanvas?.focusFooter();
+      } else if (action === "ZoomMultiplePages") {
+        if (this.writerCanvas) {
+          this.writerCanvas.isMultiPage = true;
+        }
+        writerState.execCommand("ZoomMultiplePages");
+        this.writerCanvas?.render();
+        const zoomLevel = document.getElementById("status-zoom-level");
+        if (zoomLevel) zoomLevel.textContent = `${Math.round(writerState.zoom * 100)}%`;
+      } else if (action === "ZoomOnePage" || action === "Zoom100" || action === "ZoomPageWidth") {
+        if (this.writerCanvas) {
+          this.writerCanvas.isMultiPage = false;
+        }
+        writerState.execCommand(action, payload);
+        this.writerCanvas?.render();
+        const zoomLevel = document.getElementById("status-zoom-level");
+        if (zoomLevel) zoomLevel.textContent = `${Math.round(writerState.zoom * 100)}%`;
       } else {
+        this.writerCanvas?.restoreSelection();
         writerState.execCommand(action, payload);
         this.writerCanvas?.render();
         if (action === "SetStyle" || action === "setStyle") {
           this.updateNavigationOutline();
         } else if (action === "SetMargins" || action === "setMargins") {
-          const leftMargin = payload === "narrow" ? 48 : payload === "moderate" ? 72 : payload === "wide" ? 144 : 96;
+          const leftMargin = payload === "narrow" ? 48 : payload === "moderate" ? 72 : payload === "wide" ? 144 : payload === "custom" ? 64 : 96;
           this.wordRuler.setMargins(leftMargin, leftMargin, 0);
           this.writerCanvas?.setMargins(leftMargin, leftMargin);
-        } else if (action === "SetZoom" || action === "Zoom100" || action === "ZoomOnePage" || action === "ZoomMultiplePages" || action === "ZoomPageWidth") {
+        } else if (action === "SetZoom") {
           const zoomLevel = document.getElementById("status-zoom-level");
           if (zoomLevel) {
             zoomLevel.textContent = `${Math.round(writerState.zoom * 100)}%`;

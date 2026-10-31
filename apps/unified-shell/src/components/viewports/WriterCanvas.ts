@@ -64,6 +64,7 @@ export class WriterCanvas {
     if (m === "narrow") return 48;
     if (m === "moderate") return 72;
     if (m === "wide") return 144;
+    if (m === "custom") return this._customMarginX ?? 64;
     return this._customMarginX ?? 96;
   }
   public set marginX(val: number) {
@@ -75,6 +76,7 @@ export class WriterCanvas {
     if (m === "narrow") return 48;
     if (m === "moderate") return 72;
     if (m === "wide") return 96;
+    if (m === "custom") return this._customMarginY ?? 64;
     return this._customMarginY ?? 96;
   }
   public set marginY(val: number) {
@@ -82,6 +84,16 @@ export class WriterCanvas {
   }
 
   public readonly pageGap = 32;
+
+  public savedSelectionRangeRef: Range | null = null;
+  public get savedSelectionRange(): Range | null {
+    return this.savedSelectionRangeRef;
+  }
+  public set savedSelectionRange(r: Range | null) {
+    this.savedSelectionRangeRef = r;
+  }
+  public lastFocusedBodyEl: HTMLElement | null = null;
+  public isMultiPage = false;
 
   private caretVisible = true;
   private caretTimer: number | null = null;
@@ -179,6 +191,152 @@ export class WriterCanvas {
       this.render();
     }
     return res;
+  }
+
+  public focusHeader(pageIndex = 0): void {
+    const headerInput = this.container.querySelector(
+      `.word-page[data-page-index="${pageIndex}"] [data-testid="word-header-input"]`
+    ) as HTMLElement | null;
+    if (headerInput) {
+      headerInput.focus();
+    }
+  }
+
+  public focusFooter(pageIndex = 0): void {
+    const footerInput = this.container.querySelector(
+      `.word-page[data-page-index="${pageIndex}"] [data-testid="word-footer-input"]`
+    ) as HTMLElement | null;
+    if (footerInput) {
+      footerInput.focus();
+    }
+  }
+
+  public saveSelection(): void {
+    if (typeof window === "undefined") return;
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      if (this.container.contains(range.commonAncestorContainer)) {
+        this.savedSelectionRangeRef = range.cloneRange();
+        const activeEl = document.activeElement as HTMLElement | null;
+        if (activeEl && this.container.contains(activeEl)) {
+          this.lastFocusedBodyEl = activeEl;
+        }
+        this.syncDomSelectionToState(range);
+      }
+    }
+  }
+
+  public restoreSelection(): boolean {
+    if (typeof window === "undefined") return false;
+    if (this.savedSelectionRangeRef) {
+      try {
+        const sel = window.getSelection();
+        if (sel) {
+          sel.removeAllRanges();
+          sel.addRange(this.savedSelectionRangeRef);
+          if (this.lastFocusedBodyEl && typeof this.lastFocusedBodyEl.focus === "function") {
+            this.lastFocusedBodyEl.focus({ preventScroll: true });
+          }
+          return true;
+        }
+      } catch {
+        // Range node may have been re-rendered
+      }
+    }
+    if (this.lastFocusedBodyEl && typeof this.lastFocusedBodyEl.focus === "function") {
+      this.lastFocusedBodyEl.focus({ preventScroll: true });
+      return true;
+    }
+    return false;
+  }
+
+  public syncDomSelectionToState(range: Range): void {
+    let node: Node | null = range.startContainer;
+    let bodyEl: HTMLElement | null = null;
+    while (node && node !== this.container) {
+      if ((node as HTMLElement).classList?.contains("word-page-body")) {
+        bodyEl = node as HTMLElement;
+        break;
+      }
+      node = node.parentNode;
+    }
+    if (!bodyEl) return;
+    const pageIdx = parseInt(bodyEl.getAttribute("data-page-index") || "0", 10);
+    const page = this.state.doc.pages[pageIdx];
+    if (!page) return;
+
+    const startCharOffset = this.getCharOffsetWithin(bodyEl, range.startContainer, range.startOffset);
+    const endCharOffset = range.collapsed
+      ? startCharOffset
+      : this.getCharOffsetWithin(bodyEl, range.endContainer, range.endOffset);
+
+    const startPos = this.charOffsetToCaretPos(pageIdx, startCharOffset);
+    const endPos = range.collapsed ? startPos : this.charOffsetToCaretPos(pageIdx, endCharOffset);
+
+    if (range.collapsed) {
+      this.state.cursor = { ...startPos };
+      this.state.clearSelection();
+    } else {
+      this.state.cursor = { ...endPos };
+      this.state.selection = {
+        anchor: startPos,
+        focus: endPos,
+      };
+    }
+  }
+
+  private getCharOffsetWithin(root: Node, targetNode: Node, targetOffset: number): number {
+    let count = 0;
+    const walk = (current: Node): boolean => {
+      if (current === targetNode) {
+        count += targetOffset;
+        return true;
+      }
+      if (current.nodeType === Node.TEXT_NODE) {
+        count += (current.textContent || "").length;
+      } else {
+        for (let i = 0; i < current.childNodes.length; i++) {
+          if (walk(current.childNodes[i])) return true;
+        }
+      }
+      return false;
+    };
+    walk(root);
+    return count;
+  }
+
+  private charOffsetToCaretPos(pageIndex: number, charOffset: number): CaretPosition {
+    const page = this.state.doc.pages[pageIndex] || this.state.doc.pages[0];
+    if (!page || page.paragraphs.length === 0) {
+      return { pageIndex, paragraphIndex: 0, runIndex: 0, offset: 0 };
+    }
+
+    let accumulated = 0;
+    for (let pIdx = 0; pIdx < page.paragraphs.length; pIdx++) {
+      const p = page.paragraphs[pIdx];
+      if (p.shape || p.image || p.table) continue;
+      for (let rIdx = 0; rIdx < p.runs.length; rIdx++) {
+        const r = p.runs[rIdx];
+        const rLen = r.text.length;
+        if (charOffset < accumulated + rLen || (rIdx === p.runs.length - 1 && charOffset === accumulated + rLen)) {
+          return {
+            pageIndex,
+            paragraphIndex: pIdx,
+            runIndex: rIdx,
+            offset: Math.max(0, charOffset - accumulated),
+          };
+        }
+        accumulated += rLen;
+      }
+      accumulated += 1;
+    }
+
+    const lastP = Math.max(0, page.paragraphs.length - 1);
+    const lastPara = page.paragraphs[lastP];
+    const lastR = lastPara && lastPara.runs.length > 0 ? lastPara.runs.length - 1 : 0;
+    const lastOffset = lastPara && lastPara.runs[lastR] ? lastPara.runs[lastR].text.length : 0;
+    return { pageIndex, paragraphIndex: lastP, runIndex: lastR, offset: lastOffset };
   }
 
   public destroy() {
@@ -774,12 +932,23 @@ export class WriterCanvas {
 
     const pagesContainer = document.createElement("div");
     pagesContainer.className = "word-pages-container";
-    pagesContainer.style.display = "flex";
-    pagesContainer.style.flexDirection = "column";
-    pagesContainer.style.alignItems = "center";
-    pagesContainer.style.justifyContent = "flex-start";
-    pagesContainer.style.gap = `${this.pageGap}px`;
-    pagesContainer.style.width = "100%";
+    if (this.isMultiPage) {
+      pagesContainer.style.display = "flex";
+      pagesContainer.style.flexDirection = "row";
+      pagesContainer.style.flexWrap = "wrap";
+      pagesContainer.style.justifyContent = "center";
+      pagesContainer.style.alignItems = "flex-start";
+      pagesContainer.style.gap = `${this.pageGap}px`;
+      pagesContainer.style.maxWidth = `${(this.pageWidth * this.state.zoom * 2) + this.pageGap + 64}px`;
+      pagesContainer.style.margin = "0 auto";
+    } else {
+      pagesContainer.style.display = "flex";
+      pagesContainer.style.flexDirection = "column";
+      pagesContainer.style.alignItems = "center";
+      pagesContainer.style.justifyContent = "flex-start";
+      pagesContainer.style.gap = `${this.pageGap}px`;
+      pagesContainer.style.width = "100%";
+    }
 
     let caretRenderCoords: {
       canvasIndex: number;
@@ -1110,16 +1279,27 @@ export class WriterCanvas {
 
       bodyEl.addEventListener("focus", () => {
         this.state.cursor.pageIndex = pIdx;
+        this.lastFocusedBodyEl = bodyEl;
         this.updateStatus();
       });
 
+      bodyEl.addEventListener("mouseup", () => this.saveSelection());
+      bodyEl.addEventListener("keyup", () => this.saveSelection());
+      bodyEl.addEventListener("selectstart", () => this.saveSelection());
+
       pageEl.appendChild(bodyEl);
 
-      // 5. Interactive Floating Shapes (Subphase 29.1.1)
+      // 5. Interactive Floating Shapes, Tables, & Images (Subphase 29.1.2)
       page.paragraphs.forEach((p) => {
         if (p.shape) {
           const shapeEl = this.createFloatingShapeElement(p, pIdx);
           pageEl.appendChild(shapeEl);
+        } else if (p.table) {
+          const tableEl = this.createInteractiveTableElement(p, pIdx);
+          pageEl.appendChild(tableEl);
+        } else if (p.image) {
+          const imageEl = this.createInteractiveImageElement(p, pIdx);
+          pageEl.appendChild(imageEl);
         }
       });
 
@@ -1721,15 +1901,202 @@ export class WriterCanvas {
     const page = this.state.doc.pages[pageIndex];
     if (!page) return;
     const nonTextParas = page.paragraphs.filter((p) => p.shape || p.image || p.table);
-    const newParas = lines.map((line, idx) => ({
-      id: `p-${pageIndex}-${idx}-${Date.now()}`,
-      style: "Normal",
-      alignment: "left" as const,
-      runs: [{ text: line, font: "Calibri", size: 11 }],
-    }));
+    const existingTextParas = page.paragraphs.filter((p) => !p.shape && !p.image && !p.table);
+    const newParas = lines.map((line, idx) => {
+      const existing = existingTextParas[idx];
+      const font = existing?.runs[0]?.font || this.state.activeFormat.font || "Calibri";
+      const size = existing?.runs[0]?.size || this.state.activeFormat.size || 11;
+      const bold = existing?.runs[0]?.bold ?? this.state.activeFormat.bold;
+      const italic = existing?.runs[0]?.italic ?? this.state.activeFormat.italic;
+      const color = existing?.runs[0]?.color || this.state.activeFormat.color || "#242424";
+      const style = existing?.style || "Normal";
+      const alignment = existing?.alignment || this.state.activeFormat.alignment || "left";
+      return {
+        id: existing?.id || `p-${pageIndex}-${idx}-${Date.now()}`,
+        style,
+        alignment,
+        runs: [{ text: line, font, size, bold, italic, color }],
+      };
+    });
     page.paragraphs = [...newParas, ...nonTextParas];
     this.emitDocChange("UpdateText", { pageIndex, lines });
     this.updateStatus();
+  }
+
+  private createInteractiveTableElement(p: import("../../state/writerState").WordParagraph, pageIndex: number): HTMLElement {
+    const tableData = p.table!;
+    const container = document.createElement("div");
+    container.className = "word-interactive-table-container";
+    container.setAttribute("data-para-id", p.id);
+    container.setAttribute("data-testid", "word-interactive-table");
+    container.style.position = "relative";
+    container.style.margin = "12px auto";
+    container.style.width = `${(this.pageWidth - 2 * this.marginX) * this.state.zoom}px`;
+    container.style.border = "1px solid #cbd5e1";
+    container.style.borderRadius = "4px";
+    container.style.padding = "6px";
+    container.style.backgroundColor = "#ffffff";
+    container.style.boxShadow = "0 1px 3px rgba(0,0,0,0.06)";
+    container.style.zIndex = "6";
+
+    // Mini-toolbar
+    const miniBar = document.createElement("div");
+    miniBar.className = "table-mini-toolbar";
+    miniBar.setAttribute("data-testid", "table-mini-toolbar");
+    miniBar.style.display = "flex";
+    miniBar.style.gap = "6px";
+    miniBar.style.marginBottom = "6px";
+    miniBar.style.padding = "4px 6px";
+    miniBar.style.backgroundColor = "#f1f5f9";
+    miniBar.style.borderRadius = "3px";
+
+    const addRowBtn = document.createElement("button");
+    addRowBtn.className = "btn-table-mini btn-table-add-row";
+    addRowBtn.setAttribute("data-testid", "btn-table-add-row");
+    addRowBtn.textContent = "+ Row";
+    addRowBtn.onclick = (e) => {
+      e.stopPropagation();
+      this.state.addTableRow();
+      this.render();
+    };
+
+    const addColBtn = document.createElement("button");
+    addColBtn.className = "btn-table-mini btn-table-add-col";
+    addColBtn.setAttribute("data-testid", "btn-table-add-col");
+    addColBtn.textContent = "+ Col";
+    addColBtn.onclick = (e) => {
+      e.stopPropagation();
+      this.state.addTableColumn();
+      this.render();
+    };
+
+    const delTableBtn = document.createElement("button");
+    delTableBtn.className = "btn-table-mini btn-table-delete";
+    delTableBtn.setAttribute("data-testid", "btn-table-delete");
+    delTableBtn.textContent = "Delete Table";
+    delTableBtn.style.color = "#dc2626";
+    delTableBtn.onclick = (e) => {
+      e.stopPropagation();
+      const page = this.state.doc.pages[pageIndex];
+      if (page) {
+        const idx = page.paragraphs.findIndex((item) => item.id === p.id);
+        if (idx !== -1) {
+          page.paragraphs.splice(idx, 1);
+          this.render();
+        }
+      }
+    };
+
+    miniBar.appendChild(addRowBtn);
+    miniBar.appendChild(addColBtn);
+    miniBar.appendChild(delTableBtn);
+    container.appendChild(miniBar);
+
+    // Table DOM
+    const tableEl = document.createElement("table");
+    tableEl.className = "word-table-grid";
+    tableEl.style.width = "100%";
+    tableEl.style.borderCollapse = "collapse";
+    tableEl.style.fontSize = `${11 * this.state.zoom}pt`;
+
+    tableData.rows.forEach((row, rIdx) => {
+      const tr = document.createElement("tr");
+      row.cells.forEach((cell, cIdx) => {
+        const td = document.createElement(rIdx === 0 ? "th" : "td");
+        td.className = "word-table-cell";
+        td.setAttribute("data-testid", `word-table-cell-${rIdx}-${cIdx}`);
+        td.contentEditable = "true";
+        td.style.border = "1px solid #cbd5e1";
+        td.style.padding = "6px 8px";
+        td.style.backgroundColor = rIdx === 0 ? "#f8fafc" : "#ffffff";
+        td.style.fontWeight = rIdx === 0 ? "bold" : "normal";
+        td.textContent = cell.text;
+        td.oninput = () => {
+          cell.text = td.textContent || "";
+        };
+        tr.appendChild(td);
+      });
+      tableEl.appendChild(tr);
+    });
+
+    container.appendChild(tableEl);
+    return container;
+  }
+
+  private createInteractiveImageElement(p: import("../../state/writerState").WordParagraph, pageIndex: number): HTMLElement {
+    const imgData = p.image!;
+    const container = document.createElement("div");
+    container.className = "word-interactive-image-container";
+    container.setAttribute("data-para-id", p.id);
+    container.setAttribute("data-testid", "word-interactive-image");
+    container.style.display = "flex";
+    container.style.flexDirection = "column";
+    container.style.alignItems = "center";
+    container.style.margin = "12px auto";
+    container.style.padding = "8px";
+    container.style.border = "1px dashed #cbd5e1";
+    container.style.borderRadius = "4px";
+    container.style.backgroundColor = "#fafafa";
+    container.style.zIndex = "6";
+
+    const imgEl = document.createElement("img");
+    imgEl.className = "word-image-preview";
+    imgEl.setAttribute("data-testid", "word-image-preview");
+    imgEl.src = imgData.src || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='180' viewBox='0 0 320 180'%3E%3Crect width='320' height='180' fill='%23e2e8f0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2364748b' font-family='sans-serif' font-size='16'%3EEmbedded Image%3C/text%3E%3C/svg%3E";
+    imgEl.style.width = `${(imgData.width || 320) * this.state.zoom}px`;
+    imgEl.style.height = "auto";
+    imgEl.style.borderRadius = "2px";
+    imgEl.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+
+    // Control bar with resize slider
+    const controls = document.createElement("div");
+    controls.className = "word-image-controls";
+    controls.style.display = "flex";
+    controls.style.alignItems = "center";
+    controls.style.gap = "8px";
+    controls.style.marginTop = "8px";
+    controls.style.fontSize = "11px";
+
+    const label = document.createElement("span");
+    label.textContent = "Resize:";
+
+    const slider = document.createElement("input");
+    slider.type = "range";
+    slider.className = "word-image-resize-slider";
+    slider.setAttribute("data-testid", "word-image-resize-slider");
+    slider.min = "100";
+    slider.max = "600";
+    slider.value = String(imgData.width || 320);
+    slider.oninput = () => {
+      const newW = parseInt(slider.value, 10);
+      imgData.width = newW;
+      imgEl.style.width = `${newW * this.state.zoom}px`;
+    };
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "btn-delete-image";
+    delBtn.setAttribute("data-testid", "btn-delete-image");
+    delBtn.textContent = "✕ Delete";
+    delBtn.style.color = "#dc2626";
+    delBtn.onclick = (e) => {
+      e.stopPropagation();
+      const page = this.state.doc.pages[pageIndex];
+      if (page) {
+        const idx = page.paragraphs.findIndex((item) => item.id === p.id);
+        if (idx !== -1) {
+          page.paragraphs.splice(idx, 1);
+          this.render();
+        }
+      }
+    };
+
+    controls.appendChild(label);
+    controls.appendChild(slider);
+    controls.appendChild(delBtn);
+
+    container.appendChild(imgEl);
+    container.appendChild(controls);
+    return container;
   }
 
   private createFloatingShapeElement(p: import("../../state/writerState").WordParagraph, _pageIndex: number): HTMLElement {

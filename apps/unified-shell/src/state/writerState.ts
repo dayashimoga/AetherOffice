@@ -78,7 +78,7 @@ export interface WordDocumentModel {
   title: string;
   pages: DocPage[];
   pageOrientation?: "portrait" | "landscape";
-  margins?: "normal" | "narrow" | "moderate" | "wide";
+  margins?: "normal" | "narrow" | "moderate" | "wide" | "custom";
   pageSize?: "letter" | "a4" | "legal";
   columns?: number;
   headerText?: string;
@@ -1509,8 +1509,19 @@ export class WriterState {
         for (let paraIdx = startPara; paraIdx <= endPara; paraIdx++) {
           const para = page.paragraphs[paraIdx];
           if (!para) continue;
-          for (const r of para.runs) {
-            mutate(r);
+          const firstRunIdx =
+            pIdx === start.pageIndex && paraIdx === start.paragraphIndex
+              ? start.offset >= (para.runs[start.runIndex]?.text.length || 0) && start.runIndex < para.runs.length - 1
+                ? start.runIndex + 1
+                : start.runIndex
+              : 0;
+          const lastRunIdx =
+            pIdx === end.pageIndex && paraIdx === end.paragraphIndex
+              ? end.runIndex
+              : para.runs.length - 1;
+          for (let rIdx = firstRunIdx; rIdx <= lastRunIdx; rIdx++) {
+            const r = para.runs[rIdx];
+            if (r) mutate(r);
           }
         }
       }
@@ -2082,11 +2093,18 @@ export class WriterState {
         (this.doc as any).backgroundColor = val || "#ffffff";
         break;
 
+      case "insertEquation":
+      case "InsertEquation": {
+        const eqText = typeof val === "string" ? val : "∑(x) = ∫ 2π r dr";
+        this.insertText(eqText);
+        break;
+      }
+
       case "insertHyperlink":
       case "InsertHyperlink":
       case "insertLink":
       case "InsertLink": {
-        const text = val?.text || "AetherOffice Link";
+        const text = typeof val === "string" ? val : val?.text || "AetherOffice Link";
         const url = val?.url || "https://aetheroffice.org";
         this.insertHyperlink(text, url);
         break;
@@ -2125,6 +2143,8 @@ export class WriterState {
         this.toggleTrackChanges();
         break;
 
+      case "acceptAll":
+      case "AcceptAll":
       case "acceptChange":
       case "AcceptChange":
       case "acceptChanges":
@@ -2132,6 +2152,8 @@ export class WriterState {
         this.acceptChanges();
         break;
 
+      case "rejectAll":
+      case "RejectAll":
       case "rejectChange":
       case "RejectChange":
       case "rejectChanges":

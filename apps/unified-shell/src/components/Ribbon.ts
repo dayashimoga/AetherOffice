@@ -127,6 +127,10 @@ export class Ribbon {
     }
   }
 
+  public selectTab(tab: RibbonTabId) {
+    this.setActiveTab(tab);
+  }
+
   public toggleKeytips(active?: boolean): boolean {
     this.keytipsActive = active !== undefined ? active : !this.keytipsActive;
     if (typeof document !== "undefined") {
