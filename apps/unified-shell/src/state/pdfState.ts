@@ -215,6 +215,7 @@ export class PdfState {
   }
 
   public isEncrypted = false;
+  public isLocked = false;
   public isCompressed = false;
   public securityConfig: {
     isEncrypted: boolean;
@@ -236,6 +237,17 @@ export class PdfState {
     const wIn = (page.width / 96).toFixed(1);
     const hIn = (page.height / 96).toFixed(1);
     return `${wIn} × ${hIn} in`;
+  }
+
+  public get currentPageDimensions(): { name: string; width: number; height: number } | undefined {
+    const page = this.pages[this.currentPage - 1];
+    if (!page) return undefined;
+    for (const [name, dims] of Object.entries(PdfState.STANDARD_SIZES)) {
+      if (Math.abs(page.width - dims.width) <= 2 && Math.abs(page.height - dims.height) <= 2) {
+        return { name, width: page.width, height: page.height };
+      }
+    }
+    return { name: "Custom", width: page.width, height: page.height };
   }
 
   public getSecurityStatus(): string {
@@ -553,6 +565,14 @@ export class PdfState {
     return extracted;
   }
 
+  public encrypt(openPassword: string, ownerPassword?: string): boolean {
+    return this.encryptWithPassword(openPassword, ownerPassword);
+  }
+
+  public verifyPassword(password: string): boolean {
+    return this.decryptPassword(password);
+  }
+
   public encryptWithPassword(
     openPassword: string,
     ownerPassword?: string,
@@ -560,6 +580,7 @@ export class PdfState {
   ): boolean {
     this.commitSnapshot();
     this.isEncrypted = true;
+    this.isLocked = true;
     this.securityConfig = {
       isEncrypted: true,
       openPassword,
@@ -583,6 +604,7 @@ export class PdfState {
     ) {
       this.commitSnapshot();
       this.isEncrypted = false;
+      this.isLocked = false;
       this.securityConfig = { isEncrypted: false };
       return true;
     }
@@ -592,6 +614,7 @@ export class PdfState {
   public removeSecurity(): boolean {
     this.commitSnapshot();
     this.isEncrypted = false;
+    this.isLocked = false;
     this.securityConfig = { isEncrypted: false };
     return true;
   }
@@ -636,6 +659,7 @@ export class PdfState {
     this.createBlankPdf(1);
     this.isCompressed = false;
     this.isEncrypted = false;
+    this.isLocked = false;
     this.securityConfig = { isEncrypted: false };
     if (this.pages[0]) {
       this.pages[0].title = title;
@@ -1147,6 +1171,29 @@ export class PdfState {
     }
 
     return ann;
+  }
+
+  public addSignatureStamp(stamp: {
+    signerName: string;
+    mode?: string;
+    style?: string;
+    timestamp?: string;
+    dataUrl: string;
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+  }): PdfAnnotation {
+    return this.addSignature(
+      this.currentPage,
+      stamp.dataUrl,
+      stamp.signerName,
+      [stamp.x || 100, stamp.y || 750, stamp.width || 220, stamp.height || 64]
+    );
+  }
+
+  public get signatureStamps(): PdfAnnotation[] {
+    return this.pages.flatMap((p) => (p.annotations || []).filter((a) => a.type === "signature"));
   }
 
   // --- Binary ISO 32000-2 PDF Serialization ---

@@ -73,6 +73,8 @@ export interface DocPage {
   paragraphs: WordParagraph[];
 }
 
+export type WordPage = DocPage;
+
 export interface WordDocumentModel {
   id: string;
   title: string;
@@ -169,6 +171,40 @@ export class WriterState {
   };
   get activeFormatting() {
     return this.activeFormat;
+  }
+
+  get pages(): WordPage[] {
+    return this.doc.pages;
+  }
+
+  public setHeaderText(text: string): void {
+    this.doc.headerText = text;
+  }
+
+  public setFooterText(text: string): void {
+    this.doc.footerText = text;
+  }
+
+  public get headerText(): string | undefined {
+    return this.doc.headerText;
+  }
+
+  public get footerText(): string | undefined {
+    return this.doc.footerText;
+  }
+
+  public get fontFamily(): string {
+    return this.activeFormat.font;
+  }
+  public set fontFamily(val: string) {
+    this.activeFormat.font = val;
+  }
+
+  public get fontSize(): number {
+    return this.activeFormat.size;
+  }
+  public set fontSize(val: number) {
+    this.activeFormat.size = val;
   }
 
   get paragraphs(): WordParagraph[] {
@@ -497,6 +533,7 @@ export class WriterState {
   }
 
   public resetToBlank(title: string = "Untitled.docx"): void {
+    this.zoom = 1.0;
     this.doc = {
       id: `doc-${Date.now()}`,
       title,
