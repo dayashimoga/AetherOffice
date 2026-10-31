@@ -496,15 +496,16 @@ body.alt-keytips-active .ribbon-keytip-badge,
 }
 
 .ribbon-tools-body,
-.ribbon-content {
+.ribbon-content,
+.ribbon-panel {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   padding: 6px 12px;
-  height: auto;
-  min-height: 76px;
-  overflow-y: visible;
-  overflow-x: visible;
+  height: auto !important;
+  max-height: none !important;
+  overflow-y: visible !important;
+  overflow-x: visible !important;
   align-items: center;
   flex: 1;
 }

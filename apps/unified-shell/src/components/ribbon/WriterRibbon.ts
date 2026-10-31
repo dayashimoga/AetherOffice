@@ -59,9 +59,15 @@ export class WriterRibbon implements AppRibbonComponent {
   private renderHomeTab(body: HTMLElement, emit: RibbonActionEmitter) {
     // 0. Quick Pages Group
     const quickPagesGroup = createRibbonGroup("Pages");
-    quickPagesGroup.appendChild(
+    const quickPagesRow = document.createElement("div");
+    quickPagesRow.className = "ribbon-group-row";
+    quickPagesRow.appendChild(
       createRibbonButton("+ New Page", "➕ Page", () => emit("InsertNewPage"), false, "btn-home-new-page")
     );
+    quickPagesRow.appendChild(
+      createRibbonButton("Delete Page", "🗑️ Page", () => emit("DeletePage"), false, "btn-home-delete-page")
+    );
+    quickPagesGroup.appendChild(quickPagesRow);
     body.appendChild(quickPagesGroup);
 
     // 1. Clipboard Group
