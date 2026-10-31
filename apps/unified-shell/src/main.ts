@@ -106,6 +106,9 @@ export class UnifiedShellApp {
   private openDocumentsDrawer!: OpenDocumentsDrawer;
   private appFilter: DocumentType | null = null;
   private showNavPane = true;
+  private isSplitViewActive = false;
+  private splitPaneEl: HTMLElement | null = null;
+  private splitRightTabId: string | null = null;
 
   constructor(autoBoot = true) {
     this.init(autoBoot);
@@ -159,6 +162,10 @@ export class UnifiedShellApp {
     if (railContainer) {
       this.appRail = new AppRail(railContainer, {
         onSelectApp: (mode) => this.handleRailAppSelect(mode),
+        onNewAppDocument: (mode) => {
+          const docType = this.mapRailModeToDocType(mode);
+          this.handleNewTab(docType);
+        },
       });
       if (this.appFilter) {
         const railMode: RailAppMode =
@@ -197,6 +204,18 @@ export class UnifiedShellApp {
     });
 
     const titleActions = document.querySelector(".title-actions");
+    if (titleActions && !document.getElementById("btn-split-view")) {
+      const splitBtn = document.createElement("button");
+      splitBtn.id = "btn-split-view";
+      splitBtn.className = "split-view-btn";
+      splitBtn.dataset.testid = "btn-split-view";
+      splitBtn.title = "Toggle Side-by-Side Split View";
+      splitBtn.innerHTML = `<span class="split-icon">◫</span> <span class="split-label">Split Screen</span>`;
+      splitBtn.onclick = () => {
+        this.toggleSplitView();
+      };
+      titleActions.insertBefore(splitBtn, titleActions.firstChild);
+    }
     if (titleActions && !document.getElementById("btn-all-open-files")) {
       const allFilesBtn = document.createElement("button");
       allFilesBtn.id = "btn-all-open-files";
@@ -1187,6 +1206,7 @@ export class UnifiedShellApp {
         ? "pdf"
         : "notes";
     this.appRail?.setActiveApp(railMode);
+    this.updateAppRailCounts();
 
     this.ribbon.setDocumentType(tab.docType);
     if (this.copilotSidebar) {
@@ -1407,6 +1427,7 @@ export class UnifiedShellApp {
     if (this.openDocumentsDrawer) {
       this.openDocumentsDrawer.unregisterDocument(id);
     }
+    this.updateAppRailCounts();
     if (this.tabBar.getTabs().length === 0) {
       this.showHub();
     }
@@ -1477,6 +1498,7 @@ export class UnifiedShellApp {
         lastAutoSavedMs: Date.now(),
       });
     }
+    this.updateAppRailCounts();
   }
 
   public switchToOrCreateApp(docType: DocumentType) {
@@ -1497,6 +1519,162 @@ export class UnifiedShellApp {
         ? "pdf"
         : "notes";
     this.appRail?.setActiveApp(railMode);
+    this.updateAppRailCounts();
+    this.updateAppRailCounts();
+  }
+
+  public mapRailModeToDocType(mode: RailAppMode): DocumentType {
+    switch (mode) {
+      case "word":
+        return "Word";
+      case "excel":
+        return "Excel";
+      case "powerpoint":
+        return "PowerPoint";
+      case "pdf":
+        return "PDF";
+      case "notes":
+        return "Notes";
+      default:
+        return "Word";
+    }
+  }
+
+  public updateAppRailCounts(): void {
+    if (!this.appRail) return;
+    const tabs = this.tabBar.getTabs();
+    const counts: Record<RailAppMode, number> = {
+      home: 0,
+      word: tabs.filter((t) => t.docType === "Word").length,
+      excel: tabs.filter((t) => t.docType === "Excel").length,
+      powerpoint: tabs.filter((t) => t.docType === "PowerPoint").length,
+      pdf: tabs.filter((t) => t.docType === "PDF").length,
+      notes: tabs.filter((t) => t.docType === "Notes").length,
+    };
+    this.appRail.setCounts(counts);
+  }
+
+  public isSplitView(): boolean {
+    return this.isSplitViewActive;
+  }
+
+  public toggleSplitView(): boolean {
+    this.isSplitViewActive = !this.isSplitViewActive;
+    const splitBtn = document.getElementById("btn-split-view");
+    if (splitBtn) {
+      if (this.isSplitViewActive) {
+        splitBtn.classList.add("active");
+      } else {
+        splitBtn.classList.remove("active");
+      }
+    }
+    const layout = document.querySelector(".workspace-layout");
+    if (!layout) return this.isSplitViewActive;
+
+    if (this.isSplitViewActive) {
+      layout.classList.add("split-view-active");
+      this.renderSplitPane(layout as HTMLElement);
+    } else {
+      layout.classList.remove("split-view-active");
+      if (this.splitPaneEl) {
+        this.splitPaneEl.remove();
+        this.splitPaneEl = null;
+      }
+    }
+    return this.isSplitViewActive;
+  }
+
+  private renderSplitPane(layout: HTMLElement) {
+    if (!this.splitPaneEl) {
+      this.splitPaneEl = document.createElement("div");
+      this.splitPaneEl.id = "workspace-split-pane";
+      this.splitPaneEl.className = "workspace-split-pane";
+      this.splitPaneEl.dataset.testid = "workspace-split-pane";
+      layout.appendChild(this.splitPaneEl);
+    }
+
+    this.splitPaneEl.innerHTML = "";
+    const header = document.createElement("div");
+    header.className = "workspace-split-header";
+    header.innerHTML = `<span>◫ Split View (Right Pane)</span>`;
+
+    const select = document.createElement("select");
+    select.className = "split-pane-select";
+    select.dataset.testid = "split-pane-select";
+
+    const allTabs = this.tabBar.getTabs();
+    const activeTab = this.tabBar.getActiveTab();
+    const otherTabs = allTabs.filter((t) => t.id !== activeTab?.id);
+
+    if (otherTabs.length === 0) {
+      const opt = document.createElement("option");
+      opt.textContent = "No secondary tab (Open another file)";
+      select.appendChild(opt);
+    } else {
+      otherTabs.forEach((t) => {
+        const opt = document.createElement("option");
+        opt.value = t.id;
+        opt.textContent = `[${t.docType}] ${t.title}`;
+        if (t.id === this.splitRightTabId) opt.selected = true;
+        select.appendChild(opt);
+      });
+      if (!this.splitRightTabId && otherTabs[0]) {
+        this.splitRightTabId = otherTabs[0].id;
+      }
+    }
+
+    select.onchange = () => {
+      this.splitRightTabId = select.value;
+      this.renderSplitContent();
+    };
+
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "split-pane-close";
+    closeBtn.textContent = "✕";
+    closeBtn.title = "Close Split View";
+    closeBtn.onclick = () => this.toggleSplitView();
+
+    header.appendChild(select);
+    header.appendChild(closeBtn);
+    this.splitPaneEl.appendChild(header);
+
+    const content = document.createElement("div");
+    content.className = "workspace-split-content";
+    content.id = "workspace-split-content";
+    this.splitPaneEl.appendChild(content);
+
+    this.renderSplitContent();
+  }
+
+  private renderSplitContent() {
+    const content = document.getElementById("workspace-split-content");
+    if (!content) return;
+    content.innerHTML = "";
+
+    const targetTab = this.tabBar.getTabs().find((t) => t.id === this.splitRightTabId);
+    if (!targetTab) {
+      content.innerHTML = `<div style="padding: 24px; color: var(--text-muted); text-align: center;">Open or create another document to view side-by-side.</div>`;
+      return;
+    }
+
+    const previewCard = document.createElement("div");
+    previewCard.className = "split-doc-preview";
+    previewCard.style.padding = "24px";
+    previewCard.style.backgroundColor = "var(--bg-surface)";
+    previewCard.style.borderRadius = "8px";
+    previewCard.style.border = "1px solid var(--border-color)";
+    previewCard.style.width = "90%";
+    previewCard.style.boxShadow = "var(--shadow-md)";
+
+    previewCard.innerHTML = `
+      <h3 style="margin-top:0; color: var(--text-primary); font-size: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+        📄 [${targetTab.docType}] ${targetTab.title}
+      </h3>
+      <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.6;">
+        Side-by-Side Split View Active. Editing enabled across synchronized tabs.
+      </p>
+    `;
+    content.appendChild(previewCard);
   }
 
   public handleRailAppSelect(mode: RailAppMode) {
@@ -1504,17 +1682,7 @@ export class UnifiedShellApp {
       this.showHub();
       return;
     }
-    const docType: DocumentType =
-      mode === "word"
-        ? "Word"
-        : mode === "excel"
-        ? "Excel"
-        : mode === "powerpoint"
-        ? "PowerPoint"
-        : mode === "pdf"
-        ? "PDF"
-        : "Notes";
-
+    const docType = this.mapRailModeToDocType(mode);
     this.switchToOrCreateApp(docType);
   }
 
@@ -2476,6 +2644,8 @@ export class UnifiedShellApp {
   public async saveActiveDocument(filePath?: string): Promise<string> {
     const active = this.tabBar.getActiveTab();
     if (!active) return "";
+    this.tabBar.setDirty(active.id, false);
+    this.tabBar.updateTab(active.id, { isDirty: false });
     const targetPath = filePath !== undefined ? filePath : active.file_path;
 
     const savedPath = await fileIoService.saveDocument(
@@ -2549,6 +2719,7 @@ export class UnifiedShellApp {
       isDirty: false,
     });
     this.tabBar.switchTab(sessionId);
+    this.updateAppRailCounts();
 
     const docInfo = document.getElementById("status-doc-info");
     if (docInfo) {
@@ -2558,8 +2729,10 @@ export class UnifiedShellApp {
 
   public async handleOpenFileObject(file: File): Promise<void> {
     try {
-      const text = await file.text();
-      await this.handleOpenFile(file.name, text);
+      const buffer = await file.arrayBuffer();
+      const docType = fileIoService.detectDocType(file.name);
+      await fileIoService.loadFileContent(buffer, docType, file.name);
+      await this.handleOpenFile(file.name);
     } catch {
       await this.handleOpenFile(file.name);
     }

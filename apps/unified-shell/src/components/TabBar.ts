@@ -13,6 +13,7 @@ export class TabBar {
   private tabs: TabItem[] = [];
   private activeTabId: string | null = null;
   private filterDocType: DocumentType | null = null;
+  private filterMode: "current" | "all" = "all";
   private onTabChangeCallback?: (tab: TabItem) => void;
   private onTabCloseCallback?: (id: string) => void;
   private onNewTabCallback?: (docType?: DocumentType) => void;
@@ -40,11 +41,23 @@ export class TabBar {
 
   public setFilterDocType(docType: DocumentType | null) {
     this.filterDocType = docType;
+    if (docType) {
+      this.filterMode = "current";
+    }
     this.render();
   }
 
   public getFilterDocType(): DocumentType | null {
     return this.filterDocType;
+  }
+
+  public setFilterMode(mode: "current" | "all") {
+    this.filterMode = mode;
+    this.render();
+  }
+
+  public getFilterMode(): "current" | "all" {
+    return this.filterMode;
   }
 
   public addTab(tab: TabItem) {
@@ -126,9 +139,26 @@ export class TabBar {
   private render() {
     this.container.innerHTML = "";
 
-    const visibleTabs = this.filterDocType
-      ? this.tabs.filter((t) => t.docType === this.filterDocType)
-      : this.tabs;
+    // Tab Filter Mode Toggle (Current App Tabs vs All Open Tabs)
+    const filterToggleBtn = document.createElement("button");
+    filterToggleBtn.className = `tab-filter-toggle ${this.filterMode === "all" ? "active" : ""}`;
+    filterToggleBtn.dataset.testid = "tab-filter-toggle";
+    filterToggleBtn.title = "Toggle Tab Bar view: Current App Tabs vs All Open Tabs";
+    filterToggleBtn.innerHTML =
+      this.filterMode === "all"
+        ? `<span>📑 All Open Tabs (${this.tabs.length})</span>`
+        : `<span>🔍 Current App Tabs</span>`;
+    filterToggleBtn.onclick = (e) => {
+      e.stopPropagation();
+      this.filterMode = this.filterMode === "all" ? "current" : "all";
+      this.render();
+    };
+    this.container.appendChild(filterToggleBtn);
+
+    const visibleTabs =
+      this.filterMode === "current" && this.filterDocType
+        ? this.tabs.filter((t) => t.docType === this.filterDocType)
+        : this.tabs;
 
     visibleTabs.forEach((tab) => {
       const tabEl = document.createElement("div");

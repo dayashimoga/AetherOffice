@@ -113,7 +113,7 @@ describe("Subphase 28.2.1: Universal File Menu Backstage & File I/O Service", ()
       await app.saveActiveDocument("Proposal.docx");
       expect(wordTab.isDirty).toBe(false);
       expect(downloadSpy).toHaveBeenCalledWith(
-        expect.any(String),
+        expect.anything(),
         "Proposal.docx",
         expect.stringContaining("wordprocessingml")
       );
@@ -127,9 +127,9 @@ describe("Subphase 28.2.1: Universal File Menu Backstage & File I/O Service", ()
       await app.saveActiveDocument("Financials.xlsx");
       expect(excelTab.isDirty).toBe(false);
       expect(downloadSpy).toHaveBeenCalledWith(
-        expect.any(String),
+        expect.anything(),
         "Financials.xlsx",
-        "text/csv"
+        expect.stringMatching(/spreadsheetml|csv/)
       );
 
       // 3. PowerPoint
@@ -140,7 +140,7 @@ describe("Subphase 28.2.1: Universal File Menu Backstage & File I/O Service", ()
       await app.saveActiveDocument("Keynote.pptx");
       expect(pptTab.isDirty).toBe(false);
       expect(downloadSpy).toHaveBeenCalledWith(
-        expect.any(String),
+        expect.anything(),
         "Keynote.pptx",
         expect.stringContaining("presentationml")
       );
@@ -153,7 +153,7 @@ describe("Subphase 28.2.1: Universal File Menu Backstage & File I/O Service", ()
       await app.saveActiveDocument("Audit.pdf");
       expect(pdfTab.isDirty).toBe(false);
       expect(downloadSpy).toHaveBeenCalledWith(
-        expect.any(String),
+        expect.anything(),
         "Audit.pdf",
         "application/pdf"
       );

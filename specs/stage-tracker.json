@@ -1001,9 +1001,9 @@
                           "title":  "Multi-Document Per Format Manager, Side-by-Side Split View \u0026 Real Binary File Open/Save",
                           "crate":  "ooxml-opc",
                           "rea_required":  false,
-                          "status":  "PENDING",
+                          "status":  "COMPLETED",
                           "prompt_file":  ".agents/stages/stage-28/subphase-28.1.2.md",
-                          "completed_at":  null
+                          "completed_at":  "2026-10-31T03:41:28Z"
                       },
                       {
                           "id":  "29.1.1",

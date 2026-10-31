@@ -4,11 +4,13 @@ import { calcState } from "../state/calcState";
 import { slidesState } from "../state/slidesState";
 import { pdfState } from "../state/pdfState";
 import { notesState } from "../state/notesState";
+import { binaryPackageService } from "./binaryPackageService";
 
 export interface OpenedFileResult {
   file?: File;
   filePath: string;
   content: string;
+  buffer?: ArrayBuffer;
   docType: DocumentType;
 }
 
@@ -69,8 +71,10 @@ export class FileIoService {
 
         const docType = this.detectDocType(file.name);
         let content = "";
+        let buffer: ArrayBuffer | undefined;
         try {
-          content = await file.text();
+          buffer = await file.arrayBuffer();
+          content = new TextDecoder().decode(buffer);
         } catch {
           content = "";
         }
@@ -79,6 +83,7 @@ export class FileIoService {
           file,
           filePath: file.name,
           content,
+          buffer,
           docType,
         });
       };
@@ -113,16 +118,23 @@ export class FileIoService {
       let mime = "text/plain";
 
       if (docType === "Word") {
-        content = writerState.getTextContent();
+        content = (await binaryPackageService.buildDocx(writerState.getTextContent())) as unknown as BlobPart;
         mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
       } else if (docType === "Excel") {
-        content = calcState.exportCSV();
-        mime = "text/csv";
+        const activeSheet = calcState.getActiveSheet();
+        const cells: Record<string, string> = {};
+        if (activeSheet) {
+          for (const [coord, c] of Object.entries(activeSheet.cells)) {
+            if (c.value !== undefined && c.value !== null) cells[coord] = String(c.value);
+          }
+        }
+        content = (await binaryPackageService.buildXlsx(cells)) as unknown as BlobPart;
+        mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
       } else if (docType === "PowerPoint") {
-        content = JSON.stringify({ slides: slidesState.slides, theme: slidesState.currentTheme }, null, 2);
+        content = (await binaryPackageService.buildPptx(slidesState.slides)) as unknown as BlobPart;
         mime = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
       } else if (docType === "PDF") {
-        content = "%PDF-1.4\n%OpenOfficeRS PDF Document\n";
+        content = pdfState.exportBinaryPdf() as unknown as BlobPart;
         mime = "application/pdf";
       } else {
         content = notesState.getContent();
@@ -134,6 +146,73 @@ export class FileIoService {
     }
 
     return savedPath;
+  }
+
+  public async loadFileContent(
+    bufferOrText: ArrayBuffer | Uint8Array | string,
+    docType: DocumentType,
+    fileName: string
+  ): Promise<boolean> {
+    const isBuffer = typeof bufferOrText !== "string";
+    const uint8: Uint8Array = isBuffer
+      ? bufferOrText instanceof Uint8Array
+        ? bufferOrText
+        : new Uint8Array(bufferOrText)
+      : new TextEncoder().encode(bufferOrText);
+
+    try {
+      if (docType === "Word") {
+        if (fileName.toLowerCase().endsWith(".docx")) {
+          const parsed = await binaryPackageService.parseDocx(uint8);
+          writerState.loadDocumentFromText(parsed.text, fileName);
+        } else {
+          const text = new TextDecoder().decode(uint8);
+          writerState.loadDocumentFromText(text, fileName);
+        }
+      } else if (docType === "Excel") {
+        if (fileName.toLowerCase().endsWith(".xlsx")) {
+          const parsed = await binaryPackageService.parseXlsx(uint8);
+          for (const [coord, val] of Object.entries(parsed.cells)) {
+            calcState.setCellValue(coord, val);
+          }
+        } else {
+          calcState.importFromCsv(new TextDecoder().decode(uint8));
+        }
+      } else if (docType === "PowerPoint") {
+        if (fileName.toLowerCase().endsWith(".pptx")) {
+          const parsed = await binaryPackageService.parsePptx(uint8);
+          if (parsed.slides.length > 0) {
+            slidesState.slides = parsed.slides.map((s, idx) => ({
+              id: String(idx + 1),
+              title: s.title,
+              shapes: s.text.map((t, tIdx) => ({
+                id: `shape-${idx}-${tIdx}`,
+                type: "text" as const,
+                x: 100,
+                y: 100 + tIdx * 50,
+                w: 400,
+                h: 40,
+                fill: "transparent",
+                text: t,
+              })),
+            }));
+            slidesState.currentSlideIndex = 0;
+          }
+        }
+      } else if (docType === "PDF") {
+        const parsed = binaryPackageService.parsePdf(uint8);
+        if (parsed.pageCount > 1) {
+          while (pdfState.pages.length < parsed.pageCount) {
+            pdfState.insertBlankPage(pdfState.pages.length);
+          }
+        }
+      } else {
+        notesState.setContent(new TextDecoder().decode(uint8));
+      }
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   public async exportDocument(

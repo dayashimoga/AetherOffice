@@ -105,3 +105,4 @@ exit 0
 '@ | Set-Content -Path "tools/verify-contract.ps1" -Encoding UTF8
 
 Write-Host "GEC-v5.0 Contract and Production Audit Gate installed." -ForegroundColor Green
+

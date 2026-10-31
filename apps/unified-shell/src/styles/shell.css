@@ -1441,6 +1441,160 @@ body.theme-dark .tab-popout-btn:hover {
   border-color: #ef4444;
 }
 
+/* ==========================================================================
+   Multi-Document App Rail Badges, Tab Bar Filter & Split View (GEC-v5.0 Subphase 28.1.2)
+   ========================================================================== */
+
+/* App Rail Badge */
+.rail-btn {
+  position: relative;
+}
+
+.rail-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background-color: var(--primary-accent);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 10px;
+  min-width: 16px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  padding: 0 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+
+/* Tab Bar Filter Toggle */
+.tab-filter-toggle {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  margin-right: 8px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.tab-filter-toggle:hover {
+  background-color: var(--hover-bg);
+  color: var(--text-primary);
+  border-color: var(--primary-accent);
+}
+
+.tab-filter-toggle.active {
+  background-color: var(--active-bg);
+  color: var(--primary-accent);
+  border-color: var(--primary-accent);
+  font-weight: 600;
+}
+
+/* Split View Button */
+.split-view-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+  transition: all 0.15s ease;
+}
+
+.split-view-btn:hover {
+  background-color: var(--hover-bg);
+}
+
+.split-view-btn.active {
+  background-color: var(--active-bg);
+  border-color: var(--primary-accent);
+  color: var(--primary-accent);
+}
+
+/* Side-by-Side Split View Workspace */
+.workspace-layout.split-view-active {
+  display: flex !important;
+  flex-direction: row !important;
+}
+
+.workspace-layout.split-view-active .canvas-viewport {
+  flex: 1 !important;
+  border-right: 1px solid var(--border-color);
+}
+
+.workspace-split-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-canvas-backdrop);
+  overflow: hidden;
+  position: relative;
+}
+
+.workspace-split-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 12px;
+  font-weight: 600;
+  height: 32px;
+  gap: 8px;
+}
+
+.split-pane-select {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  font-size: 11px;
+  outline: none;
+  flex: 1;
+  max-width: 260px;
+}
+
+.split-pane-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.split-pane-close:hover {
+  background-color: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+.workspace-split-content {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+
 
 
 

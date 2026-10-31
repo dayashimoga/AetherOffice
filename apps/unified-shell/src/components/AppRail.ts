@@ -2,11 +2,20 @@ export type RailAppMode = "home" | "word" | "excel" | "powerpoint" | "pdf" | "no
 
 export interface AppRailCallbacks {
   onSelectApp: (mode: RailAppMode) => void;
+  onNewAppDocument?: (mode: RailAppMode) => void;
 }
 
 export class AppRail {
   private container: HTMLElement;
   private activeApp: RailAppMode = "word";
+  private counts: Record<RailAppMode, number> = {
+    home: 0,
+    word: 0,
+    excel: 0,
+    powerpoint: 0,
+    pdf: 0,
+    notes: 0,
+  };
   private callbacks: AppRailCallbacks = { onSelectApp: () => {} };
 
   constructor(containerIdOrElement: string | HTMLElement, callbacks?: AppRailCallbacks) {
@@ -32,6 +41,15 @@ export class AppRail {
     return this.activeApp;
   }
 
+  public setCounts(counts: Partial<Record<RailAppMode, number>>) {
+    Object.assign(this.counts, counts);
+    this.render();
+  }
+
+  public getCounts(): Record<RailAppMode, number> {
+    return { ...this.counts };
+  }
+
   public setCallbacks(callbacks: AppRailCallbacks) {
     this.callbacks = callbacks;
   }
@@ -51,25 +69,39 @@ export class AppRail {
     ];
 
     apps.forEach((app) => {
+      const count = this.counts[app.id] || 0;
       const btn = document.createElement("button");
       btn.className = `rail-btn ${this.activeApp === app.id ? "active" : ""}`;
       btn.dataset.railApp = app.id;
       btn.dataset.testid = `rail-btn-${app.id}`;
-      btn.title = app.label;
-      btn.setAttribute("aria-label", app.label);
+      btn.title = count > 0 ? `${app.label} (${count} open)` : app.label;
+      btn.setAttribute("aria-label", btn.title);
+      btn.style.position = "relative";
 
       const iconSpan = document.createElement("span");
       iconSpan.className = `rail-icon ${app.iconClass}`;
       iconSpan.textContent = app.icon;
       btn.appendChild(iconSpan);
 
+      if (count > 0 && app.id !== "home") {
+        const badge = document.createElement("span");
+        badge.className = "rail-badge";
+        badge.dataset.testid = `rail-badge-${app.id}`;
+        badge.textContent = String(count);
+        btn.appendChild(badge);
+      }
+
       btn.onclick = () => {
+        const prevApp = this.activeApp;
         this.setActiveApp(app.id);
         this.callbacks.onSelectApp(app.id);
+        if (prevApp === app.id && count > 0 && this.callbacks.onNewAppDocument) {
+          // If already viewing and user clicks again, allow spawning new document
+          this.callbacks.onNewAppDocument(app.id);
+        }
       };
 
       this.container.appendChild(btn);
     });
   }
 }
-
