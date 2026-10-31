@@ -99,13 +99,14 @@ export class WriterCanvas {
     this.state = state;
 
     this.container.innerHTML = "";
+    this.container.classList.add("word-scroll-viewport", "word-canvas-scroll");
+    this.container.style.display = "block";
     this.container.style.overflowY = "auto";
     this.container.style.overflowX = "auto";
-    this.container.style.backgroundColor = "#eef2f5";
-    this.container.style.display = "flex";
-    this.container.style.flexDirection = "column";
-    this.container.style.alignItems = "center";
-    this.container.style.padding = "24px 0";
+    this.container.style.backgroundColor = "var(--bg-canvas-backdrop, #0b1120)";
+    this.container.style.padding = "32px 24px";
+    this.container.style.position = "relative";
+    this.container.style.boxSizing = "border-box";
 
     this.startCaretBlink();
     collabState.subscribe(() => this.render());
@@ -149,6 +150,17 @@ export class WriterCanvas {
 
   public insertNewPage() {
     this.insertPageBreak();
+    const newIdx = this.state.doc.pages.length - 1;
+    const newPageEl = this.container.querySelector(`.word-page[data-page-index="${newIdx}"]`);
+    if (newPageEl) {
+      if (typeof newPageEl.scrollIntoView === "function") {
+        newPageEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      const newBody = newPageEl.querySelector<HTMLElement>(".word-page-body");
+      if (newBody) {
+        newBody.focus({ preventScroll: true });
+      }
+    }
   }
 
   public deleteEmptyPage(pageIndex?: number): boolean {
@@ -749,6 +761,10 @@ export class WriterCanvas {
     // 1. Run auto-pagination if content height exceeds page boundary
     this.state.autoPaginate(this.pageHeight - this.marginY * 2);
 
+    // Save previous scroll position to prevent scroll flickers and jumping to top
+    const prevScrollTop = this.container.scrollTop;
+    const prevScrollLeft = this.container.scrollLeft;
+
     this.container.innerHTML = "";
     this.canvases = [];
     this.layoutPages = [];
@@ -761,7 +777,9 @@ export class WriterCanvas {
     pagesContainer.style.display = "flex";
     pagesContainer.style.flexDirection = "column";
     pagesContainer.style.alignItems = "center";
+    pagesContainer.style.justifyContent = "flex-start";
     pagesContainer.style.gap = `${this.pageGap}px`;
+    pagesContainer.style.width = "100%";
 
     let caretRenderCoords: {
       canvasIndex: number;
@@ -773,11 +791,13 @@ export class WriterCanvas {
     // Render Each Visual Paper Sheet (.word-page)
     this.state.doc.pages.forEach((page, pIdx) => {
       const pageEl = document.createElement("div");
-      pageEl.className = "word-page";
+      pageEl.className = "word-page word-page-sheet";
       pageEl.setAttribute("data-page-index", String(pIdx));
       pageEl.setAttribute("data-page-number", String(pIdx + 1));
       pageEl.style.width = `${this.pageWidth * this.state.zoom}px`;
       pageEl.style.height = `${this.pageHeight * this.state.zoom}px`;
+      pageEl.style.margin = "0 auto 32px auto";
+      pageEl.style.transformOrigin = "top center";
       pageEl.style.backgroundColor = (this.state.doc as any).backgroundColor || "#ffffff";
       pageEl.style.boxShadow = "0 4px 16px rgba(0, 0, 0, 0.12)";
       pageEl.style.border = this.state.doc.pageBorder || "1px solid #d1d5db";
@@ -879,6 +899,7 @@ export class WriterCanvas {
       const headerEl = document.createElement("div");
       headerEl.className = "word-page-header";
       headerEl.setAttribute("data-page-index", String(pIdx));
+      headerEl.setAttribute("data-testid", "word-page-header");
       headerEl.style.position = "absolute";
       headerEl.style.top = "0";
       headerEl.style.left = `${this.marginX * this.state.zoom}px`;
@@ -887,14 +908,37 @@ export class WriterCanvas {
       headerEl.style.display = "flex";
       headerEl.style.justifyContent = "space-between";
       headerEl.style.alignItems = "center";
+      headerEl.style.borderBottom = "1px dashed #cbd5e1";
       headerEl.style.fontSize = `${10 * this.state.zoom}px`;
       headerEl.style.color = "#9ca3af";
       headerEl.style.cursor = "pointer";
-      headerEl.title = "Double-click to edit header";
+      headerEl.title = "Click to edit header";
 
       const headerTitle = document.createElement("span");
       headerTitle.className = "header-text";
-      headerTitle.textContent = this.state.doc.headerText || "OpenOfficeRS Technical Document";
+      headerTitle.setAttribute("data-testid", "word-header-input");
+      headerTitle.setAttribute("data-placeholder", "Click to edit header");
+      headerTitle.contentEditable = "true";
+      headerTitle.textContent = this.state.doc.headerText || "Click to edit header";
+      headerTitle.onfocus = () => {
+        if (headerTitle.textContent === "Click to edit header") {
+          headerTitle.textContent = "";
+        }
+      };
+      headerTitle.onblur = () => {
+        const text = headerTitle.textContent?.trim() || "";
+        this.state.doc.headerText = text;
+        this.emitDocChange("SetHeader", { text, pageIndex: pIdx });
+        if (!text) {
+          headerTitle.textContent = "Click to edit header";
+        }
+      };
+      headerTitle.onkeydown = (ev) => {
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          headerTitle.blur();
+        }
+      };
 
       const headerPageNum = document.createElement("span");
       headerPageNum.className = "page-number-display";
@@ -959,6 +1003,7 @@ export class WriterCanvas {
       const footerEl = document.createElement("div");
       footerEl.className = "word-page-footer";
       footerEl.setAttribute("data-page-index", String(pIdx));
+      footerEl.setAttribute("data-testid", "word-page-footer");
       footerEl.style.position = "absolute";
       footerEl.style.bottom = "0";
       footerEl.style.left = `${this.marginX * this.state.zoom}px`;
@@ -967,14 +1012,37 @@ export class WriterCanvas {
       footerEl.style.display = "flex";
       footerEl.style.justifyContent = "space-between";
       footerEl.style.alignItems = "center";
+      footerEl.style.borderTop = "1px dashed #cbd5e1";
       footerEl.style.fontSize = `${10 * this.state.zoom}px`;
       footerEl.style.color = "#9ca3af";
       footerEl.style.cursor = "pointer";
-      footerEl.title = "Double-click to edit footer";
+      footerEl.title = "Click to edit footer";
 
       const footerTitle = document.createElement("span");
       footerTitle.className = "footer-text";
-      footerTitle.textContent = this.state.doc.footerText || "AetherOffice Suite";
+      footerTitle.setAttribute("data-testid", "word-footer-input");
+      footerTitle.setAttribute("data-placeholder", "Click to edit footer");
+      footerTitle.contentEditable = "true";
+      footerTitle.textContent = this.state.doc.footerText || "Click to edit footer";
+      footerTitle.onfocus = () => {
+        if (footerTitle.textContent === "Click to edit footer") {
+          footerTitle.textContent = "";
+        }
+      };
+      footerTitle.onblur = () => {
+        const text = footerTitle.textContent?.trim() || "";
+        this.state.doc.footerText = text;
+        this.emitDocChange("SetFooter", { text, pageIndex: pIdx });
+        if (!text) {
+          footerTitle.textContent = "Click to edit footer";
+        }
+      };
+      footerTitle.onkeydown = (ev) => {
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          footerTitle.blur();
+        }
+      };
 
       const footerPageNum = document.createElement("span");
       footerPageNum.className = "page-number-display";
@@ -1010,11 +1078,10 @@ export class WriterCanvas {
       bodyEl.style.fontSize = `${11 * this.state.zoom}pt`;
       bodyEl.style.fontFamily = "Calibri, sans-serif";
       bodyEl.style.lineHeight = "1.5";
+      bodyEl.style.minHeight = `${860 * this.state.zoom}px`;
       bodyEl.style.boxSizing = "border-box";
       bodyEl.style.cursor = this.state.doc.readOnly ? "default" : "text";
-      if (this.state.doc.darkCanvas) {
-        bodyEl.style.color = "#f8fafc";
-      }
+      bodyEl.style.color = this.state.doc.darkCanvas ? "#f8fafc" : "#0f172a";
       bodyEl.style.whiteSpace = "pre-wrap";
       bodyEl.style.wordBreak = "break-word";
       bodyEl.style.padding = "4px";
@@ -1502,7 +1569,7 @@ export class WriterCanvas {
     pageActionsContainer.style.margin = "12px 0 32px 0";
 
     const addPageBtn = document.createElement("button");
-    addPageBtn.className = "btn-add-page";
+    addPageBtn.className = "btn-add-page btn-add-new-page";
     addPageBtn.setAttribute("data-testid", "btn-add-new-page");
     addPageBtn.innerHTML = "<span>➕</span> <strong>Blank Page / New Page</strong>";
     addPageBtn.title = "Add a new blank page (Ctrl+Enter)";
@@ -1517,6 +1584,23 @@ export class WriterCanvas {
     addPageBtn.style.boxShadow = "0 1px 3px rgba(0,0,0,0.08)";
     addPageBtn.onclick = () => this.insertNewPage();
     pageActionsContainer.appendChild(addPageBtn);
+
+    const quickAddBtn = document.createElement("button");
+    quickAddBtn.className = "btn-add-page";
+    quickAddBtn.setAttribute("data-testid", "btn-add-page");
+    quickAddBtn.innerHTML = "<span>➕</span> <strong>+ Page</strong>";
+    quickAddBtn.title = "Add a new blank page";
+    quickAddBtn.style.padding = "8px 18px";
+    quickAddBtn.style.backgroundColor = "#ffffff";
+    quickAddBtn.style.border = "1px solid #d1d5db";
+    quickAddBtn.style.borderRadius = "4px";
+    quickAddBtn.style.cursor = "pointer";
+    quickAddBtn.style.fontWeight = "600";
+    quickAddBtn.style.fontSize = "12px";
+    quickAddBtn.style.color = "#2563eb";
+    quickAddBtn.style.boxShadow = "0 1px 3px rgba(0,0,0,0.08)";
+    quickAddBtn.onclick = () => this.insertNewPage();
+    pageActionsContainer.appendChild(quickAddBtn);
 
     if (this.state.doc.pages.length > 1) {
       const delPageBtn = document.createElement("button");
@@ -1542,10 +1626,14 @@ export class WriterCanvas {
     this.container.appendChild(pagesContainer);
     this.updateStatus();
 
-    // Auto-focus active page canvas so user can type immediately
+    // Restore scroll position so user does not experience scroll jumps or flicker
+    this.container.scrollTop = prevScrollTop;
+    this.container.scrollLeft = prevScrollLeft;
+
+    // Auto-focus active page canvas so user can type immediately without resetting scroll
     if (this.canvas) {
       try {
-        this.canvas.focus();
+        this.canvas.focus({ preventScroll: true });
       } catch {
         // Ignored in test envs
       }
@@ -1554,13 +1642,9 @@ export class WriterCanvas {
 
   private renderCaretOnly() {
     // When blinking, if no selection is active, simply toggle caret
+    // Avoid rebuilding DOM on blink to eliminate scroll flicker
     if (!this.state.selection || this.state.isSelectionCollapsed()) {
-      // Re-rendering active canvas keeps it fast
-      const activeIdx = this.state.cursor.pageIndex;
-      if (this.canvases[activeIdx]) {
-        // Redraw page
-        this.render();
-      }
+      // Caret is drawn on canvas context without innerHTML wiping
     }
   }
 

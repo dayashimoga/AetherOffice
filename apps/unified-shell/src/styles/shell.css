@@ -1270,6 +1270,55 @@ body.theme-dark .tab-popout-btn:hover {
 }
 
 /* =========================================================================
+   GEC-v5.0 Article III.1: Word 100% Zoom Top-Visible Layout & Scroll Fix (Subphase 29.1.1)
+   ========================================================================= */
+.word-scroll-viewport,
+.word-canvas-scroll {
+  display: block !important;
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+  padding: 32px 24px !important;
+  position: relative !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: 100% !important;
+  background-color: var(--bg-canvas-backdrop, #0b1120) !important;
+}
+
+.word-pages-container {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 32px !important;
+  width: 100% !important;
+}
+
+.word-page-sheet {
+  margin: 0 auto 32px auto !important;
+  transform-origin: top center !important;
+  position: relative !important;
+  box-sizing: border-box !important;
+}
+
+.word-page-header {
+  border-bottom: 1px dashed #cbd5e1 !important;
+  box-sizing: border-box !important;
+}
+
+.word-page-header .header-text[contenteditable="true"]:focus,
+.word-page-footer .footer-text[contenteditable="true"]:focus {
+  outline: 1px solid #2563eb;
+  background-color: rgba(37, 99, 235, 0.05);
+  border-radius: 2px;
+}
+
+.word-page-footer {
+  border-top: 1px dashed #cbd5e1 !important;
+  box-sizing: border-box !important;
+}
+
+/* =========================================================================
    Word Page ContentEditable Body & Floating Shapes (Subphase 29.1.1)
    ========================================================================= */
 .word-page-body {
