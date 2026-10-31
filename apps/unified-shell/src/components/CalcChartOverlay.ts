@@ -164,6 +164,8 @@ export class CalcChartOverlay {
         return "📈";
       case "pie":
         return "🥧";
+      case "area":
+        return "📉";
       default:
         return "📊";
     }
@@ -185,6 +187,8 @@ export class CalcChartOverlay {
       this.renderPieChartSvg(svg, data, w, h, true);
     } else if (chart.type === "line") {
       this.renderLineChartSvg(svg, data, w, h);
+    } else if (chart.type === "area") {
+      this.renderAreaChartSvg(svg, data, w, h);
     } else if (chart.type === "bar") {
       this.renderBarChartSvg(svg, data, w, h);
     } else if (chart.type === "scatter") {
@@ -409,6 +413,101 @@ export class CalcChartOverlay {
     });
 
     // Categories
+    data.categories.forEach((cat, cIdx) => {
+      const px = padLeft + cIdx * stepX;
+      const catText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      catText.setAttribute("x", String(px));
+      catText.setAttribute("y", String(h - 6));
+      catText.setAttribute("text-anchor", "middle");
+      catText.setAttribute("font-size", "10");
+      catText.setAttribute("fill", "#6b7280");
+      catText.textContent = cat;
+      svg.appendChild(catText);
+    });
+  }
+
+  private renderAreaChartSvg(
+    svg: SVGSVGElement,
+    data: { categories: string[]; series: { name: string; values: number[] }[] },
+    w: number,
+    h: number
+  ) {
+    const padLeft = 40;
+    const padBottom = 26;
+    const padTop = 16;
+    const padRight = 16;
+    const plotW = w - padLeft - padRight;
+    const plotH = h - padTop - padBottom;
+
+    let maxVal = 10;
+    data.series.forEach((s) => {
+      s.values.forEach((v) => {
+        if (v > maxVal) maxVal = v;
+      });
+    });
+    maxVal = Math.ceil(maxVal * 1.15);
+
+    for (let i = 0; i <= 4; i++) {
+      const y = padTop + plotH - (i / 4) * plotH;
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", String(padLeft));
+      line.setAttribute("y1", String(y));
+      line.setAttribute("x2", String(w - padRight));
+      line.setAttribute("y2", String(y));
+      line.setAttribute("stroke", "#f3f4f6");
+      svg.appendChild(line);
+    }
+
+    const numCats = Math.max(data.categories.length, 1);
+    const stepX = numCats > 1 ? plotW / (numCats - 1) : plotW;
+
+    data.series.forEach((series, sIdx) => {
+      const color = PALETTE[sIdx % PALETTE.length];
+      const pts: { x: number; y: number }[] = [];
+      series.values.forEach((v, cIdx) => {
+        const x = padLeft + cIdx * stepX;
+        const y = padTop + plotH - (v / maxVal) * plotH;
+        pts.push({ x, y });
+      });
+
+      if (pts.length > 0) {
+        const bottomY = padTop + plotH;
+        let d = `M ${pts[0].x} ${bottomY} L ${pts[0].x} ${pts[0].y}`;
+        for (let i = 1; i < pts.length; i++) {
+          d += ` L ${pts[i].x} ${pts[i].y}`;
+        }
+        d += ` L ${pts[pts.length - 1].x} ${bottomY} Z`;
+
+        const areaPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        areaPath.setAttribute("d", d);
+        areaPath.setAttribute("fill", color);
+        areaPath.setAttribute("fill-opacity", "0.25");
+        svg.appendChild(areaPath);
+
+        const linePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        let lineD = `M ${pts[0].x} ${pts[0].y}`;
+        for (let i = 1; i < pts.length; i++) {
+          lineD += ` L ${pts[i].x} ${pts[i].y}`;
+        }
+        linePath.setAttribute("d", lineD);
+        linePath.setAttribute("fill", "none");
+        linePath.setAttribute("stroke", color);
+        linePath.setAttribute("stroke-width", "2");
+        svg.appendChild(linePath);
+
+        pts.forEach((p) => {
+          const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          circle.setAttribute("cx", String(p.x));
+          circle.setAttribute("cy", String(p.y));
+          circle.setAttribute("r", "3");
+          circle.setAttribute("fill", "#ffffff");
+          circle.setAttribute("stroke", color);
+          circle.setAttribute("stroke-width", "2");
+          svg.appendChild(circle);
+        });
+      }
+    });
+
     data.categories.forEach((cat, cIdx) => {
       const px = padLeft + cIdx * stepX;
       const catText = document.createElementNS("http://www.w3.org/2000/svg", "text");

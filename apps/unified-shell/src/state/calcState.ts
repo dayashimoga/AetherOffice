@@ -41,7 +41,7 @@ export interface GridRange {
 
 export interface SheetChart {
   id: string;
-  type: "column" | "bar" | "line" | "pie" | "scatter" | "doughnut";
+  type: "column" | "bar" | "line" | "pie" | "scatter" | "doughnut" | "area";
   title: string;
   dataRange: GridRange;
   x: number;
@@ -92,6 +92,7 @@ export interface SheetData {
   themeColors?: string;
   themeFonts?: string;
   margins?: "normal" | "narrow" | "wide";
+  pageSize?: "letter" | "a4" | "legal";
   orientation?: "portrait" | "landscape";
   printArea?: GridRange | null;
   printGridlines?: boolean;
@@ -2181,6 +2182,39 @@ export class CalcState {
     this.recalculateAll();
   }
 
+  public pasteValues(tsvText?: string, targetCoord?: string): void {
+    const text = tsvText !== undefined ? tsvText : this.internalClipboardText;
+    if (!text) return;
+
+    const coord = targetCoord || this.selectedCell;
+    const start = this.coordToColRow(coord);
+
+    const rows = text.split(/\r?\n/).filter((line, idx, arr) => line.length > 0 || idx < arr.length - 1);
+
+    rows.forEach((rowStr, rIdx) => {
+      const cols = rowStr.split("\t");
+      cols.forEach((val, cIdx) => {
+        const targetCol = start.col + cIdx;
+        const targetRow = start.row + rIdx;
+        const cellCoord = `${this.colIndexToLetter(targetCol)}${targetRow + 1}`;
+
+        let computed: string | number | boolean = val;
+        const n = Number(val);
+        if (!isNaN(n) && val.trim() !== "") computed = n;
+
+        const existing = this.cells.get(cellCoord);
+        if (existing) {
+          existing.raw = val;
+          existing.computed = computed;
+        } else {
+          this.cells.set(cellCoord, { raw: val, computed });
+        }
+      });
+    });
+
+    this.recalculateAll();
+  }
+
   colIndexToLetter(idx: number): string {
     let letter = "";
     idx++;
@@ -2375,6 +2409,83 @@ export class CalcState {
       cell.raw = "";
       cell.computed = "";
     });
+  }
+
+  public increaseFontSize(range?: GridRange): void {
+    this.forEachCellInRange(range, (cell) => {
+      const cur = cell.fontSize || 11;
+      cell.fontSize = Math.min(72, cur + (cur >= 14 ? 2 : 1));
+    });
+  }
+
+  public decreaseFontSize(range?: GridRange): void {
+    this.forEachCellInRange(range, (cell) => {
+      const cur = cell.fontSize || 11;
+      cell.fontSize = Math.max(6, cur - (cur > 14 ? 2 : 1));
+    });
+  }
+
+  public deleteComment(range?: GridRange): void {
+    this.forEachCellInRange(range, (cell) => {
+      delete cell.comment;
+    });
+  }
+
+  public setPageSize(size: "letter" | "a4" | "legal"): void {
+    this.getActiveSheet().pageSize = size;
+  }
+
+  private savedFormat: Partial<CellData> | null = null;
+  public formatPainterActive = false;
+
+  public copyFormat(coord?: string): void {
+    const c = coord || this.selectedCell;
+    const cell = this.getCell(c);
+    this.savedFormat = {
+      bold: cell.bold,
+      italic: cell.italic,
+      underline: cell.underline,
+      fontFamily: cell.fontFamily,
+      fontSize: cell.fontSize,
+      color: cell.color,
+      bgColor: cell.bgColor,
+      format: cell.format,
+      decimals: cell.decimals,
+      align: cell.align,
+      valign: cell.valign,
+      wrapText: cell.wrapText,
+      borders: cell.borders,
+    };
+    this.formatPainterActive = true;
+  }
+
+  public applyFormat(range?: GridRange): void {
+    if (!this.savedFormat) return;
+    const fmt = this.savedFormat;
+    this.forEachCellInRange(range, (cell) => {
+      if (fmt.bold !== undefined) cell.bold = fmt.bold;
+      if (fmt.italic !== undefined) cell.italic = fmt.italic;
+      if (fmt.underline !== undefined) cell.underline = fmt.underline;
+      if (fmt.fontFamily !== undefined) cell.fontFamily = fmt.fontFamily;
+      if (fmt.fontSize !== undefined) cell.fontSize = fmt.fontSize;
+      if (fmt.color !== undefined) cell.color = fmt.color;
+      if (fmt.bgColor !== undefined) cell.bgColor = fmt.bgColor;
+      if (fmt.format !== undefined) cell.format = fmt.format;
+      if (fmt.decimals !== undefined) cell.decimals = fmt.decimals;
+      if (fmt.align !== undefined) cell.align = fmt.align;
+      if (fmt.valign !== undefined) cell.valign = fmt.valign;
+      if (fmt.wrapText !== undefined) cell.wrapText = fmt.wrapText;
+      if (fmt.borders !== undefined) cell.borders = fmt.borders;
+    });
+  }
+
+  public toggleFormatPainter(): void {
+    if (this.formatPainterActive && this.savedFormat) {
+      this.applyFormat();
+      this.formatPainterActive = false;
+    } else {
+      this.copyFormat();
+    }
   }
 
   public insertComment(commentText: string): void {
@@ -2704,7 +2815,7 @@ export class CalcState {
   }
 
   public insertChart(
-    type: "column" | "bar" | "line" | "pie" | "scatter" | "doughnut" = "column",
+    type: "column" | "bar" | "line" | "pie" | "scatter" | "doughnut" | "area" = "column",
     range?: GridRange,
     title?: string
   ): SheetChart {

@@ -86,6 +86,7 @@ export class CalcRibbon implements AppRibbonComponent {
     clipRow.className = "ribbon-group-row";
     clipRow.appendChild(createRibbonButton("Cut", "✂️", () => emit("Cut"), false, "calc-btn-cut"));
     clipRow.appendChild(createRibbonButton("Copy", "📄", () => emit("Copy"), false, "calc-btn-copy"));
+    clipRow.appendChild(createRibbonButton("Paste Values", "123", () => emit("PasteValues"), false, "calc-btn-paste-values"));
     clipRow.appendChild(createRibbonButton("Format Painter", "🖌️", () => emit("FormatPainter"), false, "calc-btn-format-painter"));
     clipGroup.appendChild(clipRow);
     body.appendChild(clipGroup);
@@ -104,6 +105,8 @@ export class CalcRibbon implements AppRibbonComponent {
         emit("SetFontSize", parseFloat(val)), "calc-select-font-size"
       )
     );
+    fontRow1.appendChild(createRibbonButton("Increase Font Size", "A+", () => emit("IncreaseFontSize"), false, "calc-btn-font-grow"));
+    fontRow1.appendChild(createRibbonButton("Decrease Font Size", "A-", () => emit("DecreaseFontSize"), false, "calc-btn-font-shrink"));
     fontGroup.appendChild(fontRow1);
 
     const fontRow2 = document.createElement("div");
@@ -216,6 +219,7 @@ export class CalcRibbon implements AppRibbonComponent {
     editRow2.appendChild(createRibbonButton("Clear Contents", "📄 Clear Contents", () => emit("ClearContents"), false, "calc-btn-clear-contents"));
     editRow2.appendChild(createRibbonButton("Sort & Filter", "🌪️ Sort/Filter", () => emit("ToggleFilter"), false, "calc-btn-sort-filter"));
     editRow2.appendChild(createRibbonButton("Find & Select", "🔍 Find", () => emit("Find"), false, "calc-btn-find"));
+    editRow2.appendChild(createRibbonButton("Replace", "🔄 Replace", () => emit("Replace"), false, "calc-btn-replace"));
     editGroup.appendChild(editRow2);
     body.appendChild(editGroup);
 
@@ -263,6 +267,7 @@ export class CalcRibbon implements AppRibbonComponent {
     chartRow2.appendChild(createRibbonButton("Pie", "🥧 Pie", () => emit("InsertChart", "pie"), false, "calc-btn-chart-pie"));
     chartRow2.appendChild(createRibbonButton("Doughnut", "🍩 Doughnut", () => emit("InsertChart", "doughnut"), false, "calc-btn-chart-doughnut"));
     chartRow2.appendChild(createRibbonButton("Scatter", "⁘ Scatter", () => emit("InsertChart", "scatter"), false, "calc-btn-chart-scatter"));
+    chartRow2.appendChild(createRibbonButton("Area", "📉 Area", () => emit("InsertChart", "area"), false, "calc-btn-chart-area"));
     chartRow2.appendChild(createRibbonButton("Recommended", "🌟 Recommended", () => emit("InsertChart", "column"), false, "calc-btn-chart-recommended"));
     chartGroup.appendChild(chartRow2);
     body.appendChild(chartGroup);
@@ -309,6 +314,7 @@ export class CalcRibbon implements AppRibbonComponent {
     setupRow2.className = "ribbon-group-row";
     setupRow2.appendChild(createRibbonButton("Portrait", "📄 Portrait", () => emit("SetOrientation", "portrait"), false, "calc-btn-orient-portrait"));
     setupRow2.appendChild(createRibbonButton("Landscape", "📃 Landscape", () => emit("SetOrientation", "landscape"), false, "calc-btn-orient-landscape"));
+    setupRow2.appendChild(createRibbonButton("Page Size", "📄 Size", () => emit("SetPageSize", "letter"), false, "calc-btn-page-size"));
     setupRow2.appendChild(createRibbonButton("Set Print Area", "🖨️ Print Area", () => emit("SetPrintArea"), false, "calc-btn-set-print-area"));
     setupRow2.appendChild(createRibbonButton("Clear Print Area", "❌ Clear Area", () => emit("ClearPrintArea"), false, "calc-btn-clear-print-area"));
     setupRow2.appendChild(createRibbonButton("Scale to Fit", "↔ Scale", () => emit("ScaleToFit"), false, "calc-btn-scale-to-fit"));
@@ -448,6 +454,7 @@ export class CalcRibbon implements AppRibbonComponent {
     // 3. Comments & Notes
     const noteGroup = createRibbonGroup("Notes & Stats");
     noteGroup.appendChild(createRibbonButton("New Note", "💬 New Note", () => emit("NewNote"), false, "calc-btn-new-note"));
+    noteGroup.appendChild(createRibbonButton("Delete Note", "🗑️ Del Note", () => emit("DeleteComment"), false, "calc-btn-delete-comment"));
     noteGroup.appendChild(createRibbonButton("Show All Notes", "Show All Notes", () => emit("ShowAllNotes"), true, "calc-btn-show-all-notes"));
     noteGroup.appendChild(createRibbonButton("Workbook Statistics", "📊 Workbook Stats", () => emit("WorkbookStatistics"), false, "calc-btn-workbook-stats"));
     body.appendChild(noteGroup);

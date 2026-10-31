@@ -829,6 +829,81 @@ export class UnifiedShellApp {
       return;
     }
 
+    if (this.currentDocType === "Excel") {
+      this.findReplaceDialog.setCallbacks({
+        onFind: (query, matchCase) => {
+          const results: FindReplaceMatch[] = [];
+          const activeSheet = calcState.getActiveSheet();
+          activeSheet.cells.forEach((cell, coord) => {
+            const raw = String(cell.raw ?? cell.computed ?? "");
+            if (!raw) return;
+            const cr = calcState.coordToColRow(coord);
+            let text = raw;
+            let q = query;
+            if (!matchCase) {
+              text = text.toLowerCase();
+              q = q.toLowerCase();
+            }
+            let idx = text.indexOf(q);
+            while (idx !== -1) {
+              results.push({
+                pageIndex: Math.max(0, calcState.sheets.findIndex((s) => s.id === calcState.activeSheetId)),
+                paragraphIndex: cr.row,
+                runIndex: cr.col,
+                offset: idx,
+                length: query.length,
+                text: raw.substring(idx, idx + query.length),
+              });
+              idx = text.indexOf(q, idx + 1);
+            }
+          });
+          return results;
+        },
+        onSelectMatch: (m) => {
+          const coord = `${calcState.colIndexToLetter(m.runIndex)}${m.paragraphIndex + 1}`;
+          calcState.selectCell(coord);
+          this.calcGridCanvas?.render();
+        },
+        onReplace: (m, rep) => {
+          const coord = `${calcState.colIndexToLetter(m.runIndex)}${m.paragraphIndex + 1}`;
+          const cell = calcState.getCell(coord);
+          const raw = String(cell.raw ?? cell.computed ?? "");
+          if (raw) {
+            const newRaw = raw.substring(0, m.offset) + rep + raw.substring(m.offset + m.length);
+            calcState.setCellValue(coord, newRaw);
+            this.calcGridCanvas?.render();
+            const active = this.tabBar.getActiveTab();
+            if (active) this.tabBar.setDirty(active.id, true);
+          }
+        },
+        onReplaceAll: (query, rep, matchCase) => {
+          let count = 0;
+          const activeSheet = calcState.getActiveSheet();
+          const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), matchCase ? "g" : "gi");
+          activeSheet.cells.forEach((cell, coord) => {
+            const raw = String(cell.raw ?? cell.computed ?? "");
+            if (raw) {
+              const matches = raw.match(regex);
+              if (matches) {
+                count += matches.length;
+                const newRaw = raw.replace(regex, rep);
+                calcState.setCellValue(coord, newRaw);
+              }
+            }
+          });
+          this.calcGridCanvas?.render();
+          const active = this.tabBar.getActiveTab();
+          if (active) this.tabBar.setDirty(active.id, true);
+          return count;
+        },
+        onClose: () => {
+          this.calcGridCanvas?.render();
+        },
+      });
+      this.findReplaceDialog.show(mode);
+      return;
+    }
+
     this.findReplaceDialog.setCallbacks({
       onFind: (query, matchCase) => writerState.findMatches(query, matchCase),
       onSelectMatch: (m) => {
@@ -2241,8 +2316,32 @@ export class UnifiedShellApp {
         this.calcGridCanvas?.cut();
       } else if (action === "Paste") {
         this.calcGridCanvas?.paste();
+      } else if (action === "PasteValues") {
+        calcState.pasteValues();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "FormatPainter") {
+        calcState.toggleFormatPainter();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "IncreaseFontSize") {
+        calcState.increaseFontSize();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "DecreaseFontSize") {
+        calcState.decreaseFontSize();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "DeleteComment") {
+        calcState.deleteComment();
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
+      } else if (action === "SetPageSize") {
+        calcState.setPageSize((payload as any) || "letter");
+        this.calcGridCanvas?.render();
+        this.tabBar.setDirty(active.id, true);
       } else if (action === "InsertChart") {
-        const cType = String(payload || "column").toLowerCase() as "column" | "bar" | "line" | "pie" | "scatter" | "doughnut";
+        const cType = String(payload || "column").toLowerCase() as "column" | "bar" | "line" | "pie" | "scatter" | "doughnut" | "area";
         calcState.insertChart(cType);
         this.calcChartOverlay?.refresh();
         this.calcGridCanvas?.render();
