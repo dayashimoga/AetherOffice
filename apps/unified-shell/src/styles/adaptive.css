@@ -13,22 +13,34 @@
 /* 2. Tablet Mode (768px - 1023px) */
 @media screen and (min-width: 768px) and (max-width: 1023px) {
   .ribbon-bar {
-    height: 72px;
+    height: auto;
+    min-height: 64px;
   }
 
   .ribbon-tools-body {
     padding: 4px 8px;
-    gap: 8px;
+    gap: 6px;
+    flex-wrap: wrap;
   }
 
   .ribbon-btn {
-    min-width: 44px;
-    min-height: 44px;
-    padding: 6px 10px;
+    min-width: 34px;
+    min-height: 34px;
+    padding: 6px 8px;
   }
 
   .sidebar-pane {
     width: 200px;
+    transition: width 0.2s ease, transform 0.2s ease;
+  }
+
+  .sidebar-pane.collapsed {
+    width: 0 !important;
+    min-width: 0 !important;
+    overflow: hidden;
+    border: none;
+    padding: 0;
+    display: none !important;
   }
 }
 
@@ -38,17 +50,100 @@
     display: none; /* Hide desktop title bar on phones */
   }
 
+  /* Bottom App Navigation Bar (Home, W, X, P, PDF, N) instead of left rail */
+  .app-rail {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    height: 52px !important;
+    flex-direction: row !important;
+    justify-content: space-around !important;
+    align-items: center !important;
+    padding: 4px 8px !important;
+    border-right: none !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+    z-index: 1200 !important;
+    background-color: #1e293b !important;
+  }
+
+  .rail-btn {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
+  .rail-btn.active::before {
+    left: 6px !important;
+    right: 6px !important;
+    top: auto !important;
+    bottom: 2px !important;
+    width: auto !important;
+    height: 3px !important;
+    border-radius: 2px 2px 0 0 !important;
+  }
+
   .tab-bar {
-    height: 40px;
-    overflow-x: auto;
+    height: 40px !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
   }
 
+  /* Compact single-row horizontally scrollable touch toolbar */
   .ribbon-bar {
-    display: none; /* Replaced by bottom command sheet on mobile */
+    display: flex !important;
+    flex-direction: column !important;
+    overflow-x: auto !important;
+    height: auto !important;
+    min-height: 48px !important;
+    max-height: 84px !important;
+    padding: 2px 4px !important;
   }
 
+  .ribbon-tabs-header {
+    height: 28px !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+  }
+
+  .ribbon-tools-body {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    gap: 4px !important;
+    padding: 2px 4px !important;
+  }
+
+  .ribbon-btn {
+    min-width: 36px !important;
+    min-height: 36px !important;
+    padding: 4px 6px !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Slide-over sidebar drawer on mobile */
   .sidebar-pane {
-    display: none; /* Off-canvas drawer on mobile */
+    position: fixed !important;
+    top: 40px !important;
+    bottom: 52px !important;
+    left: 0 !important;
+    width: 280px !important;
+    max-width: 85vw !important;
+    z-index: 1100 !important;
+    background-color: var(--bg-sidebar, #1e293b) !important;
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.3) !important;
+    transition: transform 0.25s ease-in-out !important;
+  }
+
+  .sidebar-pane.drawer-hidden {
+    transform: translateX(-100%) !important;
+    display: none !important;
   }
 
   .sub-header-bar {
@@ -59,9 +154,16 @@
     font-size: 14px; /* Prevent iOS auto-zoom on focus */
   }
 
+  /* Full-width document canvas */
   .workspace-layout {
-    height: calc(100vh - 40px - var(--bottom-sheet-collapsed-h) - var(--safe-bottom) - var(--safe-top));
-    padding-bottom: var(--safe-bottom);
+    width: 100% !important;
+    height: calc(100vh - 40px - 52px - var(--safe-bottom) - var(--safe-top)) !important;
+    padding-bottom: 52px !important;
+  }
+
+  .canvas-viewport {
+    width: 100% !important;
+    flex: 1 !important;
   }
 
   .status-bar {

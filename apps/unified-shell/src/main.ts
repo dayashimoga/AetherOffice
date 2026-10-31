@@ -217,6 +217,10 @@ export class UnifiedShellApp {
       };
       titleActions.insertBefore(splitBtn, titleActions.firstChild);
     }
+    const splitScreenStatic = document.getElementById("btn-split-screen");
+    if (splitScreenStatic) {
+      splitScreenStatic.onclick = () => this.toggleSplitView();
+    }
     if (titleActions && !document.getElementById("btn-all-open-files")) {
       const allFilesBtn = document.createElement("button");
       allFilesBtn.id = "btn-all-open-files";
@@ -1674,6 +1678,14 @@ export class UnifiedShellApp {
   }
 
   public isSplitView(): boolean {
+    return this.isSplitViewActive;
+  }
+
+  public isSplitViewActiveMode(): boolean {
+    return this.isSplitViewActive;
+  }
+
+  public isSplitViewOpen(): boolean {
     return this.isSplitViewActive;
   }
 
