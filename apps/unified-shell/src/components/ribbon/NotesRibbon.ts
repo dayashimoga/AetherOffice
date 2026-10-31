@@ -177,6 +177,8 @@ export class NotesRibbon implements AppRibbonComponent {
     cleanRow.className = "ribbon-group-row";
     cleanRow.appendChild(createRibbonButton("Sort Lines A-Z", "⇅ Sort A-Z", () => emit("TransformText", "sort_az"), false, "notes-btn-sort-az"));
     cleanRow.appendChild(createRibbonButton("Sort Lines Z-A", "⇵ Sort Z-A", () => emit("TransformText", "sort_za"), false, "notes-btn-sort-za"));
+    cleanRow.appendChild(createRibbonButton("Reverse Lines", "⇄ Reverse", () => emit("TransformText", "reverse_lines"), false, "notes-btn-reverse-lines"));
+    cleanRow.appendChild(createRibbonButton("Number Lines", "1. Number Lines", () => emit("TransformText", "number_lines"), false, "notes-btn-number-lines"));
     cleanRow.appendChild(createRibbonButton("Remove Duplicates", "🧹 De-dup", () => emit("TransformText", "remove_duplicates"), false, "notes-btn-remove-duplicates"));
     cleanRow.appendChild(createRibbonButton("Remove Empty Lines", "🗑️ Empty Lines", () => emit("TransformText", "remove_empty_lines"), false, "notes-btn-remove-empty-lines"));
     cleanRow.appendChild(createRibbonButton("Trim Whitespace", "✂ Trim Space", () => emit("TransformText", "trim_whitespace"), false, "notes-btn-trim-whitespace"));
@@ -193,6 +195,7 @@ export class NotesRibbon implements AppRibbonComponent {
     codeRow.appendChild(createRibbonButton("Base64 Decode", "🔓 B64 Dec", () => emit("TransformText", "base64_decode"), false, "notes-btn-b64-dec"));
     codeRow.appendChild(createRibbonButton("URL Encode", "% URL Enc", () => emit("TransformText", "url_encode"), false, "notes-btn-url-enc"));
     codeRow.appendChild(createRibbonButton("URL Decode", "🔤 URL Dec", () => emit("TransformText", "url_decode"), false, "notes-btn-url-dec"));
+    codeRow.appendChild(createRibbonButton("Word Frequency", "📈 Frequency", () => emit("WordFrequency"), false, "notes-btn-freq"));
     codeRow.appendChild(createRibbonButton("Word Statistics", "📊 Stats", () => emit("ShowStatistics"), false, "notes-btn-stats"));
     codeGroup.appendChild(codeRow);
     body.appendChild(codeGroup);

@@ -2661,14 +2661,28 @@ export class UnifiedShellApp {
         if (docInfo) {
           docInfo.textContent = `Saved: ${active.title}`;
         }
+        void fileCodec.saveFile(active.title, "Notes");
         IPC.saveDocument(active.id).catch(() => {});
       } else if (action === "OpenNote") {
         this.openFilePickerOrBackstage();
       } else if (action === "PrintDocument") {
         try { window.print(); } catch {}
-      } else if (action === "ShowStatistics") {
+      } else if (action === "ShowStatistics" || action === "WordFrequency") {
         const stats = notesState.getStats();
-        try { alert(`Lines: ${stats.lines}\nWords: ${stats.words}\nCharacters: ${stats.chars}`); } catch {}
+        const topWords = notesState.getWordFrequency().slice(0, 5).map((w) => `${w.word}: ${w.count}`).join(", ");
+        if (typeof window !== "undefined" && typeof window.alert === "function") {
+          try { window.alert(`Lines: ${stats.lines}\nWords: ${stats.words}\nCharacters: ${stats.chars}\n\nTop Words:\n${topWords || "None"}`); } catch {}
+        }
+      } else if (action === "GoToLine") {
+        const promptFn = typeof window !== "undefined" && typeof window.prompt === "function" ? window.prompt : undefined;
+        const input = typeof payload === "number" ? String(payload) : (promptFn ? promptFn("Go to line number:", String(notesState.cursorLine)) : null);
+        if (input) {
+          const num = parseInt(input, 10);
+          if (!isNaN(num)) {
+            notesState.goToLine(num);
+            this.notesWorkspace?.render();
+          }
+        }
       } else if (action === "Cut" || action === "Copy" || action === "Paste" || action === "SelectAll") {
         const ta = this.notesWorkspace?.getTextarea();
         if (ta) {
@@ -2927,6 +2941,8 @@ export class UnifiedShellApp {
     } else if (docType === "PDF") {
       this.pdfWorkspace?.render();
       this.pdfViewerCanvas?.render();
+    } else if (docType === "Notes") {
+      this.notesWorkspace?.render();
     }
 
     const docInfo = document.getElementById("status-doc-info");

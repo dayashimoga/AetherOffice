@@ -369,10 +369,16 @@ export class FileCodecService {
         return true;
       }
 
-      // Notes (.txt, .md, .log, .json)
+      // Notes (.txt, .md, .log, .json, .csv, .xml, .ini)
       const text = new TextDecoder().decode(uint8);
-      notesState.resetToBlank(fileName);
-      notesState.setContent(text);
+      const existing = notesState.notes.find((n) => n.title === fileName);
+      if (existing) {
+        notesState.selectNote(existing.id);
+        notesState.setContent(text);
+      } else {
+        const newNote = notesState.addNote(fileName, text);
+        notesState.selectNote(newNote.id);
+      }
       return true;
     } catch (e) {
       console.warn("Failed to open file via fileCodec:", e);

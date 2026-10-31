@@ -225,6 +225,7 @@ export class NotesState {
       | "reverse_lines"
       | "remove_duplicates"
       | "remove_empty_lines"
+      | "number_lines"
       | "trim_whitespace"
       | "format_json"
       | "prettify_json"
@@ -272,6 +273,12 @@ export class NotesState {
         result = this.content
           .split("\n")
           .filter((line) => line.trim().length > 0)
+          .join("\n");
+        break;
+      case "number_lines":
+        result = this.content
+          .split("\n")
+          .map((line, idx) => `${idx + 1}. ${line}`)
           .join("\n");
         break;
       case "trim_whitespace":
@@ -505,6 +512,21 @@ export class NotesState {
     }
   }
 
+  public getWordFrequency(): Array<{ word: string; count: number }> {
+    const words = this.content
+      .toLowerCase()
+      .replace(/[^\w\s]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 1);
+    const map = new Map<string, number>();
+    for (const w of words) {
+      map.set(w, (map.get(w) || 0) + 1);
+    }
+    return Array.from(map.entries())
+      .map(([word, count]) => ({ word, count }))
+      .sort((a, b) => b.count - a.count);
+  }
+
   public canUndo(): boolean {
     return this.undoStack.length > 0;
   }
@@ -608,6 +630,9 @@ export class NotesState {
           return true;
         }
         return false;
+      case "WordFrequency":
+      case "AnalyzeFrequency":
+        return this.getWordFrequency().length >= 0;
       case "InsertMarkdownSnippet":
         if (typeof payload === "string") {
           this.insertMarkdownSnippet(payload as any);
