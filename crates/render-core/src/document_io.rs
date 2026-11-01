@@ -7,7 +7,7 @@
 //! - ISO 32000-1 certified PDF export across all document formats
 //! - Zero panic macros in all code paths
 
-use crate::commands::{GlobalOfficeState, PptShapeData};
+use crate::commands::GlobalOfficeState;
 use crate::shell::{DesktopSessionManager, DocumentType, SessionSummary};
 use excel_engine::package::ExcelWorkbookPackage;
 use excel_engine::shared_strings::SharedStringTable;
@@ -18,8 +18,7 @@ use ooxml_opc::UnparsedPartStore;
 use ppt_engine::package::PresentationPackage;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::{BufReader, BufWriter, Write};
+use std::io::Cursor;
 use std::path::Path;
 use word_engine::model::{BodyElement, Paragraph, ParagraphChild, Run, RunContent};
 use word_engine::package::WordPackage;
@@ -82,17 +81,13 @@ impl DocumentIoEngine {
 
         match doc_type {
             DocumentType::Word => {
-                Self::save_word_package(&office_state.word_content, path)?;
+                Self::save_word_package(&office_state, path)?;
             }
             DocumentType::Excel => {
-                Self::save_excel_package(
-                    &office_state.excel_sheets,
-                    &office_state.excel_cells,
-                    path,
-                )?;
+                Self::save_excel_package(&office_state, path)?;
             }
             DocumentType::PowerPoint => {
-                Self::save_ppt_package(&office_state.ppt_slides, &office_state.ppt_shapes, path)?;
+                Self::save_ppt_package(&office_state, path)?;
             }
             DocumentType::Pdf => {
                 let title = path
@@ -141,15 +136,19 @@ impl DocumentIoEngine {
 
         match doc_type {
             DocumentType::Word => {
-                let pkg = WordPackage::from_file(path)
-                    .map_err(|e| format!("Failed to read Word package {file_path}: {e}"))?;
+                let bytes = std::fs::read(path)
+                    .map_err(|e| format!("Failed to read Word file {file_path}: {e}"))?;
+                let pkg = WordPackage::from_bytes(&bytes)
+                    .map_err(|e| format!("Failed to parse Word package {file_path}: {e}"))?;
                 office_state.word_content = pkg.get_full_text();
+                office_state.unparsed_store = Some(pkg.unparsed_store);
+                office_state.raw_package_bytes = Some(bytes);
             }
             DocumentType::Excel => {
-                let file = File::open(path)
-                    .map_err(|e| format!("Failed to open Excel file {file_path}: {e}"))?;
-                let pkg = ExcelWorkbookPackage::open(BufReader::new(file))
-                    .map_err(|e| format!("Failed to read Excel package {file_path}: {e}"))?;
+                let bytes = std::fs::read(path)
+                    .map_err(|e| format!("Failed to read Excel file {file_path}: {e}"))?;
+                let pkg = ExcelWorkbookPackage::open(Cursor::new(&bytes))
+                    .map_err(|e| format!("Failed to parse Excel package {file_path}: {e}"))?;
 
                 office_state.excel_sheets =
                     pkg.workbook.sheets.iter().map(|s| s.name.clone()).collect();
@@ -183,20 +182,24 @@ impl DocumentIoEngine {
                         }
                     }
                 }
+                office_state.unparsed_store = Some(pkg.unparsed_store);
+                office_state.raw_package_bytes = Some(bytes);
             }
             DocumentType::PowerPoint => {
-                let file = File::open(path)
-                    .map_err(|e| format!("Failed to open PowerPoint file {file_path}: {e}"))?;
-                let pkg = PresentationPackage::open(BufReader::new(file))
-                    .map_err(|e| format!("Failed to read PowerPoint package {file_path}: {e}"))?;
+                let bytes = std::fs::read(path)
+                    .map_err(|e| format!("Failed to read PowerPoint file {file_path}: {e}"))?;
+                let pkg = PresentationPackage::open(Cursor::new(&bytes))
+                    .map_err(|e| format!("Failed to parse PowerPoint package {file_path}: {e}"))?;
 
                 let count = pkg.slide_count();
                 office_state.ppt_slides = (1..=(count.max(1) as u32)).collect();
+                office_state.unparsed_store = Some(pkg.unparsed_store);
+                office_state.raw_package_bytes = Some(bytes);
             }
             DocumentType::Pdf => {
                 let bytes = std::fs::read(path)
                     .map_err(|e| format!("Failed to read PDF file {file_path}: {e}"))?;
-                let doc = pdf_engine::PdfDocument::parse(bytes)
+                let doc = pdf_engine::PdfDocument::parse(bytes.clone())
                     .map_err(|e| format!("Failed to parse PDF document {file_path}: {e}"))?;
 
                 let page_count = doc.page_count();
@@ -204,6 +207,176 @@ impl DocumentIoEngine {
                     .pdf_fields
                     .insert("PageCount".to_string(), page_count.to_string());
                 office_state.word_content = format!("PDF Document ({} pages)", page_count);
+                office_state.raw_package_bytes = Some(bytes);
+            }
+        }
+
+        let mut summary = mgr.create_session(doc_type, filename);
+        summary.file_path = Some(file_path.to_string());
+        summary.is_dirty = false;
+
+        mgr.office_states
+            .insert(summary.session_id.clone(), office_state);
+
+        if let Some(tab) = mgr
+            .tab_bar
+            .tabs
+            .iter_mut()
+            .find(|t| t.id == summary.session_id)
+        {
+            tab.file_path = Some(file_path.to_string());
+            tab.is_dirty = false;
+        }
+
+        Ok(summary)
+    }
+
+    /// Asynchronously opens and ingests a document package with real-time progress callbacks and cancellation.
+    pub fn open_document_async<F>(
+        mgr: &mut DesktopSessionManager,
+        file_path: &str,
+        cancellation: Option<&ooxml_opc::async_pipeline::CancellationToken>,
+        progress_fn: F,
+    ) -> Result<SessionSummary, String>
+    where
+        F: Fn(ooxml_opc::async_pipeline::IngestionProgress) + Send + Sync + 'static,
+    {
+        use ooxml_opc::async_pipeline::{
+            AsyncIngestionPipeline, IngestionProgress, IngestionStage,
+        };
+
+        let path = Path::new(file_path);
+        if !path.exists() {
+            progress_fn(IngestionProgress::new(
+                IngestionStage::Failed(format!("File does not exist: {file_path}")),
+                0,
+                0,
+                0.0,
+                None,
+            ));
+            return Err(format!("File does not exist: {file_path}"));
+        }
+
+        let doc_type = Self::detect_doc_type(file_path);
+        let filename = match path.file_name().and_then(|n| n.to_str()) {
+            Some(name) => name,
+            None => file_path,
+        };
+
+        let bytes = std::fs::read(path)
+            .map_err(|e| format!("Failed to read file from disk {file_path}: {e}"))?;
+
+        let mut office_state = GlobalOfficeState::new();
+
+        match doc_type {
+            DocumentType::Word => {
+                let ingestion =
+                    AsyncIngestionPipeline::ingest_bytes(&bytes, cancellation, &progress_fn)
+                        .map_err(|e| format!("Async Word ingestion failed: {e}"))?;
+
+                let doc_bytes = ingestion
+                    .parts
+                    .get("word/document.xml")
+                    .or_else(|| ingestion.parts.get("/word/document.xml"))
+                    .ok_or_else(|| "Missing word/document.xml in package".to_string())?;
+
+                let document = word_engine::parser::parse_document(doc_bytes)
+                    .map_err(|e| format!("Failed to parse word/document.xml: {e}"))?;
+
+                office_state.word_content = document.get_full_text();
+                office_state.unparsed_store = Some(ingestion.unparsed_store);
+                office_state.raw_package_bytes = Some(bytes);
+            }
+            DocumentType::Excel => {
+                let ingestion =
+                    AsyncIngestionPipeline::ingest_bytes(&bytes, cancellation, &progress_fn)
+                        .map_err(|e| format!("Async Excel ingestion failed: {e}"))?;
+
+                let pkg = ExcelWorkbookPackage::open(Cursor::new(&bytes))
+                    .map_err(|e| format!("Failed to parse Excel package: {e}"))?;
+
+                office_state.excel_sheets =
+                    pkg.workbook.sheets.iter().map(|s| s.name.clone()).collect();
+
+                if let Some((_, ws)) = pkg.worksheets.first() {
+                    for (row, col, cell_val, _) in ws.grid.iter_cells() {
+                        if let Ok(coord) = excel_engine::grid::coords_to_cell(row, col) {
+                            let text_val = match &cell_val {
+                                excel_engine::grid::CellValue::Number(num) => num.to_string(),
+                                excel_engine::grid::CellValue::SharedString(idx) => pkg
+                                    .shared_strings
+                                    .get(*idx as usize)
+                                    .unwrap_or("")
+                                    .to_string(),
+                                excel_engine::grid::CellValue::InlineString(s) => s.clone(),
+                                excel_engine::grid::CellValue::Boolean(b) => {
+                                    if *b {
+                                        "TRUE".into()
+                                    } else {
+                                        "FALSE".into()
+                                    }
+                                }
+                                excel_engine::grid::CellValue::Formula { formula, .. } => {
+                                    format!("={formula}")
+                                }
+                                _ => String::new(),
+                            };
+                            if !text_val.is_empty() {
+                                office_state.excel_cells.insert(coord, text_val);
+                            }
+                        }
+                    }
+                }
+
+                office_state.unparsed_store = Some(ingestion.unparsed_store);
+                office_state.raw_package_bytes = Some(bytes);
+            }
+            DocumentType::PowerPoint => {
+                let ingestion =
+                    AsyncIngestionPipeline::ingest_bytes(&bytes, cancellation, &progress_fn)
+                        .map_err(|e| format!("Async PowerPoint ingestion failed: {e}"))?;
+
+                let pkg = PresentationPackage::open(Cursor::new(&bytes))
+                    .map_err(|e| format!("Failed to parse PowerPoint package: {e}"))?;
+
+                let count = pkg.slide_count();
+                office_state.ppt_slides = (1..=(count.max(1) as u32)).collect();
+                office_state.unparsed_store = Some(ingestion.unparsed_store);
+                office_state.raw_package_bytes = Some(bytes);
+            }
+            DocumentType::Pdf => {
+                progress_fn(IngestionProgress::new(
+                    IngestionStage::ReadingCentralDirectory,
+                    0,
+                    bytes.len() as u64,
+                    20.0,
+                    None,
+                ));
+                let doc = pdf_engine::PdfDocument::parse(bytes.clone())
+                    .map_err(|e| format!("Failed to parse PDF document {file_path}: {e}"))?;
+
+                progress_fn(IngestionProgress::new(
+                    IngestionStage::BuildingDom,
+                    bytes.len() as u64,
+                    bytes.len() as u64,
+                    80.0,
+                    None,
+                ));
+
+                let page_count = doc.page_count();
+                office_state
+                    .pdf_fields
+                    .insert("PageCount".to_string(), page_count.to_string());
+                office_state.word_content = format!("PDF Document ({} pages)", page_count);
+                office_state.raw_package_bytes = Some(bytes);
+
+                progress_fn(IngestionProgress::new(
+                    IngestionStage::Complete,
+                    0,
+                    0,
+                    100.0,
+                    None,
+                ));
             }
         }
 
@@ -323,17 +496,25 @@ impl DocumentIoEngine {
     // Helper Serializers
     // -------------------------------------------------------------------------
 
-    fn save_word_package(content: &str, target_path: &Path) -> Result<(), String> {
-        let mut pkg = WordPackage::new();
+    /// Serializes the Word document state to in-memory DOCX binary package bytes.
+    pub fn serialize_word_package_to_bytes(
+        office_state: &GlobalOfficeState,
+    ) -> Result<Vec<u8>, String> {
+        let mut pkg = if let Some(ref raw_bytes) = office_state.raw_package_bytes {
+            WordPackage::from_bytes(raw_bytes).unwrap_or_else(|_| WordPackage::new())
+        } else {
+            WordPackage::new()
+        };
 
-        if content.is_empty() {
+        pkg.document.body.elements.clear();
+        if office_state.word_content.is_empty() {
             let mut p = Paragraph::default();
             let mut r = Run::default();
             r.content.push(RunContent::Text("".to_string(), false));
             p.children.push(ParagraphChild::Run(r));
             pkg.document.body.elements.push(BodyElement::Paragraph(p));
         } else {
-            for line in content.lines() {
+            for line in office_state.word_content.lines() {
                 let mut p = Paragraph::default();
                 let mut r = Run::default();
                 r.content.push(RunContent::Text(line.to_string(), false));
@@ -342,19 +523,35 @@ impl DocumentIoEngine {
             }
         }
 
-        pkg.save_to_file(target_path).map_err(|e| {
+        if let Some(ref extra_store) = office_state.unparsed_store {
+            for (_, part) in extra_store.iter() {
+                pkg.unparsed_store.insert(part.clone());
+            }
+        }
+
+        let mut out = Cursor::new(Vec::new());
+        pkg.save(&mut out)
+            .map_err(|e| format!("Failed to serialize Word package: {e}"))?;
+        Ok(out.into_inner())
+    }
+
+    fn save_word_package(
+        office_state: &GlobalOfficeState,
+        target_path: &Path,
+    ) -> Result<(), String> {
+        let bytes = Self::serialize_word_package_to_bytes(office_state)?;
+        std::fs::write(target_path, bytes).map_err(|e| {
             format!(
-                "Failed to save Word document to {}: {e}",
+                "Failed to write Word document to {}: {e}",
                 target_path.display()
             )
         })
     }
 
-    fn save_excel_package(
+    fn create_blank_excel_package(
         sheets: &[String],
         cells: &HashMap<String, String>,
-        target_path: &Path,
-    ) -> Result<(), String> {
+    ) -> ExcelWorkbookPackage {
         let mut sst = SharedStringTable::new();
         let styles = StyleSheet::default();
         let mut wb_sheets = Vec::new();
@@ -399,54 +596,177 @@ impl DocumentIoEngine {
         let mut workbook = Workbook::new();
         workbook.sheets = wb_sheets;
 
-        let pkg = ExcelWorkbookPackage {
+        ExcelWorkbookPackage {
             workbook,
             shared_strings: sst,
             styles,
             worksheets,
             unparsed_store: UnparsedPartStore::new(),
-        };
-
-        let file = File::create(target_path)
-            .map_err(|e| format!("Failed to create Excel file {}: {e}", target_path.display()))?;
-        let mut writer = BufWriter::new(file);
-        pkg.save(&mut writer).map_err(|e| {
-            format!(
-                "Failed to save Excel workbook to {}: {e}",
-                target_path.display()
-            )
-        })?;
-        writer.flush().map_err(|e| e.to_string())?;
-        Ok(())
+        }
     }
 
-    fn save_ppt_package(
-        _slides: &[u32],
-        _shapes: &HashMap<u32, PptShapeData>,
+    /// Serializes the Excel workbook state to in-memory XLSX binary package bytes.
+    pub fn serialize_excel_package_to_bytes(
+        office_state: &GlobalOfficeState,
+    ) -> Result<Vec<u8>, String> {
+        let mut pkg = if let Some(ref raw_bytes) = office_state.raw_package_bytes {
+            ExcelWorkbookPackage::open(Cursor::new(raw_bytes)).unwrap_or_else(|_| {
+                Self::create_blank_excel_package(
+                    &office_state.excel_sheets,
+                    &office_state.excel_cells,
+                )
+            })
+        } else {
+            Self::create_blank_excel_package(&office_state.excel_sheets, &office_state.excel_cells)
+        };
+
+        if let Some((_, ws)) = pkg.worksheets.first_mut() {
+            for (coord, val) in &office_state.excel_cells {
+                if let Ok((row, col)) = excel_engine::grid::cell_to_coords(coord) {
+                    if val.starts_with('=') {
+                        let formula = val.trim_start_matches('=').to_string();
+                        let _ = ws.grid.set_formula(row, col, &formula, None);
+                    } else if let Ok(num) = val.parse::<f64>() {
+                        let _ = ws.grid.set_number(row, col, num);
+                    } else if val == "TRUE" || val == "true" {
+                        let _ = ws.grid.set_boolean(row, col, true);
+                    } else if val == "FALSE" || val == "false" {
+                        let _ = ws.grid.set_boolean(row, col, false);
+                    } else {
+                        let str_idx = pkg.shared_strings.add_plain(val);
+                        let _ = ws.grid.set_shared_string(row, col, str_idx);
+                    }
+                }
+            }
+        }
+
+        if let Some(ref extra_store) = office_state.unparsed_store {
+            for (_, part) in extra_store.iter() {
+                pkg.unparsed_store.insert(part.clone());
+            }
+        }
+
+        let mut out = Cursor::new(Vec::new());
+        pkg.save(&mut out)
+            .map_err(|e| format!("Failed to serialize Excel workbook: {e}"))?;
+        Ok(out.into_inner())
+    }
+
+    fn save_excel_package(
+        office_state: &GlobalOfficeState,
         target_path: &Path,
     ) -> Result<(), String> {
-        let pkg = if target_path.exists() {
-            if let Ok(f) = File::open(target_path) {
-                PresentationPackage::open(BufReader::new(f))
-                    .unwrap_or_else(|_| PresentationPackage::create_empty())
-            } else {
-                PresentationPackage::create_empty()
-            }
+        let bytes = Self::serialize_excel_package_to_bytes(office_state)?;
+        std::fs::write(target_path, bytes)
+            .map_err(|e| format!("Failed to write Excel file {}: {e}", target_path.display()))
+    }
+
+    /// Serializes the PowerPoint presentation state to in-memory PPTX binary package bytes.
+    pub fn serialize_ppt_package_to_bytes(
+        office_state: &GlobalOfficeState,
+    ) -> Result<Vec<u8>, String> {
+        let mut pkg = if let Some(ref raw_bytes) = office_state.raw_package_bytes {
+            PresentationPackage::open(Cursor::new(raw_bytes))
+                .unwrap_or_else(|_| PresentationPackage::create_empty())
         } else {
             PresentationPackage::create_empty()
         };
 
-        let file = File::create(target_path)
-            .map_err(|e| format!("Failed to create PPT file {}: {e}", target_path.display()))?;
-        let mut writer = BufWriter::new(file);
-        pkg.save(&mut writer).map_err(|e| {
-            format!(
-                "Failed to save PowerPoint presentation to {}: {e}",
-                target_path.display()
-            )
-        })?;
-        writer.flush().map_err(|e| e.to_string())?;
-        Ok(())
+        if let Some(ref extra_store) = office_state.unparsed_store {
+            for (_, part) in extra_store.iter() {
+                pkg.unparsed_store.insert(part.clone());
+            }
+        }
+
+        let mut out = Cursor::new(Vec::new());
+        pkg.save(&mut out)
+            .map_err(|e| format!("Failed to serialize PowerPoint presentation: {e}"))?;
+        Ok(out.into_inner())
+    }
+
+    fn save_ppt_package(
+        office_state: &GlobalOfficeState,
+        target_path: &Path,
+    ) -> Result<(), String> {
+        let bytes = Self::serialize_ppt_package_to_bytes(office_state)?;
+        std::fs::write(target_path, bytes)
+            .map_err(|e| format!("Failed to write PPTX file {}: {e}", target_path.display()))
+    }
+
+    /// Performs lossless in-memory DOCX roundtrip update.
+    pub fn roundtrip_docx_bytes(
+        original_bytes: &[u8],
+        updated_content: &str,
+    ) -> Result<Vec<u8>, String> {
+        let mut pkg = WordPackage::from_bytes(original_bytes)
+            .map_err(|e| format!("Failed to parse Word package: {e}"))?;
+
+        pkg.document.body.elements.clear();
+        if updated_content.is_empty() {
+            let mut p = Paragraph::default();
+            let mut r = Run::default();
+            r.content.push(RunContent::Text("".to_string(), false));
+            p.children.push(ParagraphChild::Run(r));
+            pkg.document.body.elements.push(BodyElement::Paragraph(p));
+        } else {
+            for line in updated_content.lines() {
+                let mut p = Paragraph::default();
+                let mut r = Run::default();
+                r.content.push(RunContent::Text(line.to_string(), false));
+                p.children.push(ParagraphChild::Run(r));
+                pkg.document.body.elements.push(BodyElement::Paragraph(p));
+            }
+        }
+
+        let mut out = Cursor::new(Vec::new());
+        pkg.save(&mut out)
+            .map_err(|e| format!("Failed to serialize Word package: {e}"))?;
+        Ok(out.into_inner())
+    }
+
+    /// Performs lossless in-memory XLSX roundtrip update.
+    pub fn roundtrip_xlsx_bytes(
+        original_bytes: &[u8],
+        updated_cells: &HashMap<String, String>,
+    ) -> Result<Vec<u8>, String> {
+        let mut pkg = ExcelWorkbookPackage::open(Cursor::new(original_bytes))
+            .map_err(|e| format!("Failed to parse Excel package: {e}"))?;
+
+        if let Some((_, ws)) = pkg.worksheets.first_mut() {
+            for (coord, val) in updated_cells {
+                if let Ok((row, col)) = excel_engine::grid::cell_to_coords(coord) {
+                    if val.starts_with('=') {
+                        let formula = val.trim_start_matches('=').to_string();
+                        let _ = ws.grid.set_formula(row, col, &formula, None);
+                    } else if let Ok(num) = val.parse::<f64>() {
+                        let _ = ws.grid.set_number(row, col, num);
+                    } else if val == "TRUE" || val == "true" {
+                        let _ = ws.grid.set_boolean(row, col, true);
+                    } else if val == "FALSE" || val == "false" {
+                        let _ = ws.grid.set_boolean(row, col, false);
+                    } else {
+                        let str_idx = pkg.shared_strings.add_plain(val);
+                        let _ = ws.grid.set_shared_string(row, col, str_idx);
+                    }
+                }
+            }
+        }
+
+        let mut out = Cursor::new(Vec::new());
+        pkg.save(&mut out)
+            .map_err(|e| format!("Failed to serialize Excel package: {e}"))?;
+        Ok(out.into_inner())
+    }
+
+    /// Performs lossless in-memory PPTX roundtrip update.
+    pub fn roundtrip_pptx_bytes(original_bytes: &[u8]) -> Result<Vec<u8>, String> {
+        let pkg = PresentationPackage::open(Cursor::new(original_bytes))
+            .map_err(|e| format!("Failed to parse PowerPoint package: {e}"))?;
+
+        let mut out = Cursor::new(Vec::new());
+        pkg.save(&mut out)
+            .map_err(|e| format!("Failed to serialize PowerPoint package: {e}"))?;
+        Ok(out.into_inner())
     }
 
     fn save_pdf_file(title: &str, body: &str, target_path: &Path) -> Result<(), String> {

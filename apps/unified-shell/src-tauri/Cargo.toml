@@ -16,6 +16,11 @@ ppt-engine = { path = "../../../crates/ppt-engine" }
 render-core = { path = "../../../crates/render-core" }
 crdt-collab = { path = "../../../crates/crdt-collab" }
 macro-engine = { path = "../../../crates/macro-engine" }
+pdf-engine = { path = "../../../crates/pdf-engine" }
+plugin-runtime = { path = "../../../crates/plugin-runtime" }
+crypto-security = { path = "../../../crates/crypto-security" }
+data-connectors = { path = "../../../crates/data-connectors" }
+copilot-core = { path = "../../../crates/copilot-core" }
 
 [build-dependencies]
 tauri-build = { version = "2.1", features = [] }

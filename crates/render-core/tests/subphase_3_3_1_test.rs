@@ -540,8 +540,13 @@ fn test_20_compile_from_layout_document_bridge_and_120fps_sla() {
                     bold: l % 5 == 0,
                     italic: l % 7 == 0,
                     color: Some("1F497D".into()),
+                    underline: false,
+                    strike: false,
+                    revision_type: None,
+                    revision_author: None,
                 }],
                 is_last_line_of_para: true,
+                has_change_bar: false,
             });
         }
 

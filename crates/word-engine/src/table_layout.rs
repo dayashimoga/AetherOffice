@@ -633,9 +633,15 @@ impl<'a> TablePaginationSolver<'a> {
                                 bold: tok.style.bold,
                                 italic: tok.style.italic,
                                 color: tok.style.color.clone(),
+                                underline: tok.underline,
+                                strike: tok.strike,
+                                revision_type: tok.revision_type,
+                                revision_author: tok.revision_author.clone(),
                             });
                             token_x = token_x.saturating_add(tw);
                         }
+
+                        let has_change_bar = line_runs.iter().any(|r| r.revision_type.is_some());
 
                         cell_lines.push(LayoutLine {
                             bounds: BoundingBox::new(
@@ -648,6 +654,7 @@ impl<'a> TablePaginationSolver<'a> {
                             paragraph_index: 0,
                             runs: line_runs,
                             is_last_line_of_para: false,
+                            has_change_bar,
                         });
                         line_y = line_y.saturating_add(line_h);
                     }

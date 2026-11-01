@@ -41,6 +41,25 @@ pub struct Footnote {
 }
 
 impl Footnote {
+    pub fn new(id: i64, text: &str) -> Self {
+        use crate::model::{BodyElement, Paragraph, ParagraphChild, Run, RunContent};
+        let mut p = Paragraph::default();
+        let mut r = Run::default();
+        r.content.push(RunContent::FootnoteRef);
+        r.content
+            .push(RunContent::Text(format!(" {}", text), false));
+        p.children.push(ParagraphChild::Run(r));
+
+        Self {
+            id,
+            footnote_type: None,
+            body: Body {
+                elements: vec![BodyElement::Paragraph(p)],
+                sect_pr: None,
+            },
+        }
+    }
+
     pub fn get_text(&self) -> String {
         self.body.get_full_text()
     }
@@ -62,8 +81,115 @@ pub struct Endnote {
 }
 
 impl Endnote {
+    pub fn new(id: i64, text: &str) -> Self {
+        use crate::model::{BodyElement, Paragraph, ParagraphChild, Run, RunContent};
+        let mut p = Paragraph::default();
+        let mut r = Run::default();
+        r.content.push(RunContent::EndnoteRef);
+        r.content
+            .push(RunContent::Text(format!(" {}", text), false));
+        p.children.push(ParagraphChild::Run(r));
+
+        Self {
+            id,
+            endnote_type: None,
+            body: Body {
+                elements: vec![BodyElement::Paragraph(p)],
+                sect_pr: None,
+            },
+        }
+    }
+
     pub fn get_text(&self) -> String {
         self.body.get_full_text()
+    }
+}
+
+/// Footnote and endnote numbering styles.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum FootnoteNumberingFormat {
+    #[default]
+    Arabic,
+    RomanLower,
+    RomanUpper,
+    LetterLower,
+    LetterUpper,
+    Symbol,
+}
+
+impl FootnoteNumberingFormat {
+    pub fn format_index(&self, index: usize) -> String {
+        match self {
+            Self::Arabic => index.to_string(),
+            Self::RomanLower => Self::to_roman(index, false),
+            Self::RomanUpper => Self::to_roman(index, true),
+            Self::LetterLower => Self::to_letter(index, false),
+            Self::LetterUpper => Self::to_letter(index, true),
+            Self::Symbol => {
+                let symbols = ["*", "†", "‡", "§", "||", "¶"];
+                if index == 0 {
+                    return "*".to_string();
+                }
+                let sym_idx = (index.saturating_sub(1)) % symbols.len();
+                let repeat = ((index.saturating_sub(1)) / symbols.len()).saturating_add(1);
+                symbols[sym_idx].repeat(repeat)
+            }
+        }
+    }
+
+    fn to_roman(mut num: usize, upper: bool) -> String {
+        if num == 0 {
+            return if upper {
+                "N".to_string()
+            } else {
+                "n".to_string()
+            };
+        }
+        let roman_table = [
+            (1000, "M"),
+            (900, "CM"),
+            (500, "D"),
+            (400, "CD"),
+            (100, "C"),
+            (90, "XC"),
+            (50, "L"),
+            (40, "XL"),
+            (10, "X"),
+            (9, "IX"),
+            (5, "V"),
+            (4, "IV"),
+            (1, "I"),
+        ];
+        let mut result = String::new();
+        for &(val, sym) in &roman_table {
+            while num >= val {
+                result.push_str(sym);
+                num = num.saturating_sub(val);
+            }
+        }
+        if upper {
+            result
+        } else {
+            result.to_lowercase()
+        }
+    }
+
+    fn to_letter(mut num: usize, upper: bool) -> String {
+        if num == 0 {
+            return if upper {
+                "A".to_string()
+            } else {
+                "a".to_string()
+            };
+        }
+        let mut chars = Vec::new();
+        while num > 0 {
+            let rem = (num.saturating_sub(1)) % 26;
+            let ch = ((if upper { b'A' } else { b'a' }).saturating_add(rem as u8)) as char;
+            chars.push(ch);
+            num = (num.saturating_sub(1)) / 26;
+        }
+        chars.into_iter().rev().collect()
     }
 }
 
@@ -81,12 +207,39 @@ pub struct Comment {
     pub author: String,
     pub initials: Option<String>,
     pub date: Option<String>,
+    pub parent_id: Option<String>,
+    pub is_resolved: bool,
     pub body: Body,
 }
 
 impl Comment {
+    pub fn new(id: impl Into<String>, author: impl Into<String>, text: &str) -> Self {
+        use crate::model::{BodyElement, Paragraph, ParagraphChild, Run, RunContent};
+        let mut p = Paragraph::default();
+        let mut r = Run::default();
+        r.content.push(RunContent::Text(text.to_string(), false));
+        p.children.push(ParagraphChild::Run(r));
+
+        Self {
+            id: id.into(),
+            author: author.into(),
+            initials: None,
+            date: None,
+            parent_id: None,
+            is_resolved: false,
+            body: Body {
+                elements: vec![BodyElement::Paragraph(p)],
+                sect_pr: None,
+            },
+        }
+    }
+
     pub fn get_text(&self) -> String {
         self.body.get_full_text()
+    }
+
+    pub fn is_reply(&self) -> bool {
+        self.parent_id.is_some()
     }
 }
 

@@ -54,6 +54,9 @@ pub struct Worksheet {
     pub sheet_views: Vec<SheetView>,
     pub sheet_format_pr: Option<SheetFormatPr>,
     pub page_margins: Option<PageMargins>,
+    pub data_validations: Vec<crate::validation::DataValidation>,
+    pub conditional_formattings: Vec<crate::conditional_format::ConditionalFormattingCollection>,
+    pub sparkline_groups: Vec<crate::conditional_format::SparklineGroup>,
     /// Unmodeled elements (e.g. dataValidations, autoFilter, conditionalFormatting)
     pub unmodeled_nodes: Vec<RawXmlNodeBuffer>,
     /// Root `<worksheet>` attributes including namespaces and `mc:Ignorable`
@@ -98,6 +101,9 @@ impl Worksheet {
                 header: 0.3,
                 footer: 0.3,
             }),
+            data_validations: Vec::new(),
+            conditional_formattings: Vec::new(),
+            sparkline_groups: Vec::new(),
             unmodeled_nodes: Vec::new(),
             root_attrs,
         }
@@ -120,6 +126,9 @@ impl Worksheet {
             sheet_views: Vec::new(),
             sheet_format_pr: None,
             page_margins: None,
+            data_validations: Vec::new(),
+            conditional_formattings: Vec::new(),
+            sparkline_groups: Vec::new(),
             unmodeled_nodes: Vec::new(),
             root_attrs: BTreeMap::new(),
         };
@@ -732,6 +741,15 @@ impl Worksheet {
             pm_tag.push_attribute(("footer", f_str.as_str()));
             xml_writer
                 .write_event(Event::Empty(pm_tag))
+                .map_err(EngineError::Io)?;
+        }
+
+        // Data Validations
+        if !self.data_validations.is_empty() {
+            let dv_xml = crate::validation::data_validations_to_xml(&self.data_validations);
+            xml_writer
+                .get_mut()
+                .write_all(dv_xml.as_bytes())
                 .map_err(EngineError::Io)?;
         }
 

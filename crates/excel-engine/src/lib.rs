@@ -6,12 +6,14 @@
 //! SLAs, and Zero Panics).
 
 pub mod calc_dag;
+pub mod conditional_format;
 pub mod formula;
 pub mod functions;
 pub mod grid;
 pub mod package;
 pub mod shared_strings;
 pub mod styles;
+pub mod validation;
 pub mod workbook;
 pub mod worksheet;
 
@@ -19,7 +21,9 @@ pub use calc_dag::{
     apply_ieee_snap_to_zero, evaluate_ast_node, CalculationDag, CellKey, IterativeConfig,
     IEEE_SNAP_THRESHOLD,
 };
+pub use conditional_format::*;
 pub use functions::*;
+pub use validation::*;
 
 pub use formula::{
     compile_formula, decompile_ast, decompile_bytecode, decompile_formula, parse_formula, AstNode,

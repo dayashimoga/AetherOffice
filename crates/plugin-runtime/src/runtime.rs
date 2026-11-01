@@ -4,6 +4,7 @@ use crate::manifest::{PluginCapability, PluginManifest};
 use crate::memory::LinearMemory;
 use crate::wasm_binary::{parse_wasm_module, ParsedWasmModule};
 use crate::wit_contract::{CellCoordinate, LifecycleEvent, SelectionInfo};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 pub const DEFAULT_PLUGIN_FUEL_LIMIT: u64 = 100_000;
@@ -11,7 +12,8 @@ pub const DEFAULT_ACTION_FUEL_COST: u64 = 100;
 pub const DEFAULT_EVENT_FUEL_COST: u64 = 500;
 
 /// Operational lifecycle state of a plugin.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum PluginState {
     /// Plugin binary parsed, memory allocated, awaiting initialization.
     Loaded,
@@ -35,7 +37,7 @@ impl PluginState {
 }
 
 /// Execution fuel meter tracking compute gas consumption to prevent runaway plugins.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FuelMeter {
     pub limit: u64,
     pub remaining: u64,
@@ -64,7 +66,7 @@ impl FuelMeter {
 }
 
 /// Actions dispatched by a plugin to query or mutate host state.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PluginAction {
     QuerySelection {
         doc_id: String,
@@ -99,7 +101,7 @@ pub enum PluginAction {
 }
 
 /// Results returned from executing a `PluginAction`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ActionResult {
     Selection(SelectionInfo),
     CellValue(String),
@@ -107,6 +109,22 @@ pub enum ActionResult {
     SlideShapes(Vec<String>),
     MutationSuccess,
     RibbonSuccess(bool),
+}
+
+/// Serializable descriptor representing the active status of an installed plugin.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PluginStatusDto {
+    pub id: String,
+    pub name: String,
+    pub version: String,
+    pub author: String,
+    pub description: String,
+    pub state: String,
+    pub capabilities: Vec<String>,
+    pub fuel_limit: u64,
+    pub fuel_remaining: u64,
+    pub dispatched_events: u64,
+    pub exported_hooks: Vec<String>,
 }
 
 /// An isolated, sandboxed instance of a WebAssembly plugin.
@@ -368,7 +386,59 @@ impl WasmPluginHost {
 
     /// List all loaded plugin IDs.
     pub fn list_plugin_ids(&self) -> Vec<String> {
-        self.plugins.keys().cloned().collect()
+        let mut ids: Vec<String> = self.plugins.keys().cloned().collect();
+        ids.sort();
+        ids
+    }
+
+    /// List status information for all loaded plugins.
+    pub fn list_plugins(&self) -> Vec<PluginStatusDto> {
+        let mut list: Vec<PluginStatusDto> = self
+            .plugins
+            .values()
+            .map(|p| {
+                let mut hooks: Vec<String> = p.exported_hooks.iter().cloned().collect();
+                hooks.sort();
+                PluginStatusDto {
+                    id: p.manifest.id.clone(),
+                    name: p.manifest.name.clone(),
+                    version: p.manifest.version.clone(),
+                    author: p.manifest.author.clone(),
+                    description: p.manifest.description.clone(),
+                    state: p.state.as_str().to_string(),
+                    capabilities: p
+                        .manifest
+                        .capabilities
+                        .iter()
+                        .map(|c| c.as_str().to_string())
+                        .collect(),
+                    fuel_limit: p.fuel.limit,
+                    fuel_remaining: p.fuel.remaining,
+                    dispatched_events: p.dispatched_events_count,
+                    exported_hooks: hooks,
+                }
+            })
+            .collect();
+        list.sort_by(|a, b| a.id.cmp(&b.id));
+        list
+    }
+
+    /// Checks if a plugin is currently in active state.
+    pub fn is_active(&self, plugin_id: &str) -> bool {
+        self.plugins
+            .get(plugin_id)
+            .map(|p| p.state == PluginState::Active)
+            .unwrap_or(false)
+    }
+
+    /// Refills fuel units for a plugin instance up to its initial limit.
+    pub fn refill_fuel(&mut self, plugin_id: &str) -> Result<(), PluginError> {
+        let instance = self
+            .plugins
+            .get_mut(plugin_id)
+            .ok_or_else(|| PluginError::PluginNotFound(plugin_id.to_string()))?;
+        instance.fuel.reset();
+        Ok(())
     }
 
     /// Initialize a plugin by ID (`on-init` event).

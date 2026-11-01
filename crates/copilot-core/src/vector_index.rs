@@ -79,6 +79,11 @@ impl VectorIndex {
     }
 
     /// List of all document IDs indexed.
+    /// Access all index entries.
+    pub fn entries(&self) -> &[IndexEntry] {
+        &self.entries
+    }
+
     pub fn document_ids(&self) -> Vec<String> {
         self.doc_id_to_chunks.keys().cloned().collect()
     }

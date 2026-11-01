@@ -15,3 +15,4 @@ word-engine = { path = "../word-engine" }
 excel-engine = { path = "../excel-engine" }
 ppt-engine = { path = "../ppt-engine" }
 pdf-engine = { path = "../pdf-engine" }
+crypto-security = { path = "../crypto-security" }

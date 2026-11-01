@@ -19,4 +19,4 @@ pub use interpolator::{
     interpolate_scale,
 };
 pub use model::*;
-pub use timeline::{AnimatedSceneState, AnimatedShapeState, AnimationTimeline};
+pub use timeline::{AnimatedSceneState, AnimatedShapeState, AnimationTimeline, AnimationTrackInfo};

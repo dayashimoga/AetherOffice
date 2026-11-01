@@ -6,6 +6,7 @@
  */
 
 import { calcState, CalcState, SheetChart } from "../state/calcState";
+import { calcPivotCoordinator } from "../state/CalcPivotCoordinator";
 
 export type QuadrantType = "filters" | "columns" | "rows" | "values";
 
@@ -867,6 +868,10 @@ export class PivotFieldListSidebar {
   }
 
   private getUniqueValuesForField(fieldName: string): string[] {
+    const lastRes = calcPivotCoordinator.getLastResult();
+    if (lastRes?.unique_field_values?.[fieldName] && lastRes.unique_field_values[fieldName].length > 0) {
+      return lastRes.unique_field_values[fieldName];
+    }
     const sampleVals: Record<string, string[]> = {
       Region: ["North", "South", "East", "West"],
       Category: ["Electronics", "Furniture", "Supplies"],
@@ -874,6 +879,13 @@ export class PivotFieldListSidebar {
       CustomerID: ["CUST-1", "CUST-2", "CUST-3"],
     };
     return sampleVals[fieldName] || ["Option A", "Option B", "Option C"];
+  }
+
+  public loadDatasetFromGrid(range: string): void {
+    const ds = calcPivotCoordinator.extractDatasetFromGrid(this.state, range);
+    if (ds.headers.length > 0) {
+      this.setAvailableFields(ds.headers);
+    }
   }
 
   /**

@@ -9,6 +9,7 @@ serde.workspace = true
 serde_json.workspace = true
 flate2 = "1.0"
 sha2 = "0.10"
+crypto-security = { path = "../crypto-security" }
 
 [dev-dependencies]
 serde_json.workspace = true

@@ -88,6 +88,46 @@ impl DataValue {
         }
     }
 
+    /// Converts an `excel_engine::CellValue` into a `DataValue`.
+    pub fn from_cell_value(val: &CellValue) -> Self {
+        match val {
+            CellValue::Empty => Self::Null,
+            CellValue::Number(n) => {
+                if n.fract() == 0.0 && *n >= (i64::MIN as f64) && *n <= (i64::MAX as f64) {
+                    Self::Int64(*n as i64)
+                } else {
+                    Self::Float64(*n)
+                }
+            }
+            CellValue::Boolean(b) => Self::Boolean(*b),
+            CellValue::InlineString(s) => Self::Text(s.clone()),
+            CellValue::SharedString(idx) => Self::Text(format!("SharedStr({idx})")),
+            CellValue::Formula {
+                cached_value: Some(n),
+                ..
+            } => {
+                if n.fract() == 0.0 && *n >= (i64::MIN as f64) && *n <= (i64::MAX as f64) {
+                    Self::Int64(*n as i64)
+                } else {
+                    Self::Float64(*n)
+                }
+            }
+            CellValue::Formula {
+                formula,
+                cached_value: None,
+            } => Self::Text(formula.clone()),
+            CellValue::Error(e) => Self::Text(e.as_str().to_string()),
+            CellValue::Array(rows) => {
+                if let Some(first_row) = rows.first() {
+                    if let Some(first_val) = first_row.first() {
+                        return Self::from_cell_value(first_val);
+                    }
+                }
+                Self::Null
+            }
+        }
+    }
+
     /// Formats as string for text output.
     pub fn to_string_lossy(&self) -> String {
         match self {

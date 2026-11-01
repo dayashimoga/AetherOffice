@@ -14,8 +14,12 @@ pub use host::{DocumentHost, DocumentMutationHandler, DocumentQueryHandler, Mock
 pub use manifest::{PluginCapability, PluginManifest};
 pub use memory::{LinearMemory, WASM_PAGE_SIZE};
 pub use runtime::{
-    ActionResult, FuelMeter, PluginAction, PluginInstance, PluginState, WasmPluginHost,
+    ActionResult, FuelMeter, PluginAction, PluginInstance, PluginState, PluginStatusDto,
+    WasmPluginHost,
 };
-pub use udf_registry::{PluginUdfCallback, PluginUdfDefinition, PluginUdfRegistry};
+pub use udf_registry::{
+    PluginUdfCallResultDto, PluginUdfCallback, PluginUdfDefinition, PluginUdfMetaDto,
+    PluginUdfRegistry,
+};
 pub use wasm_binary::{parse_wasm_module, ParsedWasmModule, WasmBinaryBuilder};
 pub use wit_contract::{CellCoordinate, DocumentType, LifecycleEvent, SelectionInfo};

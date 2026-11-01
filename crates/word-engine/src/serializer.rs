@@ -234,6 +234,12 @@ pub fn serialize_comments(comments: &CommentsDocument) -> Result<Vec<u8>> {
         if let Some(ref date) = c.date {
             c_tag.push_attribute(("w:date", date.as_str()));
         }
+        if let Some(ref parent) = c.parent_id {
+            c_tag.push_attribute(("w:parent", parent.as_str()));
+        }
+        if c.is_resolved {
+            c_tag.push_attribute(("w:done", "1"));
+        }
 
         writer
             .write_event(Event::Start(c_tag))
@@ -466,6 +472,30 @@ pub(crate) fn serialize_paragraph_properties<W: std::io::Write>(
         }
         writer
             .write_event(Event::Empty(k_tag))
+            .map_err(EngineError::Io)?;
+    }
+
+    if let Some(ref change) = p_pr.p_pr_change {
+        let mut change_tag = BytesStart::new("w:pPrChange");
+        change_tag.push_attribute(("w:id", change.id.as_str()));
+        change_tag.push_attribute(("w:author", change.author.as_str()));
+        change_tag.push_attribute(("w:date", change.date.as_str()));
+        writer
+            .write_event(Event::Start(change_tag))
+            .map_err(EngineError::Io)?;
+        if let Some(ref prev) = change.previous_properties {
+            serialize_paragraph_properties(writer, prev)?;
+        }
+        writer
+            .write_event(Event::End(BytesEnd::new("w:pPrChange")))
+            .map_err(EngineError::Io)?;
+    }
+
+    if let Some(ol) = p_pr.outline_level {
+        let mut ol_tag = BytesStart::new("w:outlineLvl");
+        ol_tag.push_attribute(("w:val", ol.to_string().as_str()));
+        writer
+            .write_event(Event::Empty(ol_tag))
             .map_err(EngineError::Io)?;
     }
 
@@ -805,6 +835,22 @@ pub(crate) fn serialize_run_properties<W: std::io::Write>(
         h_tag.push_attribute(("w:val", hl.as_str()));
         writer
             .write_event(Event::Empty(h_tag))
+            .map_err(EngineError::Io)?;
+    }
+
+    if let Some(ref change) = r_pr.r_pr_change {
+        let mut change_tag = BytesStart::new("w:rPrChange");
+        change_tag.push_attribute(("w:id", change.id.as_str()));
+        change_tag.push_attribute(("w:author", change.author.as_str()));
+        change_tag.push_attribute(("w:date", change.date.as_str()));
+        writer
+            .write_event(Event::Start(change_tag))
+            .map_err(EngineError::Io)?;
+        if let Some(ref prev) = change.previous_properties {
+            serialize_run_properties(writer, prev)?;
+        }
+        writer
+            .write_event(Event::End(BytesEnd::new("w:rPrChange")))
             .map_err(EngineError::Io)?;
     }
 

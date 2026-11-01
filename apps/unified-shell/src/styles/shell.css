@@ -1805,3 +1805,170 @@ body.theme-dark .pdf-viewport,
 
 
 
+
+/* ==========================================================================
+   Sub-Phase 52.1.1: High Contrast Themes & Classic/Compact Ribbon Overhauls
+   ========================================================================== */
+
+html[data-theme="high-contrast-dark"],
+body.theme-high-contrast-dark,
+#app.theme-high-contrast-dark,
+html[data-high-contrast="true"][data-theme="dark"] {
+  --bg-primary: #000000;
+  --bg-app: #000000;
+  --bg-surface: #000000;
+  --bg-shell: #000000;
+  --bg-toolbar: #000000;
+  --bg-sidebar: #000000;
+  --bg-workspace: #000000;
+  --bg-panel: #000000;
+  --bg-canvas-backdrop: #000000;
+  --border-color: #ffffff;
+  --border-subtle: #ffffff;
+  --text-primary: #ffffff;
+  --text-secondary: #ffff00;
+  --text-muted: #00ffff;
+  --ribbon-bg: #000000;
+  --bg-ribbon: #000000;
+  --hover-bg: #1a1a1a;
+  --active-bg: #333333;
+  --primary-accent: #00ffff;
+  --accent-color: #00ffff;
+  --focus-ring: #00ffff;
+  --word-accent: #00ffff;
+  --excel-accent: #00ff00;
+  --ppt-accent: #ff8800;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+}
+
+html[data-theme="high-contrast-light"],
+body.theme-high-contrast-light,
+#app.theme-high-contrast-light,
+html[data-high-contrast="true"][data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-app: #ffffff;
+  --bg-surface: #ffffff;
+  --bg-shell: #ffffff;
+  --bg-toolbar: #ffffff;
+  --bg-sidebar: #ffffff;
+  --bg-workspace: #ffffff;
+  --bg-panel: #ffffff;
+  --bg-canvas-backdrop: #ffffff;
+  --border-color: #000000;
+  --border-subtle: #000000;
+  --text-primary: #000000;
+  --text-secondary: #000080;
+  --text-muted: #333333;
+  --ribbon-bg: #ffffff;
+  --bg-ribbon: #ffffff;
+  --hover-bg: #e5e5e5;
+  --active-bg: #cccccc;
+  --primary-accent: #0000ee;
+  --accent-color: #0000ee;
+  --focus-ring: #0000ee;
+  --word-accent: #0000ee;
+  --excel-accent: #006600;
+  --ppt-accent: #990000;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+}
+
+/* High Contrast UI Overrides */
+html[data-high-contrast="true"] * {
+  text-shadow: none !important;
+}
+
+html[data-high-contrast="true"] button:focus,
+html[data-high-contrast="true"] input:focus,
+html[data-high-contrast="true"] select:focus,
+html[data-high-contrast="true"] [tabindex]:focus {
+  outline: 2px solid var(--focus-ring, #00ffff) !important;
+  outline-offset: 1px !important;
+}
+
+/* Compact Ribbon Mode */
+.ribbon-bar.ribbon-compact,
+#ribbon-container[data-ribbon-mode="compact"],
+html[data-ribbon-mode="compact"] .ribbon-bar,
+html[data-ribbon-mode="compact"] #ribbon-container {
+  min-height: 44px;
+  height: 44px;
+}
+
+html[data-ribbon-mode="compact"] .ribbon-tools-body,
+html[data-ribbon-mode="compact"] .ribbon-content,
+html[data-ribbon-mode="compact"] .ribbon-panel,
+.ribbon-bar.ribbon-compact .ribbon-tools-body,
+.ribbon-bar.ribbon-compact .ribbon-content,
+.ribbon-bar.ribbon-compact .ribbon-panel {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 4px;
+  padding: 2px 8px;
+  height: 44px !important;
+  align-items: center;
+  overflow-x: auto;
+}
+
+html[data-ribbon-mode="compact"] .ribbon-group,
+.ribbon-bar.ribbon-compact .ribbon-group {
+  flex-direction: row;
+  min-height: 36px;
+  height: 36px;
+  align-items: center;
+  padding: 0 4px;
+}
+
+html[data-ribbon-mode="compact"] .ribbon-group-title,
+.ribbon-bar.ribbon-compact .ribbon-group-title {
+  display: none !important;
+}
+
+html[data-ribbon-mode="compact"] .ribbon-btn,
+.ribbon-bar.ribbon-compact .ribbon-btn {
+  height: 26px;
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+/* Collapsed Ribbon Mode */
+.ribbon-bar.ribbon-collapsed,
+#ribbon-container[data-ribbon-mode="collapsed"],
+html[data-ribbon-mode="collapsed"] .ribbon-bar,
+html[data-ribbon-mode="collapsed"] #ribbon-container {
+  min-height: 32px;
+  height: 32px;
+}
+
+html[data-ribbon-mode="collapsed"] .ribbon-tools-body,
+html[data-ribbon-mode="collapsed"] .ribbon-content,
+html[data-ribbon-mode="collapsed"] .ribbon-panel,
+.ribbon-bar.ribbon-collapsed .ribbon-tools-body,
+.ribbon-bar.ribbon-collapsed .ribbon-content,
+.ribbon-bar.ribbon-collapsed .ribbon-panel {
+  display: none !important;
+}
+
+/* Ribbon mode switcher button in tabs header */
+.ribbon-layout-toggle-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 4px 6px;
+  margin-left: auto;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  align-self: center;
+  transition: all 0.15s ease;
+}
+
+.ribbon-layout-toggle-btn:hover {
+  background-color: var(--hover-bg);
+  color: var(--text-primary);
+}

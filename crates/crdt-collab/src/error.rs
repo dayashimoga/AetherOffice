@@ -37,4 +37,13 @@ pub enum CrdtError {
 
     #[error("Replay packet detected: sender {sender_id}, seq {seq}")]
     ReplayDetected { sender_id: u64, seq: u64 },
+
+    #[error("Operation log error: {0}")]
+    OpLogError(String),
+
+    #[error("Entry not found: {0:?}")]
+    EntryNotFound(crate::id::OpId),
+
+    #[error("Checkpoint not found: {0}")]
+    CheckpointNotFound(String),
 }

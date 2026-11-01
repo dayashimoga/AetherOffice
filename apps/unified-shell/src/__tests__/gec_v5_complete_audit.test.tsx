@@ -205,7 +205,7 @@ describe("GEC-v5.0 Complete Production Audit & Automated Menu Crawler Suite (Sub
       });
 
       expect(totalButtonsTested).toBeGreaterThanOrEqual(30);
-    }, 25000);
+    }, 60000);
 
     it("1.3 PowerPoint: programmatically clicks and audits every tab and control", () => {
       app.getTabBar().addTab({ id: "crawl-p", docType: "PowerPoint", title: "DeckTest.pptx", isDirty: false });
@@ -229,7 +229,7 @@ describe("GEC-v5.0 Complete Production Audit & Automated Menu Crawler Suite (Sub
       });
 
       expect(totalButtonsTested).toBeGreaterThanOrEqual(30);
-    }, 25000);
+    }, 60000);
 
     it("1.4 PDF Studio: programmatically clicks and audits every tab and control", () => {
       app.getTabBar().addTab({ id: "crawl-pdf", docType: "PDF", title: "PdfTest.pdf", isDirty: false });

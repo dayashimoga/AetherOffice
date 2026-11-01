@@ -3001,7 +3001,14 @@ export class SlidesState {
         return true;
       case "SetAnimation": {
         const eff = (typeof payload === "string" ? payload : "fadeIn") as AnimationEffect;
-        const sel = this.getSelectedShape();
+        let sel = this.getSelectedShape();
+        if (!sel) {
+          const slide = this.slides[this.currentSlideIndex];
+          if (slide && slide.shapes && slide.shapes.length > 0) {
+            sel = slide.shapes[0];
+            this.selectedShapeId = sel.id;
+          }
+        }
         if (sel) {
           if (String(eff).toLowerCase() === "none") {
             const slide = this.slides[this.currentSlideIndex];
@@ -3017,7 +3024,14 @@ export class SlidesState {
       }
       case "AddAnimation": {
         if (typeof payload === "string") {
-          const sel = this.getSelectedShape();
+          let sel = this.getSelectedShape();
+        if (!sel) {
+          const slide = this.slides[this.currentSlideIndex];
+          if (slide && slide.shapes && slide.shapes.length > 0) {
+            sel = slide.shapes[0];
+            this.selectedShapeId = sel.id;
+          }
+        }
           if (sel) {
             this.addAnimation(sel.id, payload as AnimationEffect);
             return true;
@@ -3037,7 +3051,14 @@ export class SlidesState {
         return false;
       }
       case "AddMotionPath": {
-        const sel = this.getSelectedShape();
+        let sel = this.getSelectedShape();
+        if (!sel) {
+          const slide = this.slides[this.currentSlideIndex];
+          if (slide && slide.shapes && slide.shapes.length > 0) {
+            sel = slide.shapes[0];
+            this.selectedShapeId = sel.id;
+          }
+        }
         if (sel) {
           const path = typeof payload === "string" ? payload : (payload as any)?.path;
           this.addMotionPathAnimation(sel.id, path);

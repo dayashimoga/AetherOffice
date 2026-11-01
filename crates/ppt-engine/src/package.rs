@@ -75,6 +75,10 @@ impl Default for PresentationPackage {
 }
 
 impl PresentationPackage {
+    /// Creates a new empty presentation package.
+    pub fn new() -> Self {
+        Self::create_empty()
+    }
     /// Creates an empty 16:9 widescreen presentation package with default master, layout, and theme.
     pub fn create_empty() -> Self {
         let mut content_types = ContentTypes::new();
@@ -153,6 +157,17 @@ impl PresentationPackage {
 
         let master = SlideMaster::default();
         let layout = SlideLayout {
+            matching_name: Some("Title Slide".to_string()),
+            common_slide_data: CommonSlideData {
+                name: Some("Title Slide".to_string()),
+                shape_tree: ShapeTree {
+                    shapes: crate::master::SlideMasterDesigner::generate_default_layout_shapes(
+                        "title",
+                    ),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
             layout_type: Some("title".to_string()),
             ..Default::default()
         };
@@ -199,6 +214,11 @@ impl PresentationPackage {
             package_relationships,
             part_relationships,
         }
+    }
+
+    /// Opens an ECMA-376 `.pptx` presentation package from raw bytes.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        Self::open(std::io::Cursor::new(bytes))
     }
 
     /// Opens an ECMA-376 `.pptx` presentation package from a seekable reader.

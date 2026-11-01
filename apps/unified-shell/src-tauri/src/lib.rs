@@ -26,6 +26,11 @@ pub use window_commands::*;
 pub mod file_commands;
 pub use file_commands::*;
 
+pub mod binary_commands;
+pub use binary_commands::*;
+
+pub mod tauri_commands;
+
 pub struct ShellState {
     pub session_manager: Mutex<DesktopSessionManager>,
     pub formatting: Mutex<FormattingState>,
@@ -33,6 +38,24 @@ pub struct ShellState {
     pub app_instances: Mutex<Vec<AppInstance>>,
     pub next_instance_counter: Mutex<u64>,
     pub collab_sessions: Mutex<HashMap<String, crdt_collab::CollabTransportBus>>,
+    pub cancellation_tokens: Mutex<HashMap<String, ooxml_opc::async_pipeline::CancellationToken>>,
+    pub indexer: Mutex<copilot_core::DocumentIndexer>,
+    pub dep_graph: Mutex<render_core::CrossDocDependencyGraph>,
+    pub wikilink_index: Mutex<render_core::WikiLinkIndex>,
+    pub oplog: Mutex<crdt_collab::LocalOpLog>,
+    pub plugin_host: Mutex<plugin_runtime::WasmPluginHost>,
+    pub udf_registry: Mutex<plugin_runtime::PluginUdfRegistry>,
+    pub copilot_engine: Mutex<copilot_core::CopilotGroundedEngine>,
+    pub theme_engine: Mutex<render_core::DesignTokenEngine>,
+    pub accessibility_tree: Mutex<render_core::AriaTree>,
+    pub ime_state: Mutex<render_core::ImeCompositionState>,
+    pub nav_map: Mutex<render_core::KeyboardNavigationMap>,
+    pub gesture_recognizer: Mutex<render_core::TouchGestureRecognizer>,
+    pub palm_filter: Mutex<render_core::PalmRejectionFilter>,
+    pub split_grid: Mutex<render_core::AdaptiveSplitGrid>,
+    pub dlp_policy: Mutex<crypto_security::DlpPolicy>,
+    pub audit_log: Mutex<crypto_security::AuditLog>,
+    pub entitlement_engine: Mutex<render_core::EntitlementEngine>,
 }
 
 impl Default for ShellState {
@@ -54,6 +77,30 @@ impl ShellState {
             app_instances: Mutex::new(Vec::new()),
             next_instance_counter: Mutex::new(0),
             collab_sessions: Mutex::new(HashMap::new()),
+            cancellation_tokens: Mutex::new(HashMap::new()),
+            indexer: Mutex::new(copilot_core::DocumentIndexer::new()),
+            dep_graph: Mutex::new(render_core::CrossDocDependencyGraph::new()),
+            wikilink_index: Mutex::new(render_core::WikiLinkIndex::new()),
+            oplog: Mutex::new(crdt_collab::LocalOpLog::new()),
+            plugin_host: Mutex::new(plugin_runtime::WasmPluginHost::default()),
+            udf_registry: Mutex::new(plugin_runtime::PluginUdfRegistry::new()),
+            copilot_engine: Mutex::new(copilot_core::CopilotGroundedEngine::default()),
+            theme_engine: Mutex::new(render_core::DesignTokenEngine::new()),
+            accessibility_tree: Mutex::new(render_core::AriaTree::new(render_core::AriaNode::new(
+                "root-doc",
+                render_core::AriaRole::Document,
+                "Document Surface",
+            ))),
+            ime_state: Mutex::new(render_core::ImeCompositionState::new()),
+            nav_map: Mutex::new(render_core::KeyboardNavigationMap::new()),
+            gesture_recognizer: Mutex::new(render_core::TouchGestureRecognizer::new()),
+            palm_filter: Mutex::new(render_core::PalmRejectionFilter::new()),
+            split_grid: Mutex::new(render_core::AdaptiveSplitGrid::new(
+                render_core::SplitGridMode::Single,
+            )),
+            dlp_policy: Mutex::new(crypto_security::DlpPolicy::default_enterprise_policy()),
+            audit_log: Mutex::new(crypto_security::AuditLog::new()),
+            entitlement_engine: Mutex::new(render_core::EntitlementEngine::new()),
         }
     }
 }
@@ -80,6 +127,60 @@ pub fn open_document(state: &ShellState, file_path: &str) -> Result<SessionSumma
         .lock()
         .map_err(|e| format!("Lock error: {e}"))?;
     render_core::DocumentIoEngine::open_document_from_disk(&mut mgr, file_path)
+}
+
+pub fn open_document_async<F>(
+    state: &ShellState,
+    file_path: &str,
+    session_id: Option<&str>,
+    progress_cb: F,
+) -> Result<SessionSummary, String>
+where
+    F: Fn(ooxml_opc::async_pipeline::IngestionProgress) + Send + Sync + 'static,
+{
+    let token = ooxml_opc::async_pipeline::CancellationToken::new();
+    let tracking_key = session_id.unwrap_or("").to_string();
+    if !tracking_key.is_empty() {
+        let mut tokens = state
+            .cancellation_tokens
+            .lock()
+            .map_err(|e| format!("Lock error: {e}"))?;
+        tokens.insert(tracking_key.clone(), token.clone());
+    }
+
+    let result = {
+        let mut mgr = state
+            .session_manager
+            .lock()
+            .map_err(|e| format!("Lock error: {e}"))?;
+        render_core::DocumentIoEngine::open_document_async(
+            &mut mgr,
+            file_path,
+            Some(&token),
+            progress_cb,
+        )
+    };
+
+    if !tracking_key.is_empty() {
+        if let Ok(mut tokens) = state.cancellation_tokens.lock() {
+            tokens.remove(&tracking_key);
+        }
+    }
+
+    result
+}
+
+pub fn cancel_ingestion(state: &ShellState, session_id: &str) -> Result<bool, String> {
+    let tokens = state
+        .cancellation_tokens
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    if let Some(token) = tokens.get(session_id) {
+        token.cancel();
+        Ok(true)
+    } else {
+        Ok(false)
+    }
 }
 
 pub fn save_document(
@@ -127,6 +228,12 @@ pub fn export_pdf(
         .lock()
         .map_err(|e| format!("Lock error: {e}"))?;
     render_core::DocumentIoEngine::export_document_to_pdf(&mgr, session_id, output_path)
+}
+
+pub fn export_svg(_state: &ShellState, session_id: &str) -> Result<String, String> {
+    Ok(format!(
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 1100\" data-session-id=\"{session_id}\"><rect width=\"100%\" height=\"100%\" fill=\"#ffffff\"/><text x=\"40\" y=\"60\" font-family=\"Segoe UI, sans-serif\" font-size=\"16\" fill=\"#000000\">AetherOffice Document [{session_id}]</text></svg>"
+    ))
 }
 
 pub fn get_document_info(
@@ -178,6 +285,1327 @@ pub fn execute_redo(state: &ShellState, session_id: &str) -> Result<(), String> 
         Ok(())
     } else {
         Err("Session not found".into())
+    }
+}
+
+pub fn workspace_search(
+    state: &ShellState,
+    query: &str,
+    top_k: Option<usize>,
+) -> Result<Vec<copilot_core::HybridSearchResult>, String> {
+    let indexer = state
+        .indexer
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    indexer
+        .search(query, top_k.unwrap_or(10), None)
+        .map_err(|e| e.to_string())
+}
+
+pub fn workspace_index_text(
+    state: &ShellState,
+    doc_id: &str,
+    title: &str,
+    text: &str,
+) -> Result<usize, String> {
+    let mut indexer = state
+        .indexer
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    indexer
+        .index_plain_text(doc_id, title, text)
+        .map_err(|e| e.to_string())
+}
+
+pub fn workspace_get_index_summary(
+    state: &ShellState,
+) -> Result<copilot_core::IndexSummary, String> {
+    let indexer = state
+        .indexer
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    Ok(indexer.get_summary())
+}
+
+pub fn federated_search(
+    state: &ShellState,
+    query: &str,
+    case_sensitive: bool,
+    whole_word: bool,
+    use_regex: bool,
+) -> Result<Vec<render_core::FederatedSearchMatch>, String> {
+    let mgr = state
+        .session_manager
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    let options = render_core::SearchOptions {
+        case_sensitive,
+        whole_word,
+        use_regex,
+    };
+    Ok(render_core::FederatedSearchEngine::search_workspace(
+        &mgr, query, &options,
+    ))
+}
+
+pub fn federated_replace_match(
+    state: &ShellState,
+    session_id: &str,
+    query: &str,
+    replacement: &str,
+    case_sensitive: bool,
+    whole_word: bool,
+    use_regex: bool,
+) -> Result<usize, String> {
+    let mut mgr = state
+        .session_manager
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    let options = render_core::SearchOptions {
+        case_sensitive,
+        whole_word,
+        use_regex,
+    };
+    render_core::FederatedSearchEngine::replace_in_session(
+        &mut mgr,
+        session_id,
+        query,
+        replacement,
+        &options,
+    )
+}
+
+pub fn federated_replace_all(
+    state: &ShellState,
+    query: &str,
+    replacement: &str,
+    case_sensitive: bool,
+    whole_word: bool,
+    use_regex: bool,
+    target_session_ids: Option<Vec<String>>,
+) -> Result<render_core::FederatedReplaceSummary, String> {
+    let mut mgr = state
+        .session_manager
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    let options = render_core::SearchOptions {
+        case_sensitive,
+        whole_word,
+        use_regex,
+    };
+    render_core::FederatedSearchEngine::replace_all(
+        &mut mgr,
+        query,
+        replacement,
+        &options,
+        target_session_ids,
+    )
+}
+
+pub fn omnibox_query(
+    state: &ShellState,
+    query: &str,
+    max_results: Option<usize>,
+) -> Result<Vec<render_core::OmniboxItem>, String> {
+    let mgr = state
+        .session_manager
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    Ok(render_core::OmniboxEngine::query(
+        &mgr,
+        query,
+        max_results.unwrap_or(20),
+    ))
+}
+
+pub fn dep_graph_register_dependency(
+    state: &ShellState,
+    edge: render_core::DependencyEdge,
+) -> Result<String, String> {
+    let mut graph = state
+        .dep_graph
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    graph.register_dependency(edge).map_err(|e| e.to_string())
+}
+
+pub fn dep_graph_remove_dependency(state: &ShellState, edge_id: &str) -> Result<bool, String> {
+    let mut graph = state
+        .dep_graph
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    graph.remove_dependency(edge_id).map_err(|e| e.to_string())
+}
+
+pub fn dep_graph_get_dependents(
+    state: &ShellState,
+    doc_id: &str,
+) -> Result<Vec<render_core::DependencyEdge>, String> {
+    let graph = state
+        .dep_graph
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    Ok(graph.get_dependents(doc_id))
+}
+
+pub fn dep_graph_get_dependencies(
+    state: &ShellState,
+    doc_id: &str,
+) -> Result<Vec<render_core::DependencyEdge>, String> {
+    let graph = state
+        .dep_graph
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    Ok(graph.get_dependencies(doc_id))
+}
+
+pub fn dep_graph_propagate_invalidation(
+    state: &ShellState,
+    source_doc_id: &str,
+    affected_anchor: Option<render_core::EmbedAnchor>,
+) -> Result<Vec<String>, String> {
+    let mut graph = state
+        .dep_graph
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    Ok(graph.propagate_invalidation(source_doc_id, affected_anchor.as_ref()))
+}
+
+pub fn dep_graph_update_snapshot(
+    state: &ShellState,
+    snapshot: render_core::LiveEmbedSnapshot,
+) -> Result<(), String> {
+    let mut graph = state
+        .dep_graph
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    graph.update_snapshot(snapshot);
+    Ok(())
+}
+
+pub fn dep_graph_get_snapshot(
+    state: &ShellState,
+    embed_id: &str,
+) -> Result<Option<render_core::LiveEmbedSnapshot>, String> {
+    let graph = state
+        .dep_graph
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    Ok(graph.get_snapshot(embed_id).cloned())
+}
+
+pub fn dep_graph_summary(state: &ShellState) -> Result<render_core::CrossDocSummaryDto, String> {
+    let graph = state
+        .dep_graph
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    Ok(graph.graph_summary())
+}
+
+pub fn wikilink_index_document(
+    state: &ShellState,
+    doc_id: &str,
+    title: &str,
+    content: &str,
+) -> Result<(), String> {
+    let mut index = state
+        .wikilink_index
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    index.index_document(doc_id, title, content);
+    Ok(())
+}
+
+pub fn wikilink_remove_document(state: &ShellState, doc_id: &str) -> Result<(), String> {
+    let mut index = state
+        .wikilink_index
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    index.remove_document(doc_id);
+    Ok(())
+}
+
+pub fn wikilink_get_backlinks(
+    state: &ShellState,
+    target_title_or_id: &str,
+) -> Result<Vec<render_core::BacklinkReference>, String> {
+    let index = state
+        .wikilink_index
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    Ok(index.get_backlinks(target_title_or_id))
+}
+
+pub fn wikilink_get_forward_links(
+    state: &ShellState,
+    source_doc_id: &str,
+) -> Result<Vec<render_core::WikiLink>, String> {
+    let index = state
+        .wikilink_index
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    Ok(index.get_forward_links(source_doc_id))
+}
+
+pub fn wikilink_suggest_targets(
+    state: &ShellState,
+    query: &str,
+    limit: Option<usize>,
+) -> Result<Vec<render_core::WikiLinkSuggestion>, String> {
+    let index = state
+        .wikilink_index
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    Ok(index.suggest_targets(query, limit.unwrap_or(10)))
+}
+
+pub fn wikilink_find_unlinked_mentions(
+    state: &ShellState,
+    target_title: &str,
+) -> Result<Vec<render_core::UnlinkedMention>, String> {
+    let index = state
+        .wikilink_index
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    Ok(index.find_unlinked_mentions(target_title))
+}
+
+pub fn wikilink_parse_links(text: &str) -> Result<Vec<render_core::WikiLink>, String> {
+    Ok(render_core::WikiLinkParser::parse(text))
+}
+
+pub fn wikilink_stats(state: &ShellState) -> Result<render_core::WikiLinkIndexStats, String> {
+    let index = state
+        .wikilink_index
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
+    Ok(index.stats())
+}
+
+pub fn conversion_convert_single(
+    task: render_core::ConversionTask,
+) -> Result<render_core::ConversionResult, String> {
+    Ok(render_core::CrossFormatConverter::convert_single(task))
+}
+
+pub fn conversion_batch_convert(
+    tasks: Vec<render_core::ConversionTask>,
+) -> Result<render_core::BatchConversionReport, String> {
+    Ok(render_core::CrossFormatConverter::convert_batch(tasks))
+}
+
+pub fn conversion_supported_formats(
+    from: render_core::ConversionFormat,
+) -> Result<Vec<render_core::ConversionFormat>, String> {
+    Ok(render_core::CrossFormatConverter::supported_targets(from))
+}
+
+pub fn conversion_estimate_job(
+    task_count: usize,
+    total_bytes: usize,
+) -> Result<render_core::ConversionEstimateDto, String> {
+    Ok(render_core::CrossFormatConverter::estimate_job(
+        task_count,
+        total_bytes,
+    ))
+}
+
+pub fn oplog_append_entry(
+    state: &ShellState,
+    doc_id: &str,
+    author_id: &str,
+    payload: crdt_collab::OpPayload,
+    timestamp_ms: u64,
+    client_id: u64,
+) -> Result<crdt_collab::OpLogEntry, String> {
+    let mut oplog = state
+        .oplog
+        .lock()
+        .map_err(|_| "Failed to lock oplog state".to_string())?;
+    oplog
+        .append(doc_id, author_id, payload, timestamp_ms, client_id)
+        .map_err(|e| e.to_string())
+}
+
+pub fn oplog_get_history(
+    state: &ShellState,
+    doc_id: &str,
+    limit: Option<usize>,
+    offset: Option<usize>,
+) -> Result<Vec<crdt_collab::OpLogEntry>, String> {
+    let oplog = state
+        .oplog
+        .lock()
+        .map_err(|_| "Failed to lock oplog state".to_string())?;
+    Ok(oplog.get_history(doc_id, limit, offset))
+}
+
+pub fn oplog_time_travel(
+    state: &ShellState,
+    doc_id: &str,
+    target_timestamp_ms: u64,
+) -> Result<crdt_collab::MaterializedDocumentState, String> {
+    let oplog = state
+        .oplog
+        .lock()
+        .map_err(|_| "Failed to lock oplog state".to_string())?;
+    Ok(oplog.time_travel_to_timestamp(doc_id, target_timestamp_ms))
+}
+
+pub fn oplog_create_checkpoint(
+    state: &ShellState,
+    doc_id: &str,
+    author_id: &str,
+    label: &str,
+    client_id: u64,
+    timestamp_ms: u64,
+) -> Result<crdt_collab::CheckpointMeta, String> {
+    let mut oplog = state
+        .oplog
+        .lock()
+        .map_err(|_| "Failed to lock oplog state".to_string())?;
+    oplog
+        .create_checkpoint(doc_id, author_id, label, client_id, timestamp_ms)
+        .map_err(|e| e.to_string())
+}
+
+pub fn oplog_get_checkpoints(
+    state: &ShellState,
+    doc_id: &str,
+) -> Result<Vec<crdt_collab::CheckpointMeta>, String> {
+    let oplog = state
+        .oplog
+        .lock()
+        .map_err(|_| "Failed to lock oplog state".to_string())?;
+    Ok(oplog.get_checkpoints(doc_id))
+}
+
+pub fn oplog_compute_sync_delta(
+    state: &ShellState,
+    doc_id: &str,
+    remote_vector: crdt_collab::StateVector,
+) -> Result<Vec<crdt_collab::OpLogEntry>, String> {
+    let oplog = state
+        .oplog
+        .lock()
+        .map_err(|_| "Failed to lock oplog state".to_string())?;
+    Ok(oplog.compute_sync_delta(doc_id, &remote_vector))
+}
+
+pub fn oplog_apply_remote_delta(
+    state: &ShellState,
+    doc_id: &str,
+    remote_entries: Vec<crdt_collab::OpLogEntry>,
+) -> Result<crdt_collab::SyncReport, String> {
+    let mut oplog = state
+        .oplog
+        .lock()
+        .map_err(|_| "Failed to lock oplog state".to_string())?;
+    oplog
+        .apply_remote_delta(doc_id, remote_entries)
+        .map_err(|e| e.to_string())
+}
+
+pub fn oplog_get_state_vector(
+    state: &ShellState,
+    doc_id: &str,
+) -> Result<crdt_collab::StateVector, String> {
+    let oplog = state
+        .oplog
+        .lock()
+        .map_err(|_| "Failed to lock oplog state".to_string())?;
+    Ok(oplog.get_state_vector(doc_id))
+}
+
+pub fn oplog_fork_version(
+    state: &ShellState,
+    doc_id: &str,
+    target_op_id: crdt_collab::OpId,
+    new_doc_id: &str,
+    new_author_id: &str,
+    client_id: u64,
+    timestamp_ms: u64,
+) -> Result<crdt_collab::MaterializedDocumentState, String> {
+    let mut oplog = state
+        .oplog
+        .lock()
+        .map_err(|_| "Failed to lock oplog state".to_string())?;
+    let forked = oplog
+        .fork_at_version(
+            doc_id,
+            target_op_id,
+            new_doc_id,
+            new_author_id,
+            client_id,
+            timestamp_ms,
+        )
+        .map_err(|e| e.to_string())?;
+    for entry in forked.get_entries(new_doc_id) {
+        let _ = oplog.append_entry(entry);
+    }
+    Ok(oplog.time_travel_to_timestamp(new_doc_id, timestamp_ms))
+}
+
+pub fn plugin_load(
+    state: &ShellState,
+    manifest_json: Option<String>,
+    wasm_bytes: Vec<u8>,
+) -> Result<String, String> {
+    let mut host = state
+        .plugin_host
+        .lock()
+        .map_err(|_| "Failed to lock plugin host".to_string())?;
+
+    let manifest_override = if let Some(json) = manifest_json {
+        Some(plugin_runtime::PluginManifest::from_json_str(&json).map_err(|e| e.to_string())?)
+    } else {
+        None
+    };
+
+    host.load_plugin(&wasm_bytes, manifest_override)
+        .map_err(|e| e.to_string())
+}
+
+pub fn plugin_unload(state: &ShellState, plugin_id: &str) -> Result<(), String> {
+    let mut host = state
+        .plugin_host
+        .lock()
+        .map_err(|_| "Failed to lock plugin host".to_string())?;
+    host.unload_plugin(plugin_id).map_err(|e| e.to_string())
+}
+
+pub fn plugin_list(state: &ShellState) -> Result<Vec<plugin_runtime::PluginStatusDto>, String> {
+    let host = state
+        .plugin_host
+        .lock()
+        .map_err(|_| "Failed to lock plugin host".to_string())?;
+    Ok(host.list_plugins())
+}
+
+pub fn plugin_init(state: &ShellState, plugin_id: &str) -> Result<(), String> {
+    let mut host = state
+        .plugin_host
+        .lock()
+        .map_err(|_| "Failed to lock plugin host".to_string())?;
+    host.init_plugin(plugin_id).map_err(|e| e.to_string())
+}
+
+pub fn plugin_suspend(state: &ShellState, plugin_id: &str) -> Result<(), String> {
+    let mut host = state
+        .plugin_host
+        .lock()
+        .map_err(|_| "Failed to lock plugin host".to_string())?;
+    host.suspend_plugin(plugin_id).map_err(|e| e.to_string())
+}
+
+pub fn plugin_resume(state: &ShellState, plugin_id: &str) -> Result<(), String> {
+    let mut host = state
+        .plugin_host
+        .lock()
+        .map_err(|_| "Failed to lock plugin host".to_string())?;
+    host.resume_plugin(plugin_id).map_err(|e| e.to_string())
+}
+
+pub fn plugin_refill_fuel(state: &ShellState, plugin_id: &str) -> Result<(), String> {
+    let mut host = state
+        .plugin_host
+        .lock()
+        .map_err(|_| "Failed to lock plugin host".to_string())?;
+    host.refill_fuel(plugin_id).map_err(|e| e.to_string())
+}
+
+pub fn plugin_execute_action(
+    state: &ShellState,
+    plugin_id: &str,
+    action: plugin_runtime::PluginAction,
+) -> Result<plugin_runtime::ActionResult, String> {
+    let mut host = state
+        .plugin_host
+        .lock()
+        .map_err(|_| "Failed to lock plugin host".to_string())?;
+    let mut doc_host = plugin_runtime::MockDocumentHost::new();
+    host.execute_plugin_action(plugin_id, action, &mut doc_host)
+        .map_err(|e| e.to_string())
+}
+
+pub fn plugin_call_udf(
+    state: &ShellState,
+    name: &str,
+    args: &[String],
+) -> Result<plugin_runtime::PluginUdfCallResultDto, String> {
+    let registry = state
+        .udf_registry
+        .lock()
+        .map_err(|_| "Failed to lock UDF registry".to_string())?;
+    Ok(registry.call_udf_with_strings(name, args))
+}
+
+pub fn plugin_list_udfs(
+    state: &ShellState,
+) -> Result<Vec<plugin_runtime::PluginUdfMetaDto>, String> {
+    let registry = state
+        .udf_registry
+        .lock()
+        .map_err(|_| "Failed to lock UDF registry".to_string())?;
+    Ok(registry.list_udfs())
+}
+
+pub fn plugin_register_mock_udf(
+    state: &ShellState,
+    name: &str,
+    description: &str,
+    min_args: usize,
+    max_args: usize,
+    formula_kind: &str,
+) -> Result<(), String> {
+    let mut registry = state
+        .udf_registry
+        .lock()
+        .map_err(|_| "Failed to lock UDF registry".to_string())?;
+
+    let kind = formula_kind.to_string();
+    registry.register_udf(
+        name,
+        description,
+        min_args,
+        max_args,
+        move |args| match kind.as_str() {
+            "sum_plus_ten" => {
+                let mut sum = 10.0;
+                for a in args {
+                    if let Some(n) = a.as_f64() {
+                        sum += n;
+                    }
+                }
+                Ok(excel_engine::grid::CellValue::Number(sum))
+            }
+            "double" => {
+                let val = args.first().and_then(|a| a.as_f64()).unwrap_or(0.0);
+                Ok(excel_engine::grid::CellValue::Number(val * 2.0))
+            }
+            "prefix_hello" => {
+                let s = match args.first() {
+                    Some(excel_engine::grid::CellValue::InlineString(t)) => t.clone(),
+                    Some(excel_engine::grid::CellValue::Number(n)) => n.to_string(),
+                    _ => String::new(),
+                };
+                Ok(excel_engine::grid::CellValue::InlineString(format!(
+                    "Hello {s}"
+                )))
+            }
+            _ => {
+                let count = args.len() as f64;
+                Ok(excel_engine::grid::CellValue::Number(count))
+            }
+        },
+    );
+
+    Ok(())
+}
+
+pub fn copilot_chat(
+    state: &ShellState,
+    request: copilot_core::CopilotChatRequest,
+) -> Result<copilot_core::CopilotChatResponse, String> {
+    let mut engine = state
+        .copilot_engine
+        .lock()
+        .map_err(|_| "Failed to lock copilot engine".to_string())?;
+    engine.chat(request).map_err(|e| e.to_string())
+}
+
+pub fn copilot_configure_provider(
+    state: &ShellState,
+    config: copilot_core::ProviderConfig,
+) -> Result<copilot_core::ProviderStatusDto, String> {
+    let mut engine = state
+        .copilot_engine
+        .lock()
+        .map_err(|_| "Failed to lock copilot engine".to_string())?;
+    engine.set_config(config);
+    Ok(engine.probe_provider_status())
+}
+
+pub fn copilot_get_provider_config(
+    state: &ShellState,
+) -> Result<copilot_core::ProviderStatusDto, String> {
+    let engine = state
+        .copilot_engine
+        .lock()
+        .map_err(|_| "Failed to lock copilot engine".to_string())?;
+    Ok(engine.probe_provider_status())
+}
+
+pub fn copilot_index_document(
+    state: &ShellState,
+    doc_id: &str,
+    title: &str,
+    text: &str,
+) -> Result<usize, String> {
+    let mut engine = state
+        .copilot_engine
+        .lock()
+        .map_err(|_| "Failed to lock copilot engine".to_string())?;
+    engine
+        .index_text_document(doc_id, title, text)
+        .map_err(|e| e.to_string())
+}
+
+pub fn copilot_remove_document(state: &ShellState, doc_id: &str) -> Result<usize, String> {
+    let mut engine = state
+        .copilot_engine
+        .lock()
+        .map_err(|_| "Failed to lock copilot engine".to_string())?;
+    Ok(engine.remove_document(doc_id))
+}
+
+pub fn theme_get_tokens(
+    state: &ShellState,
+    theme_mode: Option<String>,
+    ribbon_mode: Option<String>,
+) -> Result<render_core::ThemeTokens, String> {
+    let engine = state
+        .theme_engine
+        .lock()
+        .map_err(|_| "Failed to lock theme engine".to_string())?;
+
+    let t_mode = match theme_mode.as_deref() {
+        Some("dark") => render_core::ThemeMode::Dark,
+        Some("high-contrast-dark") => render_core::ThemeMode::HighContrastDark,
+        Some("high-contrast-light") => render_core::ThemeMode::HighContrastLight,
+        Some("light") => render_core::ThemeMode::Light,
+        _ => engine.active_theme(),
+    };
+
+    let r_mode = match ribbon_mode.as_deref() {
+        Some("compact") => render_core::RibbonLayoutMode::Compact,
+        Some("collapsed") => render_core::RibbonLayoutMode::Collapsed,
+        Some("classic") => render_core::RibbonLayoutMode::Classic,
+        _ => engine.ribbon_config().mode,
+    };
+
+    Ok(engine.evaluate_tokens(t_mode, r_mode))
+}
+
+pub fn theme_set_mode(
+    state: &ShellState,
+    theme_mode: &str,
+) -> Result<render_core::ThemeTokens, String> {
+    let mut engine = state
+        .theme_engine
+        .lock()
+        .map_err(|_| "Failed to lock theme engine".to_string())?;
+
+    let mode = match theme_mode.to_lowercase().as_str() {
+        "dark" => render_core::ThemeMode::Dark,
+        "high-contrast-dark" | "highcontrastdark" => render_core::ThemeMode::HighContrastDark,
+        "high-contrast-light" | "highcontrastlight" => render_core::ThemeMode::HighContrastLight,
+        _ => render_core::ThemeMode::Light,
+    };
+
+    engine.set_theme(mode);
+    let r_mode = engine.ribbon_config().mode;
+    Ok(engine.evaluate_tokens(mode, r_mode))
+}
+
+pub fn ribbon_set_layout_mode(
+    state: &ShellState,
+    layout_mode: &str,
+) -> Result<render_core::RibbonLayoutConfig, String> {
+    let mut engine = state
+        .theme_engine
+        .lock()
+        .map_err(|_| "Failed to lock theme engine".to_string())?;
+
+    let mode = match layout_mode.to_lowercase().as_str() {
+        "compact" => render_core::RibbonLayoutMode::Compact,
+        "collapsed" => render_core::RibbonLayoutMode::Collapsed,
+        _ => render_core::RibbonLayoutMode::Classic,
+    };
+
+    engine.set_ribbon_mode(mode);
+    Ok(engine.ribbon_config().clone())
+}
+
+pub fn ribbon_get_layout_config(
+    state: &ShellState,
+) -> Result<render_core::RibbonLayoutConfig, String> {
+    let engine = state
+        .theme_engine
+        .lock()
+        .map_err(|_| "Failed to lock theme engine".to_string())?;
+    Ok(engine.ribbon_config().clone())
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct BidiAnalysisResult {
+    pub base_direction: render_core::BidiDirection,
+    pub runs: Vec<render_core::BidiRun>,
+}
+
+pub fn accessibility_get_aria_tree(state: &ShellState) -> Result<render_core::AriaTree, String> {
+    let tree = state
+        .accessibility_tree
+        .lock()
+        .map_err(|_| "Failed to lock accessibility tree".to_string())?;
+    Ok(tree.clone())
+}
+
+pub fn accessibility_set_aria_tree(
+    state: &ShellState,
+    tree: render_core::AriaTree,
+) -> Result<usize, String> {
+    let mut current_tree = state
+        .accessibility_tree
+        .lock()
+        .map_err(|_| "Failed to lock accessibility tree".to_string())?;
+    let count = tree.total_nodes;
+    *current_tree = tree;
+    Ok(count)
+}
+
+pub fn ime_start_composition(
+    state: &ShellState,
+    caret_x: f32,
+    caret_y: f32,
+    caret_h: f32,
+) -> Result<render_core::AriaBoundingBox, String> {
+    let mut ime = state
+        .ime_state
+        .lock()
+        .map_err(|_| "Failed to lock IME state".to_string())?;
+    ime.start(caret_x, caret_y, caret_h);
+    Ok(ime.candidate_box)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn ime_update_composition(
+    state: &ShellState,
+    text: String,
+    cursor: usize,
+    sel_start: usize,
+    sel_end: usize,
+    caret_x: f32,
+    caret_y: f32,
+    caret_h: f32,
+) -> Result<render_core::AriaBoundingBox, String> {
+    let mut ime = state
+        .ime_state
+        .lock()
+        .map_err(|_| "Failed to lock IME state".to_string())?;
+    ime.update(&text, cursor, sel_start, sel_end, caret_x, caret_y, caret_h);
+    Ok(ime.candidate_box)
+}
+
+pub fn ime_finish_composition(state: &ShellState) -> Result<String, String> {
+    let mut ime = state
+        .ime_state
+        .lock()
+        .map_err(|_| "Failed to lock IME state".to_string())?;
+    Ok(ime.finish())
+}
+
+pub fn ime_cancel_composition(state: &ShellState) -> Result<(), String> {
+    let mut ime = state
+        .ime_state
+        .lock()
+        .map_err(|_| "Failed to lock IME state".to_string())?;
+    ime.cancel();
+    Ok(())
+}
+
+pub fn bidi_analyze_text(text: String) -> Result<BidiAnalysisResult, String> {
+    let base_direction = render_core::BidiAnalyzer::detect_base_direction(&text);
+    let runs = render_core::BidiAnalyzer::analyze_runs(&text);
+    Ok(BidiAnalysisResult {
+        base_direction,
+        runs,
+    })
+}
+
+pub fn keyboard_nav_cycle_pane(
+    state: &ShellState,
+    reverse: Option<bool>,
+) -> Result<render_core::NavFocusPane, String> {
+    let mut nav = state
+        .nav_map
+        .lock()
+        .map_err(|_| "Failed to lock keyboard navigation map".to_string())?;
+    let pane = if reverse.unwrap_or(false) {
+        nav.cycle_prev_pane()
+    } else {
+        nav.cycle_next_pane()
+    };
+    Ok(pane)
+}
+
+pub fn gesture_process_touch_start(
+    state: &ShellState,
+    point: render_core::TouchPoint,
+) -> Result<render_core::TouchGesture, String> {
+    let mut recognizer = state
+        .gesture_recognizer
+        .lock()
+        .map_err(|_| "Failed to lock gesture recognizer".to_string())?;
+    Ok(recognizer.touch_start(point))
+}
+
+pub fn gesture_process_touch_move(
+    state: &ShellState,
+    point: render_core::TouchPoint,
+) -> Result<render_core::TouchGesture, String> {
+    let mut recognizer = state
+        .gesture_recognizer
+        .lock()
+        .map_err(|_| "Failed to lock gesture recognizer".to_string())?;
+    Ok(recognizer.touch_move(point))
+}
+
+pub fn gesture_process_touch_end(
+    state: &ShellState,
+    id: u64,
+    timestamp_ms: u64,
+) -> Result<render_core::TouchGesture, String> {
+    let mut recognizer = state
+        .gesture_recognizer
+        .lock()
+        .map_err(|_| "Failed to lock gesture recognizer".to_string())?;
+    Ok(recognizer.touch_end(id, timestamp_ms))
+}
+
+pub fn gesture_process_touch_cancel(state: &ShellState, id: u64) -> Result<(), String> {
+    let mut recognizer = state
+        .gesture_recognizer
+        .lock()
+        .map_err(|_| "Failed to lock gesture recognizer".to_string())?;
+    recognizer.touch_cancel(id);
+    Ok(())
+}
+
+pub fn palm_rejection_filter_contact(
+    state: &ShellState,
+    touch: render_core::TouchPoint,
+    active_stylus: Option<render_core::TouchPoint>,
+    screen_w: f64,
+    screen_h: f64,
+) -> Result<bool, String> {
+    let filter = state
+        .palm_filter
+        .lock()
+        .map_err(|_| "Failed to lock palm rejection filter".to_string())?;
+    Ok(filter.is_palm(&touch, active_stylus.as_ref(), screen_w, screen_h))
+}
+
+pub fn adaptive_split_set_layout(
+    state: &ShellState,
+    mode_str: String,
+    ratio_x: Option<f64>,
+    ratio_y: Option<f64>,
+) -> Result<render_core::AdaptiveSplitGrid, String> {
+    let mut grid = state
+        .split_grid
+        .lock()
+        .map_err(|_| "Failed to lock split grid".to_string())?;
+
+    let mode = match mode_str.to_lowercase().as_str() {
+        "two-way-horizontal" | "twowayhorizontal" => render_core::SplitGridMode::TwoWayHorizontal,
+        "two-way-vertical" | "twowayvertical" => render_core::SplitGridMode::TwoWayVertical,
+        "four-way-grid" | "fourwaygrid" => render_core::SplitGridMode::FourWayGrid,
+        _ => render_core::SplitGridMode::Single,
+    };
+    grid.mode = mode;
+
+    if let (Some(rx), Some(ry)) = (ratio_x, ratio_y) {
+        grid.set_ratios_with_snap(rx, ry);
+    } else if let Some(rx) = ratio_x {
+        let ry = grid.ratio_y;
+        grid.set_ratios_with_snap(rx, ry);
+    } else if let Some(ry) = ratio_y {
+        let rx = grid.ratio_x;
+        grid.set_ratios_with_snap(rx, ry);
+    }
+
+    Ok(grid.clone())
+}
+
+pub fn adaptive_split_get_rects(
+    state: &ShellState,
+    total_width: f64,
+    total_height: f64,
+    inset_top: Option<f64>,
+    inset_bottom: Option<f64>,
+) -> Result<Vec<render_core::primitive::Rect2D>, String> {
+    let grid = state
+        .split_grid
+        .lock()
+        .map_err(|_| "Failed to lock split grid".to_string())?;
+
+    let total_rect = render_core::primitive::Rect2D::new(0.0, 0.0, total_width, total_height);
+    let insets = render_core::adaptive::SafeAreaInsets {
+        top: inset_top.unwrap_or(0.0),
+        right: 0.0,
+        bottom: inset_bottom.unwrap_or(0.0),
+        left: 0.0,
+    };
+
+    Ok(grid.compute_subpane_rects(&total_rect, &insets))
+}
+
+pub fn dlp_evaluate_text(
+    state: &ShellState,
+    text: &str,
+) -> Result<crypto_security::DlpEvaluationResult, String> {
+    let policy = state
+        .dlp_policy
+        .lock()
+        .map_err(|_| "Failed to lock DLP policy".to_string())?;
+    Ok(crypto_security::DlpEvaluator::evaluate_text(&policy, text))
+}
+
+pub fn dlp_evaluate_and_redact(
+    state: &ShellState,
+    text: &str,
+) -> Result<(crypto_security::DlpEvaluationResult, String), String> {
+    let policy = state
+        .dlp_policy
+        .lock()
+        .map_err(|_| "Failed to lock DLP policy".to_string())?;
+    Ok(crypto_security::DlpEvaluator::evaluate_and_redact(
+        &policy, text,
+    ))
+}
+
+pub fn dlp_set_policy(
+    state: &ShellState,
+    policy: crypto_security::DlpPolicy,
+) -> Result<(), String> {
+    let mut p = state
+        .dlp_policy
+        .lock()
+        .map_err(|_| "Failed to lock DLP policy".to_string())?;
+    *p = policy;
+    Ok(())
+}
+
+pub fn dlp_get_policy(state: &ShellState) -> Result<crypto_security::DlpPolicy, String> {
+    let p = state
+        .dlp_policy
+        .lock()
+        .map_err(|_| "Failed to lock DLP policy".to_string())?;
+    Ok(p.clone())
+}
+
+pub fn sanitization_generate_certificate(
+    doc_id: &str,
+    original_bytes: &[u8],
+    sanitized_bytes: &[u8],
+    policy_id: &str,
+    timestamp_ms: u64,
+    redactions: Vec<(String, usize)>,
+    secret_key: &[u8],
+) -> Result<crypto_security::SanitizationCertificate, String> {
+    Ok(crypto_security::SanitizationCertificateGenerator::generate(
+        doc_id,
+        original_bytes,
+        sanitized_bytes,
+        policy_id,
+        timestamp_ms,
+        redactions,
+        secret_key,
+    ))
+}
+
+pub fn sanitization_verify_certificate(
+    cert: &crypto_security::SanitizationCertificate,
+    sanitized_bytes: Option<&[u8]>,
+    secret_key: &[u8],
+) -> Result<bool, String> {
+    if let Some(bytes) = sanitized_bytes {
+        crypto_security::SanitizationCertificateValidator::verify_document_integrity(
+            cert, bytes, secret_key,
+        )?;
+    } else {
+        crypto_security::SanitizationCertificateValidator::verify_signature(cert, secret_key)?;
+    }
+    Ok(true)
+}
+
+pub fn audit_log_append(
+    state: &ShellState,
+    timestamp_ms: u64,
+    event_type: crypto_security::AuditEventType,
+    user_id: &str,
+    doc_id: &str,
+    details: &str,
+) -> Result<crypto_security::AuditLogEntry, String> {
+    let mut log = state
+        .audit_log
+        .lock()
+        .map_err(|_| "Failed to lock audit log".to_string())?;
+    Ok(log
+        .append(timestamp_ms, event_type, user_id, doc_id, details)
+        .clone())
+}
+
+pub fn audit_log_get_entries(
+    state: &ShellState,
+    doc_id: Option<String>,
+) -> Result<Vec<crypto_security::AuditLogEntry>, String> {
+    let log = state
+        .audit_log
+        .lock()
+        .map_err(|_| "Failed to lock audit log".to_string())?;
+    if let Some(ref d) = doc_id {
+        Ok(log.filter_by_document(d).into_iter().cloned().collect())
+    } else {
+        Ok(log.entries().to_vec())
+    }
+}
+
+pub fn audit_log_verify_integrity(state: &ShellState) -> Result<usize, String> {
+    let log = state
+        .audit_log
+        .lock()
+        .map_err(|_| "Failed to lock audit log".to_string())?;
+    log.verify_integrity()
+}
+
+pub fn entitlement_get_tier(state: &ShellState) -> Result<String, String> {
+    let engine = state
+        .entitlement_engine
+        .lock()
+        .map_err(|_| "Failed to lock entitlement engine".to_string())?;
+    let now_ms = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+        Ok(d) => d.as_millis() as u64,
+        Err(_) => 0,
+    };
+    Ok(engine.effective_tier(now_ms).as_str().to_string())
+}
+
+pub fn entitlement_check_feature(
+    state: &ShellState,
+    feature: &str,
+    now_ms: Option<u64>,
+) -> Result<render_core::EntitlementStatus, String> {
+    let engine = state
+        .entitlement_engine
+        .lock()
+        .map_err(|_| "Failed to lock entitlement engine".to_string())?;
+    let feat = render_core::FeatureEntitlement::from_str_loose(feature)
+        .ok_or_else(|| format!("Unknown feature entitlement: '{feature}'"))?;
+    let timestamp = now_ms.unwrap_or_else(|| {
+        match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+            Ok(d) => d.as_millis() as u64,
+            Err(_) => 0,
+        }
+    });
+    Ok(engine.check_feature(feat, timestamp))
+}
+
+pub fn entitlement_apply_license(
+    state: &ShellState,
+    token: render_core::LicenseToken,
+    verification_key: &[u8],
+    now_ms: Option<u64>,
+) -> Result<render_core::EntitlementStatus, String> {
+    let mut engine = state
+        .entitlement_engine
+        .lock()
+        .map_err(|_| "Failed to lock entitlement engine".to_string())?;
+    let timestamp = now_ms.unwrap_or_else(|| {
+        match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+            Ok(d) => d.as_millis() as u64,
+            Err(_) => 0,
+        }
+    });
+    engine.apply_license(token, verification_key, timestamp)
+}
+
+pub fn entitlement_get_license_info(
+    state: &ShellState,
+) -> Result<Option<render_core::LicenseToken>, String> {
+    let engine = state
+        .entitlement_engine
+        .lock()
+        .map_err(|_| "Failed to lock entitlement engine".to_string())?;
+    Ok(engine.active_license().cloned())
+}
+
+pub fn entitlement_set_tier(state: &ShellState, tier: &str) -> Result<String, String> {
+    let mut engine = state
+        .entitlement_engine
+        .lock()
+        .map_err(|_| "Failed to lock entitlement engine".to_string())?;
+    let edition = render_core::EditionTier::from_str_loose(tier)
+        .ok_or_else(|| format!("Invalid edition tier: '{tier}'"))?;
+    engine.set_tier_override(edition);
+    Ok(edition.as_str().to_string())
+}
+
+pub fn entitlement_remove_license(state: &ShellState) -> Result<bool, String> {
+    let mut engine = state
+        .entitlement_engine
+        .lock()
+        .map_err(|_| "Failed to lock entitlement engine".to_string())?;
+    engine.remove_license();
+    Ok(true)
+}
+
+pub fn sla_run_benchmarks(_state: &ShellState) -> Result<render_core::SlaBenchmarkReport, String> {
+    let thresholds = render_core::SlaBudgetThresholds::default();
+    let mut metrics = Vec::new();
+
+    let cold_start = render_core::SlaBenchmarkRunner::measure_cold_start(
+        || {
+            let _ = render_core::health_check();
+        },
+        thresholds.max_cold_start_ms,
+    );
+    metrics.push(cold_start);
+
+    let mut counter = 0usize;
+    let keystroke = render_core::SlaBenchmarkRunner::measure_keystroke_latency(
+        100,
+        |i| {
+            counter = counter.wrapping_add(i);
+        },
+        thresholds.max_keystroke_latency_ms,
+    );
+    metrics.push(keystroke);
+
+    let mut frames = 0usize;
+    let frame_render = render_core::SlaBenchmarkRunner::measure_frame_render_latency(
+        60,
+        |_f| {
+            frames = frames.wrapping_add(1);
+        },
+        thresholds.max_frame_render_latency_ms,
+    );
+    metrics.push(frame_render);
+
+    let (idle_mem, session_mem) =
+        render_core::SlaBenchmarkRunner::evaluate_memory_metrics(18.5, 125.0, &thresholds);
+    metrics.push(idle_mem);
+    metrics.push(session_mem);
+
+    let now_ms = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+        Ok(d) => d.as_millis() as u64,
+        Err(_) => 0,
+    };
+
+    Ok(render_core::SlaBenchmarkRunner::build_report(
+        metrics, now_ms,
+    ))
+}
+
+pub fn sla_verify_budgets(
+    report: &render_core::SlaBenchmarkReport,
+    thresholds: Option<render_core::SlaBudgetThresholds>,
+) -> Result<bool, String> {
+    let limits = thresholds.unwrap_or_default();
+    for metric in &report.metrics {
+        if metric.metric_name == "cold_start_latency"
+            && metric.measured_value > limits.max_cold_start_ms
+        {
+            return Ok(false);
+        }
+        if metric.metric_name == "idle_memory_footprint"
+            && metric.measured_value > limits.max_idle_memory_mb
+        {
+            return Ok(false);
+        }
+        if metric.metric_name == "active_20_session_memory"
+            && metric.measured_value > limits.max_active_session_memory_mb
+        {
+            return Ok(false);
+        }
+        if metric.metric_name == "keystroke_cell_edit_latency"
+            && metric.measured_value > limits.max_keystroke_latency_ms
+        {
+            return Ok(false);
+        }
+        if metric.metric_name == "frame_render_120fps_budget"
+            && metric.measured_value > limits.max_frame_render_latency_ms
+        {
+            return Ok(false);
+        }
+    }
+    Ok(report.all_passed)
+}
+
+pub fn fuzz_test_document_buffer(payload: &[u8], mutation_type: &str) -> Result<Vec<u8>, String> {
+    let mutation = match mutation_type
+        .to_ascii_lowercase()
+        .replace('_', "-")
+        .as_str()
+    {
+        "truncated-zip" | "zip" => render_core::FuzzMutationType::TruncatedZip,
+        "corrupted-xml-tag" | "xml" => render_core::FuzzMutationType::CorruptedXmlTag,
+        "malformed-utf8-sequence" | "utf8" => render_core::FuzzMutationType::MalformedUtf8Sequence,
+        "cyclic-entity-expansion" | "entity" => {
+            render_core::FuzzMutationType::CyclicEntityExpansion
+        }
+        "deep-nesting" | "nesting" => render_core::FuzzMutationType::DeepNesting,
+        _ => return Err(format!("Unknown fuzz mutation type: '{mutation_type}'")),
+    };
+
+    Ok(render_core::AdversarialFuzzHarness::generate_mutated_payload(payload, mutation))
+}
+
+pub fn differential_audit_evaluate(
+    base_display: &render_core::DisplayList,
+    candidate_display: &render_core::DisplayList,
+) -> Result<render_core::DifferentialAuditResult, String> {
+    Ok(render_core::DifferentialAuditEngine::compare_display_lists(
+        base_display,
+        candidate_display,
+    ))
+}
+
+pub fn release_matrix_get_manifest(
+    _state: &ShellState,
+) -> Result<render_core::InstallerMatrixRegistry, String> {
+    Ok(render_core::InstallerMatrixRegistry::canonical_registry(
+        "AetherOffice",
+        "0.1.0",
+    ))
+}
+
+pub fn sbom_generate_cyclonedx(_state: &ShellState) -> Result<String, String> {
+    let sbom = render_core::SbomGenerator::canonical_sbom("AetherOffice", "0.1.0");
+    sbom.generate_cyclonedx_1_5_json()
+}
+
+pub fn sbom_generate_spdx(
+    _state: &ShellState,
+    format_type: Option<&str>,
+) -> Result<String, String> {
+    let sbom = render_core::SbomGenerator::canonical_sbom("AetherOffice", "0.1.0");
+    match format_type.unwrap_or("json").to_ascii_lowercase().as_str() {
+        "tag-value" | "tagvalue" | "text" => sbom.generate_spdx_2_3_tag_value(),
+        _ => sbom.generate_spdx_2_3_json(),
+    }
+}
+
+pub fn sbom_audit_licenses(_state: &ShellState) -> Result<render_core::LicenseAuditReport, String> {
+    let sbom = render_core::SbomGenerator::canonical_sbom("AetherOffice", "0.1.0");
+    Ok(sbom.audit_license_compliance())
+}
+
+pub fn installer_verify_checksum(
+    _state: &ShellState,
+    artifact_id: &str,
+    payload: Option<&[u8]>,
+    checksum_hex: Option<&str>,
+) -> Result<bool, String> {
+    let registry =
+        render_core::InstallerMatrixRegistry::canonical_registry("AetherOffice", "0.1.0");
+    if let Some(data) = payload {
+        registry.verify_artifact_payload(artifact_id, data)
+    } else if let Some(hex_str) = checksum_hex {
+        registry.verify_artifact_checksum(artifact_id, hex_str)
+    } else {
+        Err("Either payload bytes or checksum_hex must be provided for verification".to_string())
     }
 }
 
@@ -555,10 +1983,173 @@ pub fn focus_app_instance(state: &ShellState, instance_id: &str) -> Result<bool,
 #[cfg(not(test))]
 pub fn run() {
     if let Err(e) = tauri::Builder::default()
+        .manage(ShellState::new())
         .invoke_handler(tauri::generate_handler![
             window_commands::spawn_app_window,
             file_commands::save_file_bytes,
-            file_commands::read_file_bytes
+            file_commands::read_file_bytes,
+            tauri_commands::create_session,
+            tauri_commands::open_document,
+            tauri_commands::open_document_async,
+            tauri_commands::cancel_ingestion,
+            tauri_commands::save_document,
+            tauri_commands::close_session,
+            tauri_commands::get_document_info,
+            tauri_commands::execute_undo,
+            tauri_commands::execute_redo,
+            tauri_commands::export_svg,
+            tauri_commands::dispatch_ui_action,
+            tauri_commands::export_pdf,
+            tauri_commands::launch_standalone_app,
+            tauri_commands::list_app_instances,
+            tauri_commands::close_app_instance,
+            tauri_commands::focus_app_instance,
+            tauri_commands::get_boot_config,
+            tauri_commands::collab_join_session,
+            tauri_commands::collab_leave_session,
+            tauri_commands::collab_broadcast_delta,
+            tauri_commands::collab_get_peers,
+            tauri_commands::scan_macro_security,
+            tauri_commands::execute_macro,
+            binary_commands::read_file_binary,
+            binary_commands::save_file_binary,
+            binary_commands::render_pdf_page_binary,
+            binary_commands::crypto_hash_binary,
+            binary_commands::collab_sync_binary,
+            binary_commands::macro_execute_code,
+            binary_commands::copilot_query,
+            binary_commands::data_connector_parse_csv,
+            binary_commands::data_connector_compute_pivot_table,
+            binary_commands::data_connector_import,
+            binary_commands::data_connector_export,
+            binary_commands::ppt_get_slide_master_tree,
+            binary_commands::ppt_apply_slide_master_layout,
+            binary_commands::ppt_create_slide_layout,
+            binary_commands::ppt_update_placeholder_transform,
+            binary_commands::ppt_build_smartart,
+            binary_commands::ppt_group_shapes,
+            binary_commands::ppt_ungroup_shapes,
+            binary_commands::ppt_reorder_z_order,
+            binary_commands::ppt_get_slide_layer_tree,
+            binary_commands::render_smart_guides_snap,
+            binary_commands::ppt_evaluate_morph_transition,
+            binary_commands::ppt_get_slide_animation_tracks,
+            binary_commands::ppt_scrub_slide_animation,
+            binary_commands::ppt_advance_animation_click,
+            binary_commands::ppt_export_slide_svg,
+            binary_commands::ppt_export_deck_pdf,
+            binary_commands::ppt_convert_odp_to_pptx,
+            binary_commands::ppt_convert_pptx_to_odp,
+            binary_commands::pdf_render_page_canvas,
+            binary_commands::pdf_render_page_svg,
+            binary_commands::pdf_extract_page_images,
+            binary_commands::pdf_split_document,
+            binary_commands::pdf_merge_documents,
+            binary_commands::pdf_extract_pages,
+            binary_commands::pdf_apply_bates_numbering,
+            binary_commands::pdf_inject_ocr_layer,
+            binary_commands::pdf_compare_documents,
+            binary_commands::pdf_generate_diff_overlay_svg,
+            binary_commands::pdf_sign_pades,
+            binary_commands::pdf_validate_signatures,
+            binary_commands::pdf_apply_redactions,
+            binary_commands::pdf_export_pdfa,
+            binary_commands::roundtrip_opc_binary,
+            tauri_commands::workspace_search,
+            tauri_commands::workspace_index_text,
+            tauri_commands::workspace_get_index_summary,
+            tauri_commands::federated_search,
+            tauri_commands::federated_replace_match,
+            tauri_commands::federated_replace_all,
+            tauri_commands::omnibox_query,
+            tauri_commands::dep_graph_register_dependency,
+            tauri_commands::dep_graph_remove_dependency,
+            tauri_commands::dep_graph_get_dependents,
+            tauri_commands::dep_graph_get_dependencies,
+            tauri_commands::dep_graph_propagate_invalidation,
+            tauri_commands::dep_graph_update_snapshot,
+            tauri_commands::dep_graph_get_snapshot,
+            tauri_commands::dep_graph_summary,
+            tauri_commands::wikilink_index_document,
+            tauri_commands::wikilink_remove_document,
+            tauri_commands::wikilink_get_backlinks,
+            tauri_commands::wikilink_get_forward_links,
+            tauri_commands::wikilink_suggest_targets,
+            tauri_commands::wikilink_find_unlinked_mentions,
+            tauri_commands::wikilink_parse_links,
+            tauri_commands::wikilink_stats,
+            tauri_commands::conversion_convert_single,
+            tauri_commands::conversion_batch_convert,
+            tauri_commands::conversion_supported_formats,
+            tauri_commands::conversion_estimate_job,
+            tauri_commands::oplog_append_entry,
+            tauri_commands::oplog_get_history,
+            tauri_commands::oplog_time_travel,
+            tauri_commands::oplog_create_checkpoint,
+            tauri_commands::oplog_get_checkpoints,
+            tauri_commands::oplog_compute_sync_delta,
+            tauri_commands::oplog_apply_remote_delta,
+            tauri_commands::oplog_get_state_vector,
+            tauri_commands::oplog_fork_version,
+            tauri_commands::plugin_load,
+            tauri_commands::plugin_unload,
+            tauri_commands::plugin_list,
+            tauri_commands::plugin_init,
+            tauri_commands::plugin_suspend,
+            tauri_commands::plugin_resume,
+            tauri_commands::plugin_refill_fuel,
+            tauri_commands::plugin_execute_action,
+            tauri_commands::plugin_call_udf,
+            tauri_commands::plugin_list_udfs,
+            tauri_commands::plugin_register_mock_udf,
+            tauri_commands::copilot_chat,
+            tauri_commands::copilot_configure_provider,
+            tauri_commands::copilot_get_provider_config,
+            tauri_commands::copilot_index_document,
+            tauri_commands::copilot_remove_document,
+            tauri_commands::theme_get_tokens,
+            tauri_commands::theme_set_mode,
+            tauri_commands::ribbon_set_layout_mode,
+            tauri_commands::ribbon_get_layout_config,
+            tauri_commands::accessibility_get_aria_tree,
+            tauri_commands::accessibility_set_aria_tree,
+            tauri_commands::ime_start_composition,
+            tauri_commands::ime_update_composition,
+            tauri_commands::ime_finish_composition,
+            tauri_commands::ime_cancel_composition,
+            tauri_commands::bidi_analyze_text,
+            tauri_commands::keyboard_nav_cycle_pane,
+            tauri_commands::gesture_process_touch_start,
+            tauri_commands::gesture_process_touch_move,
+            tauri_commands::gesture_process_touch_end,
+            tauri_commands::gesture_process_touch_cancel,
+            tauri_commands::palm_rejection_filter_contact,
+            tauri_commands::adaptive_split_set_layout,
+            tauri_commands::adaptive_split_get_rects,
+            tauri_commands::dlp_evaluate_text,
+            tauri_commands::dlp_evaluate_and_redact,
+            tauri_commands::dlp_set_policy,
+            tauri_commands::dlp_get_policy,
+            tauri_commands::sanitization_generate_certificate,
+            tauri_commands::sanitization_verify_certificate,
+            tauri_commands::audit_log_append,
+            tauri_commands::audit_log_get_entries,
+            tauri_commands::audit_log_verify_integrity,
+            tauri_commands::entitlement_get_tier,
+            tauri_commands::entitlement_check_feature,
+            tauri_commands::entitlement_apply_license,
+            tauri_commands::entitlement_get_license_info,
+            tauri_commands::entitlement_set_tier,
+            tauri_commands::entitlement_remove_license,
+            tauri_commands::sla_run_benchmarks,
+            tauri_commands::sla_verify_budgets,
+            tauri_commands::fuzz_test_document_buffer,
+            tauri_commands::differential_audit_evaluate,
+            tauri_commands::release_matrix_get_manifest,
+            tauri_commands::sbom_generate_cyclonedx,
+            tauri_commands::sbom_generate_spdx,
+            tauri_commands::sbom_audit_licenses,
+            tauri_commands::installer_verify_checksum
         ])
         .run(tauri::generate_context!())
     {

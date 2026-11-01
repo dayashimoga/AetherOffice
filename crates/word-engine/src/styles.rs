@@ -550,6 +550,9 @@ impl<'a> StyleCascadeResolver<'a> {
         if let Some(k) = src.kinsoku {
             target.kinsoku = k;
         }
+        if let Some(ol) = src.outline_level {
+            target.outline_level = Some(ol);
+        }
     }
 
     fn apply_r_pr(&self, target: &mut ResolvedRunProperties, src: &RunProperties, is_direct: bool) {

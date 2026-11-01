@@ -5,14 +5,27 @@ use crate::arrow::ArrowRecordBatch;
 use crate::csv::{CsvReadOptions, CsvReader};
 use crate::error::{ConnectorError, ConnectorResult};
 use crate::json::{JsonFormat, JsonReader};
-use crate::parquet::ParquetReader;
+use crate::ods::{OdsReader, OdsWriter};
+use crate::parquet::{ParquetReader, ParquetWriter};
 use crate::schema::Schema;
-use crate::sqlite::SqliteReader;
+use crate::sqlite::{SqliteReader, SqliteWriter};
 use crate::value::DataValue;
 use excel_engine::grid::{CompressedSparsePageGrid, MAX_COLS, MAX_ROWS};
 use serde::{Deserialize, Serialize};
-use std::io::BufRead;
+use std::io::{BufRead, Cursor};
 use std::time::Instant;
+
+/// Supported formats for two-way live import and export.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DataFormat {
+    Csv,
+    Json,
+    Parquet,
+    Arrow,
+    Sqlite,
+    Ods,
+}
 
 /// Report detailing the execution metrics of an ingestion run.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -329,5 +342,148 @@ impl IngestionPipeline {
         let reader = ParquetReader::open_bytes(parquet_bytes)?;
         let rows = reader.read_all()?;
         Self::ingest_rows(reader.schema(), &rows, grid, options)
+    }
+
+    /// Ingests an OASIS OpenDocument Spreadsheet (.ods) archive into the grid.
+    pub fn ingest_ods(
+        data: &[u8],
+        sheet_idx: usize,
+        grid: &mut CompressedSparsePageGrid,
+        options: &IngestionOptions,
+    ) -> ConnectorResult<IngestionReport> {
+        let sheets = OdsReader::read_sheets(data)?;
+        if sheets.is_empty() {
+            return Ok(IngestionReport {
+                rows_ingested: 0,
+                columns_ingested: 0,
+                cells_written: 0,
+                duration_ms: 0.0,
+                start_row: options.start_row,
+                start_col: options.start_col,
+                end_row: options.start_row,
+                end_col: options.start_col,
+                schema: Schema::default(),
+            });
+        }
+        let target_idx = sheet_idx.min(sheets.len().saturating_sub(1));
+        let (_name, schema, rows) = &sheets[target_idx];
+        Self::ingest_rows(schema, rows, grid, options)
+    }
+
+    /// Ingests a raw byte buffer according to the specified DataFormat.
+    pub fn ingest_format(
+        format: DataFormat,
+        data: &[u8],
+        grid: &mut CompressedSparsePageGrid,
+        options: &IngestionOptions,
+    ) -> ConnectorResult<IngestionReport> {
+        match format {
+            DataFormat::Csv => {
+                Self::ingest_csv(Cursor::new(data), CsvReadOptions::default(), grid, options)
+            }
+            DataFormat::Json => {
+                let json_str = std::str::from_utf8(data)
+                    .map_err(|e| ConnectorError::InvalidData(e.to_string()))?;
+                Self::ingest_json(json_str, JsonFormat::ArrayOfObjects, grid, options)
+            }
+            DataFormat::Parquet => Self::ingest_parquet(data.to_vec(), grid, options),
+            DataFormat::Arrow => {
+                let batch = ArrowRecordBatch::deserialize_ipc_stream(data)?;
+                Self::ingest_arrow(&batch, grid, options)
+            }
+            DataFormat::Sqlite => {
+                let sqlite_reader = SqliteReader::open_bytes(data.to_vec())?;
+                let tables = sqlite_reader.table_names();
+                let table_name = tables.first().ok_or_else(|| {
+                    ConnectorError::Sqlite("No tables found in SQLite database".to_string())
+                })?;
+                Self::ingest_sqlite(&sqlite_reader, table_name, grid, options)
+            }
+            DataFormat::Ods => Self::ingest_ods(data, 0, grid, options),
+        }
+    }
+}
+
+/// Unified pipeline for exporting spreadsheet tables to external formats.
+pub struct ExportPipeline;
+
+impl ExportPipeline {
+    /// Serializes tabular data to the target `DataFormat`.
+    pub fn export_format(
+        format: DataFormat,
+        table_name: &str,
+        schema: &Schema,
+        rows: &[Vec<DataValue>],
+    ) -> ConnectorResult<Vec<u8>> {
+        match format {
+            DataFormat::Csv => {
+                let mut out = Vec::new();
+                let header_line = schema
+                    .fields
+                    .iter()
+                    .map(|f| {
+                        if f.name.contains(',') || f.name.contains('"') || f.name.contains('\n') {
+                            format!("\"{}\"", f.name.replace('"', "\"\""))
+                        } else {
+                            f.name.clone()
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",");
+                out.extend_from_slice(header_line.as_bytes());
+                out.push(b'\n');
+                for r in rows {
+                    let line = r
+                        .iter()
+                        .map(|v| {
+                            let s = v.to_string_lossy();
+                            if s.contains(',') || s.contains('"') || s.contains('\n') {
+                                format!("\"{}\"", s.replace('"', "\"\""))
+                            } else {
+                                s
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    out.extend_from_slice(line.as_bytes());
+                    out.push(b'\n');
+                }
+                Ok(out)
+            }
+            DataFormat::Json => {
+                let mut records = Vec::with_capacity(rows.len());
+                for r in rows {
+                    let mut map = serde_json::Map::new();
+                    for (i, f) in schema.fields.iter().enumerate() {
+                        let val = r.get(i).unwrap_or(&DataValue::Null);
+                        let json_val = match val {
+                            DataValue::Null => serde_json::Value::Null,
+                            DataValue::Boolean(b) => serde_json::Value::Bool(*b),
+                            DataValue::Int64(n) => serde_json::Value::Number((*n).into()),
+                            DataValue::Float64(f_val) => serde_json::Number::from_f64(*f_val)
+                                .map(serde_json::Value::Number)
+                                .unwrap_or(serde_json::Value::Null),
+                            DataValue::Date(_) | DataValue::DateTime(_) | DataValue::Text(_) => {
+                                serde_json::Value::String(val.to_string_lossy())
+                            }
+                            DataValue::Binary(b) => {
+                                serde_json::Value::String(format!("<BLOB {} bytes>", b.len()))
+                            }
+                        };
+                        map.insert(f.name.clone(), json_val);
+                    }
+                    records.push(serde_json::Value::Object(map));
+                }
+                serde_json::to_vec_pretty(&records).map_err(|e| ConnectorError::Json(e.to_string()))
+            }
+            DataFormat::Parquet => ParquetWriter::write_table(schema, rows),
+            DataFormat::Arrow => {
+                let arrow_schema = crate::arrow::ArrowSchema::from_engine_schema(schema);
+                let batch = ArrowRecordBatch::from_rows(arrow_schema, rows)?;
+                batch.serialize_ipc_stream()
+            }
+            DataFormat::Sqlite => SqliteWriter::write_table(table_name, schema, rows),
+            DataFormat::Ods => OdsWriter::write_single_sheet(table_name, schema, rows),
+        }
     }
 }

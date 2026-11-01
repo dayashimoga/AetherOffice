@@ -4,10 +4,10 @@
 //! VARIANCE, DISTINCT COUNT, % OF TOTAL), automatic date hierarchy grouping,
 //! and direct rendering into `excel_engine::grid::CompressedSparsePageGrid`.
 
-use crate::error::ConnectorResult;
-use crate::schema::Schema;
+use crate::error::{ConnectorError, ConnectorResult};
+use crate::schema::{DataType, Field, Schema};
 use crate::value::DataValue;
-use excel_engine::grid::CompressedSparsePageGrid;
+use excel_engine::grid::{CellValue, CompressedSparsePageGrid};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -194,12 +194,18 @@ impl FilterField {
 
     pub fn passes(&self, val: &DataValue) -> bool {
         if let Some(ref inc) = self.included_values {
-            if !inc.contains(val) {
+            if !inc
+                .iter()
+                .any(|v| v == val || v.to_string_lossy() == val.to_string_lossy())
+            {
                 return false;
             }
         }
         if let Some(ref exc) = self.excluded_values {
-            if exc.contains(val) {
+            if exc
+                .iter()
+                .any(|v| v == val || v.to_string_lossy() == val.to_string_lossy())
+            {
                 return false;
             }
         }
@@ -229,7 +235,7 @@ pub struct PivotConfig {
 }
 
 /// In-memory metric accumulator for a single cell or subtotal node.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct MeasureAccumulator {
     pub sum: f64,
     pub count: usize,
@@ -239,6 +245,12 @@ pub struct MeasureAccumulator {
     pub product: f64,
     pub values: Vec<f64>,
     pub distinct_values: BTreeSet<String>,
+}
+
+impl Default for MeasureAccumulator {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MeasureAccumulator {
@@ -346,6 +358,8 @@ pub struct OlapCube {
     pub col_totals: BTreeMap<(usize, usize), MeasureAccumulator>,
     /// Grand total accumulators: `measure_idx -> MeasureAccumulator`
     pub grand_totals: BTreeMap<usize, MeasureAccumulator>,
+    /// Unique values per schema field, sorted alphabetically.
+    pub unique_values: BTreeMap<String, Vec<String>>,
 }
 
 impl OlapCube {
@@ -500,6 +514,8 @@ impl OlapCube {
             }
         }
 
+        let unique_values = Self::collect_unique_values(records, schema);
+
         Ok(Self {
             config,
             row_coords,
@@ -508,6 +524,7 @@ impl OlapCube {
             row_totals,
             col_totals,
             grand_totals,
+            unique_values,
         })
     }
 
@@ -679,6 +696,296 @@ impl OlapCube {
             (None, None) => Some(self.get_grand_total(measure_idx)),
         }
     }
+
+    /// Collects unique values for each field in the dataset schema, sorted alphabetically.
+    /// Used by interactive UI slicers and filter lists.
+    pub fn collect_unique_values(
+        records: &[Vec<DataValue>],
+        schema: &Schema,
+    ) -> BTreeMap<String, Vec<String>> {
+        let mut map: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+        for field in &schema.fields {
+            map.insert(field.name.clone(), BTreeSet::new());
+        }
+
+        for row in records {
+            for (idx, field) in schema.fields.iter().enumerate() {
+                if let Some(val) = row.get(idx) {
+                    if !val.is_null() {
+                        let text = val.to_string_lossy();
+                        if !text.is_empty() {
+                            if let Some(set) = map.get_mut(&field.name) {
+                                set.insert(text);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        map.into_iter()
+            .map(|(k, v)| (k, v.into_iter().collect()))
+            .collect()
+    }
+
+    /// Generates a structured `PivotViewResult` describing the entire layout and calculated cells
+    /// without mutating the grid.
+    pub fn to_view_result(&self, start_row: u32, start_col: u32) -> PivotViewResult {
+        let mut cur_row = start_row;
+        let start_c = start_col;
+
+        // Skip filter rows if any
+        if !self.config.filter_fields.is_empty() {
+            cur_row += self.config.filter_fields.len() as u32 + 1;
+        }
+
+        let num_row_fields = self.config.row_fields.len().max(1);
+        let num_measures = self.config.value_fields.len().max(1);
+        let col_data_start = start_c + num_row_fields as u32;
+
+        let include_col_totals = matches!(
+            self.config.grand_totals,
+            GrandTotalMode::Both | GrandTotalMode::ColumnsOnly
+        );
+        let include_row_totals = matches!(
+            self.config.grand_totals,
+            GrandTotalMode::Both | GrandTotalMode::RowsOnly
+        );
+
+        let mut cur_col_offset = col_data_start;
+        for _ in &self.col_coords {
+            cur_col_offset += num_measures as u32;
+        }
+        let grand_total_col_start = cur_col_offset;
+        if include_col_totals {
+            cur_col_offset += num_measures as u32;
+        }
+        let end_col = cur_col_offset;
+
+        cur_row += 1; // Header row
+        let data_start_row = cur_row;
+
+        let mut cells = Vec::new();
+        let mut row_totals_list = Vec::new();
+        let mut col_totals_list = Vec::new();
+        let mut grand_totals_list = Vec::new();
+
+        // 1. Data rows
+        for (r_idx, _) in self.row_coords.iter().enumerate() {
+            let row_num = cur_row;
+            let mut c_offset = col_data_start;
+
+            for (c_idx, _) in self.col_coords.iter().enumerate() {
+                for m_idx in 0..num_measures {
+                    let val = self.get_value(r_idx, c_idx, m_idx);
+                    cells.push(PivotViewCell {
+                        row: row_num,
+                        col: c_offset + m_idx as u32,
+                        value: val,
+                        formatted_value: format_pivot_number(val),
+                        is_subtotal: false,
+                        is_grand_total: false,
+                    });
+                }
+                c_offset += num_measures as u32;
+            }
+
+            if include_col_totals {
+                for m_idx in 0..num_measures {
+                    let total = self.get_row_total(r_idx, m_idx);
+                    row_totals_list.push(total);
+                    cells.push(PivotViewCell {
+                        row: row_num,
+                        col: grand_total_col_start + m_idx as u32,
+                        value: total,
+                        formatted_value: format_pivot_number(total),
+                        is_subtotal: false,
+                        is_grand_total: true,
+                    });
+                }
+            }
+
+            cur_row += 1;
+        }
+
+        let data_end_row = cur_row;
+
+        // 2. Grand total row (if enabled)
+        if include_row_totals {
+            let row_num = cur_row;
+            let mut c_offset = col_data_start;
+
+            for (c_idx, _) in self.col_coords.iter().enumerate() {
+                for m_idx in 0..num_measures {
+                    let total = self.get_col_total(c_idx, m_idx);
+                    col_totals_list.push(total);
+                    cells.push(PivotViewCell {
+                        row: row_num,
+                        col: c_offset + m_idx as u32,
+                        value: total,
+                        formatted_value: format_pivot_number(total),
+                        is_subtotal: false,
+                        is_grand_total: true,
+                    });
+                }
+                c_offset += num_measures as u32;
+            }
+
+            if include_col_totals {
+                for m_idx in 0..num_measures {
+                    let total = self.get_grand_total(m_idx);
+                    grand_totals_list.push(total);
+                    cells.push(PivotViewCell {
+                        row: row_num,
+                        col: grand_total_col_start + m_idx as u32,
+                        value: total,
+                        formatted_value: format_pivot_number(total),
+                        is_subtotal: false,
+                        is_grand_total: true,
+                    });
+                }
+            }
+
+            cur_row += 1;
+        }
+
+        let final_end_row = cur_row;
+
+        PivotViewResult {
+            layout: PivotTableLayoutReport {
+                start_row,
+                start_col,
+                end_row: final_end_row,
+                end_col,
+                data_range_start: (data_start_row, col_data_start),
+                data_range_end: (data_end_row, end_col),
+                row_labels_count: self.row_coords.len(),
+                col_labels_count: self.col_coords.len(),
+                measures_count: num_measures,
+            },
+            row_headers: self.row_coords.clone(),
+            col_headers: self.col_coords.clone(),
+            cells,
+            row_totals: row_totals_list,
+            col_totals: col_totals_list,
+            grand_totals: grand_totals_list,
+            unique_field_values: self.unique_values.clone(),
+        }
+    }
+}
+
+fn format_pivot_number(val: f64) -> String {
+    if val.fract() == 0.0 && val.abs() < 1e15 {
+        format!("{:.0}", val)
+    } else {
+        format!("{:.2}", val)
+    }
+}
+
+/// Single evaluated data or total cell inside a PivotTable view.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PivotViewCell {
+    pub row: u32,
+    pub col: u32,
+    pub value: f64,
+    pub formatted_value: String,
+    pub is_subtotal: bool,
+    pub is_grand_total: bool,
+}
+
+/// Evaluated multi-dimensional PivotTable result ready for UI consumption.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PivotViewResult {
+    pub layout: PivotTableLayoutReport,
+    pub row_headers: Vec<Vec<String>>,
+    pub col_headers: Vec<Vec<String>>,
+    pub cells: Vec<PivotViewCell>,
+    pub row_totals: Vec<f64>,
+    pub col_totals: Vec<f64>,
+    pub grand_totals: Vec<f64>,
+    pub unique_field_values: BTreeMap<String, Vec<String>>,
+}
+
+/// Extracts a tabular dataset (schema and records) from a range in `CompressedSparsePageGrid`.
+pub fn extract_dataset_from_grid(
+    grid: &CompressedSparsePageGrid,
+    start_row: u32,
+    start_col: u32,
+    end_row: u32,
+    end_col: u32,
+    has_headers: bool,
+) -> ConnectorResult<(Schema, Vec<Vec<DataValue>>)> {
+    if start_row > end_row || start_col > end_col {
+        return Err(ConnectorError::InvalidData(
+            "Invalid grid range coordinates".to_string(),
+        ));
+    }
+
+    let num_cols = (end_col - start_col + 1) as usize;
+    let mut header_names = Vec::with_capacity(num_cols);
+    let first_data_row = if has_headers {
+        for c in start_col..=end_col {
+            let val = grid.get_value(start_row, c);
+            let name = match &val {
+                CellValue::InlineString(s) if !s.trim().is_empty() => s.trim().to_string(),
+                CellValue::SharedString(idx) => format!("Column_{idx}"),
+                CellValue::Number(n) => format!("Col_{n}"),
+                _ => format!("Col_{}", c - start_col + 1),
+            };
+            header_names.push(name);
+        }
+        start_row + 1
+    } else {
+        for c in start_col..=end_col {
+            header_names.push(format!("Col_{}", c - start_col + 1));
+        }
+        start_row
+    };
+
+    let mut records = Vec::new();
+    for r in first_data_row..=end_row {
+        let mut row = Vec::with_capacity(num_cols);
+        let mut has_any_value = false;
+        for c in start_col..=end_col {
+            let cell = grid.get_value(r, c);
+            let dv = DataValue::from_cell_value(&cell);
+            if !dv.is_null() {
+                has_any_value = true;
+            }
+            row.push(dv);
+        }
+        if has_any_value {
+            records.push(row);
+        }
+    }
+
+    // Infer schema types from the records
+    let mut fields = Vec::with_capacity(num_cols);
+    for (i, name) in header_names.into_iter().enumerate() {
+        let mut inferred_type = DataType::Utf8;
+        for row in &records {
+            if let Some(val) = row.get(i) {
+                match val {
+                    DataValue::Int64(_) => inferred_type = DataType::Int64,
+                    DataValue::Float64(_) => inferred_type = DataType::Float64,
+                    DataValue::Boolean(_) => inferred_type = DataType::Boolean,
+                    DataValue::Date(_) => inferred_type = DataType::Date,
+                    DataValue::DateTime(_) => inferred_type = DataType::DateTime,
+                    DataValue::Text(s)
+                        if s.len() == 10
+                            && s.chars().nth(4) == Some('-')
+                            && s.chars().nth(7) == Some('-') =>
+                    {
+                        inferred_type = DataType::Date;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        fields.push(Field::new(name, inferred_type, true));
+    }
+
+    Ok((Schema::new(fields), records))
 }
 
 /// Report detailing the layout boundaries of a rendered PivotTable.

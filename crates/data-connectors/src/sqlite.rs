@@ -525,3 +525,246 @@ impl SqliteReader {
         }
     }
 }
+
+/// Pure safe-Rust SQLite database file writer.
+/// Generates standard SQLite 3 database files with table B-Tree leaf pages and records.
+pub struct SqliteWriter;
+
+impl SqliteWriter {
+    /// Writes a table dataset into a valid SQLite 3 database file.
+    pub fn write_table(
+        table_name: &str,
+        schema: &Schema,
+        rows: &[Vec<DataValue>],
+    ) -> ConnectorResult<Vec<u8>> {
+        let page_size: usize = 4096;
+        let mut db_bytes = vec![0u8; page_size * 2]; // 2 pages: page 1 (schema) and page 2 (data)
+
+        // 1. Write SQLite Header (100 bytes on Page 1)
+        db_bytes[0..16].copy_from_slice(b"SQLite format 3\0");
+        db_bytes[16..18].copy_from_slice(&(page_size as u16).to_be_bytes()); // Page size 4096
+        db_bytes[18] = 1; // File format write version
+        db_bytes[19] = 1; // File format read version
+        db_bytes[20] = 0; // Reserved bytes per page
+        db_bytes[21] = 64; // Max payload fraction
+        db_bytes[22] = 32; // Min payload fraction
+        db_bytes[23] = 32; // Leaf payload fraction
+        db_bytes[24..28].copy_from_slice(&1u32.to_be_bytes()); // File change counter
+        db_bytes[28..32].copy_from_slice(&2u32.to_be_bytes()); // Size of database in pages
+        db_bytes[32..36].copy_from_slice(&0u32.to_be_bytes()); // First freelist trunk page
+        db_bytes[36..40].copy_from_slice(&0u32.to_be_bytes()); // Total freelist pages
+        db_bytes[40..44].copy_from_slice(&1u32.to_be_bytes()); // Schema cookie
+        db_bytes[44..48].copy_from_slice(&4u32.to_be_bytes()); // Schema format number
+        db_bytes[48..52].copy_from_slice(&0u32.to_be_bytes()); // Default page cache size
+        db_bytes[52..56].copy_from_slice(&2u32.to_be_bytes()); // Largest root B-tree page
+        db_bytes[56..60].copy_from_slice(&1u32.to_be_bytes()); // Database text encoding (1 = UTF-8)
+        db_bytes[60..64].copy_from_slice(&0u32.to_be_bytes()); // User version
+        db_bytes[64..68].copy_from_slice(&0u32.to_be_bytes()); // Incremental vacuum mode
+        db_bytes[68..72].copy_from_slice(&0u32.to_be_bytes()); // Application ID
+                                                               // 72..92: reserved
+        db_bytes[92..96].copy_from_slice(&1u32.to_be_bytes()); // Version-valid-for number
+        db_bytes[96..100].copy_from_slice(&3045000u32.to_be_bytes()); // SQLite version 3.45.0
+
+        // 2. Build Schema SQL statement for page 1
+        let col_defs: Vec<String> = schema
+            .fields
+            .iter()
+            .map(|f| {
+                let sql_type = match f.data_type {
+                    DataType::Int64 => "INTEGER",
+                    DataType::Float64 => "REAL",
+                    DataType::Boolean => "INTEGER",
+                    _ => "TEXT",
+                };
+                format!("\"{}\" {}", f.name, sql_type)
+            })
+            .collect();
+        let create_sql = format!("CREATE TABLE \"{}\" ({})", table_name, col_defs.join(", "));
+
+        // Record for sqlite_master: [type, name, tbl_name, rootpage, sql]
+        let schema_record = vec![
+            DataValue::Text("table".to_string()),
+            DataValue::Text(table_name.to_string()),
+            DataValue::Text(table_name.to_string()),
+            DataValue::Int64(2), // root page 2
+            DataValue::Text(create_sql),
+        ];
+
+        // Write Page 1 (Leaf Table page, with header starting at byte 100)
+        let page1_slice = &mut db_bytes[0..page_size];
+        Self::write_leaf_page(page1_slice, 100, &[schema_record], 1)?;
+
+        // 3. Write Page 2 (Leaf Table page for data rows)
+        let page2_slice = &mut db_bytes[page_size..page_size * 2];
+        Self::write_leaf_page(page2_slice, 0, rows, 1)?;
+
+        Ok(db_bytes)
+    }
+
+    /// Formats a SQLite leaf page with cell pointers and cell bodies.
+    fn write_leaf_page(
+        page: &mut [u8],
+        header_offset: usize,
+        records: &[Vec<DataValue>],
+        start_rowid: i64,
+    ) -> ConnectorResult<()> {
+        let cell_count = records.len();
+        let mut cell_bytes_list = Vec::with_capacity(cell_count);
+
+        for (idx, rec) in records.iter().enumerate() {
+            let rowid = start_rowid + idx as i64;
+            let payload = Self::encode_record(rec);
+            let mut cell_data = Vec::new();
+            Self::write_varint(&mut cell_data, payload.len() as u64);
+            Self::write_varint(&mut cell_data, rowid as u64);
+            cell_data.extend_from_slice(&payload);
+            cell_bytes_list.push(cell_data);
+        }
+
+        // Place cells from the end of the page moving backwards
+        let mut cur_content_offset = page.len();
+        let mut cell_pointers = Vec::with_capacity(cell_count);
+
+        for cell_data in &cell_bytes_list {
+            if cur_content_offset < cell_data.len() {
+                return Err(ConnectorError::Sqlite(
+                    "Table page overflow: too many records for single page".to_string(),
+                ));
+            }
+            cur_content_offset -= cell_data.len();
+            page[cur_content_offset..cur_content_offset + cell_data.len()]
+                .copy_from_slice(cell_data);
+            cell_pointers.push(cur_content_offset as u16);
+        }
+
+        let cell_content_start = if cur_content_offset == 65536 {
+            0
+        } else {
+            cur_content_offset as u16
+        };
+
+        // Write page header (8 bytes):
+        // 0: page type (0x0d = table leaf)
+        // 1..3: first freeblock offset (0)
+        // 3..5: cell count
+        // 5..7: cell content start
+        // 7: fragmented bytes (0)
+        page[header_offset] = 0x0d;
+        page[header_offset + 1] = 0;
+        page[header_offset + 2] = 0;
+        page[header_offset + 3..header_offset + 5]
+            .copy_from_slice(&(cell_count as u16).to_be_bytes());
+        page[header_offset + 5..header_offset + 7]
+            .copy_from_slice(&cell_content_start.to_be_bytes());
+        page[header_offset + 7] = 0;
+
+        // Write cell pointer array
+        let ptr_start = header_offset + 8;
+        for (i, &ptr) in cell_pointers.iter().enumerate() {
+            let p_off = ptr_start + i * 2;
+            page[p_off..p_off + 2].copy_from_slice(&ptr.to_be_bytes());
+        }
+
+        Ok(())
+    }
+
+    /// Encodes a row of `DataValue` into a SQLite record payload.
+    pub fn encode_record(values: &[DataValue]) -> Vec<u8> {
+        let mut serial_types = Vec::new();
+        let mut body_bytes = Vec::new();
+
+        for val in values {
+            match val {
+                DataValue::Null => {
+                    serial_types.push(0u64);
+                }
+                DataValue::Boolean(b) => {
+                    serial_types.push(if *b { 9u64 } else { 8u64 });
+                }
+                DataValue::Int64(i) => {
+                    if *i == 0 {
+                        serial_types.push(8u64);
+                    } else if *i == 1 {
+                        serial_types.push(9u64);
+                    } else if *i >= i8::MIN as i64 && *i <= i8::MAX as i64 {
+                        serial_types.push(1u64);
+                        body_bytes.push(*i as u8);
+                    } else if *i >= i16::MIN as i64 && *i <= i16::MAX as i64 {
+                        serial_types.push(2u64);
+                        body_bytes.extend_from_slice(&(*i as i16).to_be_bytes());
+                    } else if *i >= i32::MIN as i64 && *i <= i32::MAX as i64 {
+                        serial_types.push(4u64);
+                        body_bytes.extend_from_slice(&(*i as i32).to_be_bytes());
+                    } else {
+                        serial_types.push(6u64);
+                        body_bytes.extend_from_slice(&i.to_be_bytes());
+                    }
+                }
+                DataValue::Float64(f) => {
+                    serial_types.push(7u64);
+                    body_bytes.extend_from_slice(&f.to_be_bytes());
+                }
+                DataValue::Date(d) => {
+                    serial_types.push(4u64);
+                    body_bytes.extend_from_slice(&d.to_be_bytes());
+                }
+                DataValue::DateTime(dt) => {
+                    serial_types.push(6u64);
+                    body_bytes.extend_from_slice(&dt.to_be_bytes());
+                }
+                DataValue::Text(s) => {
+                    let s_bytes = s.as_bytes();
+                    let st = (s_bytes.len() as u64) * 2 + 13;
+                    serial_types.push(st);
+                    body_bytes.extend_from_slice(s_bytes);
+                }
+                DataValue::Binary(b) => {
+                    let st = (b.len() as u64) * 2 + 12;
+                    serial_types.push(st);
+                    body_bytes.extend_from_slice(b);
+                }
+            }
+        }
+
+        // Calculate header size
+        let mut st_varints = Vec::new();
+        for st in serial_types {
+            Self::write_varint(&mut st_varints, st);
+        }
+
+        let mut header_len = 1 + st_varints.len();
+        if header_len >= 128 {
+            header_len += 1;
+        }
+
+        let mut header_bytes = Vec::new();
+        Self::write_varint(&mut header_bytes, header_len as u64);
+        header_bytes.extend_from_slice(&st_varints);
+
+        let mut payload = header_bytes;
+        payload.extend_from_slice(&body_bytes);
+        payload
+    }
+
+    /// Writes an integer as a SQLite variable-length integer (varint).
+    pub fn write_varint(buf: &mut Vec<u8>, mut val: u64) {
+        if val <= 0x7F {
+            buf.push(val as u8);
+            return;
+        }
+
+        let mut bytes = Vec::new();
+        while val > 0 {
+            bytes.push((val & 0x7F) as u8);
+            val >>= 7;
+        }
+
+        for (i, b) in bytes.iter().rev().enumerate() {
+            if i + 1 < bytes.len() {
+                buf.push(b | 0x80);
+            } else {
+                buf.push(*b);
+            }
+        }
+    }
+}

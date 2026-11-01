@@ -16,6 +16,7 @@ pub mod csv;
 pub mod error;
 pub mod ingestion;
 pub mod json;
+pub mod ods;
 pub mod olap;
 pub mod parquet;
 pub mod schema;
@@ -25,17 +26,21 @@ pub mod value;
 pub use arrow::{ArrowColumn, ArrowDataType, ArrowField, ArrowRecordBatch, ArrowSchema};
 pub use csv::{CsvReadOptions, CsvReader};
 pub use error::{ConnectorError, ConnectorResult};
-pub use ingestion::{IngestionOptions, IngestionPipeline, IngestionReport};
+pub use ingestion::{
+    DataFormat, ExportPipeline, IngestionOptions, IngestionPipeline, IngestionReport,
+};
 pub use json::{JsonFormat, JsonReader};
+pub use ods::{OdsReader, OdsSheetData, OdsWriter, ODS_MIMETYPE};
 pub use olap::{
-    civil_from_days, AggregationType, DateGroupingLevel, FilterField, GrandTotalMode, MeasureField,
-    OlapCube, PivotConfig, PivotField, PivotTableGridBridge, PivotTableLayoutReport,
+    civil_from_days, extract_dataset_from_grid, AggregationType, DateGroupingLevel, FilterField,
+    GrandTotalMode, MeasureField, OlapCube, PivotConfig, PivotField, PivotTableGridBridge,
+    PivotTableLayoutReport, PivotViewCell, PivotViewResult,
 };
 pub use parquet::{
     ParquetColumnDescriptor, ParquetEncoding, ParquetPhysicalType, ParquetReader, ParquetWriter,
 };
 pub use schema::{days_from_civil, DataType, Field, InferenceOptions, Schema, SchemaInferer};
-pub use sqlite::{SqliteReader, SqliteTableEntry};
+pub use sqlite::{SqliteReader, SqliteTableEntry, SqliteWriter};
 pub use value::DataValue;
 
 /// Crate initialization and health check.

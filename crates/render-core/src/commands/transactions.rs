@@ -58,6 +58,10 @@ pub struct GlobalOfficeState {
     pub pdf_fields: HashMap<String, String>,            // field_name -> value
     pub pdf_page_rotations: HashMap<usize, u16>,        // page_index -> angle (0, 90, 180, 270)
     pub pdf_objects: HashMap<u32, Rect2D>,              // object_id -> rect
+
+    // Zero-Loss OPC Unparsed Part Store & Original Binary Package Payload
+    pub unparsed_store: Option<ooxml_opc::unparsed::UnparsedPartStore>,
+    pub raw_package_bytes: Option<Vec<u8>>,
 }
 
 impl Default for GlobalOfficeState {
@@ -79,6 +83,8 @@ impl GlobalOfficeState {
             pdf_fields: HashMap::new(),
             pdf_page_rotations: HashMap::new(),
             pdf_objects: HashMap::new(),
+            unparsed_store: None,
+            raw_package_bytes: None,
         }
     }
 

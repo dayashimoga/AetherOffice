@@ -55,6 +55,12 @@ impl ContentTypes {
     }
 
     /// Adds an override part mapping.
+    /// Removes an override part mapping.
+    pub fn remove_override(&mut self, part_name: &str) -> Option<String> {
+        let norm_part = Self::normalize_part_name(part_name);
+        self.overrides.remove(&norm_part)
+    }
+
     pub fn add_override(&mut self, part_name: &str, content_type: &str) {
         let norm_part = Self::normalize_part_name(part_name);
         self.overrides

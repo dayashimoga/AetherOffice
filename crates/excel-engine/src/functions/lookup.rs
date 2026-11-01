@@ -76,7 +76,8 @@ pub fn fn_xlookup(args: &[CellValue]) -> CellValue {
     }
     let target = &args[0];
     let lookup_vec = to_flat_vector(&args[1]);
-    let return_vec = to_flat_vector(&args[2]);
+    let lookup_matrix = to_matrix(&args[1]);
+    let return_matrix = to_matrix(&args[2]);
 
     if lookup_vec.is_empty() {
         return CellValue::Error(CellError::NA);
@@ -90,10 +91,44 @@ pub fn fn_xlookup(args: &[CellValue]) -> CellValue {
 
     match matched_idx {
         Some(idx) => {
-            if idx < return_vec.len() {
-                return_vec[idx].clone()
+            // Check if return_array is 2D matrix matching vertical lookup column
+            if lookup_matrix.len() > 1
+                && lookup_matrix[0].len() == 1
+                && return_matrix.len() == lookup_matrix.len()
+            {
+                if idx < return_matrix.len() {
+                    let row = &return_matrix[idx];
+                    if row.len() == 1 {
+                        row[0].clone()
+                    } else {
+                        CellValue::Array(vec![row.clone()])
+                    }
+                } else {
+                    CellValue::Error(CellError::Ref)
+                }
+            } else if lookup_matrix.len() == 1
+                && lookup_matrix[0].len() > 1
+                && !return_matrix.is_empty()
+                && return_matrix[0].len() == lookup_matrix[0].len()
+            {
+                // Horizontal lookup row
+                if idx < return_matrix[0].len() {
+                    if return_matrix.len() == 1 {
+                        return_matrix[0][idx].clone()
+                    } else {
+                        let col_vec = return_matrix.iter().map(|r| vec![r[idx].clone()]).collect();
+                        CellValue::Array(col_vec)
+                    }
+                } else {
+                    CellValue::Error(CellError::Ref)
+                }
             } else {
-                CellValue::Error(CellError::Ref)
+                let return_vec = to_flat_vector(&args[2]);
+                if idx < return_vec.len() {
+                    return_vec[idx].clone()
+                } else {
+                    CellValue::Error(CellError::Ref)
+                }
             }
         }
         None => if_not_found.unwrap_or(CellValue::Error(CellError::NA)),
@@ -486,19 +521,53 @@ pub fn fn_filter(args: &[CellValue]) -> CellValue {
         return CellValue::Error(CellError::Value);
     }
     let matrix = to_matrix(&args[0]);
-    let include_vec = to_flat_vector(&args[1]);
+    if matrix.is_empty() || matrix[0].is_empty() {
+        return CellValue::Error(CellError::Value);
+    }
+
     let if_empty = args
         .get(2)
         .cloned()
         .unwrap_or(CellValue::Error(CellError::Calc));
 
-    if matrix.is_empty() || include_vec.len() != matrix.len() {
+    let inc_matrix = to_matrix(&args[1]);
+    let inc_vec = to_flat_vector(&args[1]);
+
+    // Check if filtering columns (horizontal include vector of matching width)
+    if inc_matrix.len() == 1 && inc_matrix[0].len() == matrix[0].len() && matrix.len() > 1 {
+        let mut included_cols = Vec::new();
+        for (c, item) in inc_matrix[0].iter().enumerate() {
+            let inc = match item {
+                CellValue::Boolean(b) => *b,
+                CellValue::Number(n) => *n != 0.0,
+                _ => false,
+            };
+            if inc {
+                included_cols.push(c);
+            }
+        }
+        if included_cols.is_empty() {
+            return if_empty;
+        }
+        let mut filtered_matrix = Vec::with_capacity(matrix.len());
+        for row in &matrix {
+            let mut new_row = Vec::with_capacity(included_cols.len());
+            for &c in &included_cols {
+                new_row.push(row[c].clone());
+            }
+            filtered_matrix.push(new_row);
+        }
+        return CellValue::Array(filtered_matrix);
+    }
+
+    // Otherwise filtering rows
+    if inc_vec.len() != matrix.len() {
         return CellValue::Error(CellError::Value);
     }
 
     let mut filtered_rows = Vec::new();
     for (r, row) in matrix.iter().enumerate() {
-        let inc = match &include_vec[r] {
+        let inc = match &inc_vec[r] {
             CellValue::Boolean(b) => *b,
             CellValue::Number(n) => *n != 0.0,
             _ => false,
@@ -521,7 +590,11 @@ pub fn fn_unique(args: &[CellValue]) -> CellValue {
         return CellValue::Error(CellError::Value);
     }
     let matrix = to_matrix(&args[0]);
-    let _by_col = args
+    if matrix.is_empty() || matrix[0].is_empty() {
+        return CellValue::Error(CellError::Calc);
+    }
+
+    let by_col = args
         .get(1)
         .and_then(|v| match v {
             CellValue::Boolean(b) => Some(*b),
@@ -538,54 +611,89 @@ pub fn fn_unique(args: &[CellValue]) -> CellValue {
         })
         .unwrap_or(false);
 
-    if matrix.is_empty() {
-        return CellValue::Error(CellError::Calc);
-    }
+    let cell_to_key = |c: &CellValue| match c {
+        CellValue::Number(n) => format!("N:{n}"),
+        CellValue::InlineString(s) => format!("S:{}", s.to_ascii_uppercase()),
+        CellValue::Boolean(b) => format!("B:{b}"),
+        CellValue::Error(e) => format!("E:{e}"),
+        CellValue::Empty => "EMPTY".to_string(),
+        _ => "OTHER".to_string(),
+    };
 
-    // Hashable string representation for row deduplication
-    let row_keys: Vec<String> = matrix
-        .iter()
-        .map(|row| {
-            row.iter()
-                .map(|c| match c {
-                    CellValue::Number(n) => format!("N:{n}"),
-                    CellValue::InlineString(s) => format!("S:{}", s.to_ascii_uppercase()),
-                    CellValue::Boolean(b) => format!("B:{b}"),
-                    CellValue::Error(e) => format!("E:{e}"),
-                    CellValue::Empty => "EMPTY".to_string(),
-                    _ => "OTHER".to_string(),
-                })
-                .collect::<Vec<_>>()
-                .join("|")
-        })
-        .collect();
-
-    if exactly_once {
-        let mut counts = std::collections::HashMap::new();
-        for k in &row_keys {
-            *counts.entry(k.clone()).or_insert(0) += 1;
-        }
-        let unique_rows: Vec<Vec<CellValue>> = matrix
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| counts.get(&row_keys[*i]) == Some(&1))
-            .map(|(_, r)| r.clone())
+    if by_col {
+        let num_rows = matrix.len();
+        let num_cols = matrix[0].len();
+        let col_keys: Vec<String> = (0..num_cols)
+            .map(|c| {
+                (0..num_rows)
+                    .map(|r| cell_to_key(&matrix[r][c]))
+                    .collect::<Vec<_>>()
+                    .join("|")
+            })
             .collect();
 
-        if unique_rows.is_empty() {
+        let chosen_col_indices: Vec<usize> = if exactly_once {
+            let mut counts = std::collections::HashMap::new();
+            for k in &col_keys {
+                *counts.entry(k.clone()).or_insert(0) += 1;
+            }
+            (0..num_cols)
+                .filter(|&c| counts.get(&col_keys[c]) == Some(&1))
+                .collect()
+        } else {
+            let mut seen = HashSet::new();
+            (0..num_cols)
+                .filter(|&c| seen.insert(col_keys[c].clone()))
+                .collect()
+        };
+
+        if chosen_col_indices.is_empty() {
             CellValue::Error(CellError::Calc)
         } else {
-            CellValue::Array(unique_rows)
+            let mut result = Vec::with_capacity(num_rows);
+            for matrix_row in &matrix {
+                let mut row = Vec::with_capacity(chosen_col_indices.len());
+                for &c in &chosen_col_indices {
+                    row.push(matrix_row[c].clone());
+                }
+                result.push(row);
+            }
+            CellValue::Array(result)
         }
     } else {
-        let mut seen = HashSet::new();
-        let mut unique_rows = Vec::new();
-        for (i, row) in matrix.iter().enumerate() {
-            if seen.insert(row_keys[i].clone()) {
-                unique_rows.push(row.clone());
+        // Hashable string representation for row deduplication
+        let row_keys: Vec<String> = matrix
+            .iter()
+            .map(|row| row.iter().map(cell_to_key).collect::<Vec<_>>().join("|"))
+            .collect();
+
+        if exactly_once {
+            let mut counts = std::collections::HashMap::new();
+            for k in &row_keys {
+                *counts.entry(k.clone()).or_insert(0) += 1;
             }
+            let unique_rows: Vec<Vec<CellValue>> = matrix
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| counts.get(&row_keys[*i]) == Some(&1))
+                .map(|(_, r)| r.clone())
+                .collect();
+
+            if unique_rows.is_empty() {
+                CellValue::Error(CellError::Calc)
+            } else {
+                CellValue::Array(unique_rows)
+            }
+        } else {
+            let mut seen = HashSet::new();
+            let mut unique_rows = Vec::new();
+            for (i, row) in matrix.iter().enumerate() {
+                if seen.insert(row_keys[i].clone()) {
+                    unique_rows.push(row.clone());
+                }
+            }
+            CellValue::Array(unique_rows)
         }
-        CellValue::Array(unique_rows)
     }
 }
 
@@ -595,28 +703,64 @@ pub fn fn_sort(args: &[CellValue]) -> CellValue {
         return CellValue::Error(CellError::Value);
     }
     let mut matrix = to_matrix(&args[0]);
-    if matrix.is_empty() {
+    if matrix.is_empty() || matrix[0].is_empty() {
         return CellValue::Array(matrix);
     }
 
     let sort_index = args.get(1).and_then(|v| v.as_f64()).unwrap_or(1.0) as usize;
     let sort_order = args.get(2).and_then(|v| v.as_f64()).unwrap_or(1.0) as i32;
+    let by_col = args
+        .get(3)
+        .and_then(|v| match v {
+            CellValue::Boolean(b) => Some(*b),
+            CellValue::Number(n) => Some(*n != 0.0),
+            _ => None,
+        })
+        .unwrap_or(false);
 
-    if sort_index < 1 || sort_index > matrix[0].len() {
-        return CellValue::Error(CellError::Value);
-    }
-
-    let col_idx = sort_index - 1;
     let asc = sort_order >= 0;
 
-    matrix.sort_by(|row_a, row_b| {
-        let ord = compare_cell_values(&row_a[col_idx], &row_b[col_idx]);
-        if asc {
-            ord
-        } else {
-            ord.reverse()
+    if by_col {
+        let num_rows = matrix.len();
+        let num_cols = matrix[0].len();
+        if sort_index < 1 || sort_index > num_rows {
+            return CellValue::Error(CellError::Value);
         }
-    });
+        let row_idx = sort_index - 1;
+        let mut col_indices: Vec<usize> = (0..num_cols).collect();
+        col_indices.sort_by(|&c_a, &c_b| {
+            let ord = compare_cell_values(&matrix[row_idx][c_a], &matrix[row_idx][c_b]);
+            if asc {
+                ord
+            } else {
+                ord.reverse()
+            }
+        });
+        let mut result = Vec::with_capacity(num_rows);
+        for matrix_row in &matrix {
+            let mut row = Vec::with_capacity(num_cols);
+            for &c in &col_indices {
+                row.push(matrix_row[c].clone());
+            }
+            result.push(row);
+        }
+        CellValue::Array(result)
+    } else {
+        if sort_index < 1 || sort_index > matrix[0].len() {
+            return CellValue::Error(CellError::Value);
+        }
 
-    CellValue::Array(matrix)
+        let col_idx = sort_index - 1;
+
+        matrix.sort_by(|row_a, row_b| {
+            let ord = compare_cell_values(&row_a[col_idx], &row_b[col_idx]);
+            if asc {
+                ord
+            } else {
+                ord.reverse()
+            }
+        });
+
+        CellValue::Array(matrix)
+    }
 }

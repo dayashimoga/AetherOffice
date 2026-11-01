@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::model::{BodyElement, Paragraph, ParagraphChild, Run, RunContent};
 use crate::package::WordPackage;
+use crate::revision::{AuthorColorPalette, RevisionType, RevisionViewMode};
 use crate::section::SectionGeometry;
 use crate::styles::{ResolvedParagraphProperties, ResolvedRunProperties, StyleCascadeResolver};
 use crate::table_layout::TablePaginationSolver;
@@ -60,6 +61,10 @@ pub struct LayoutRun {
     pub bold: bool,
     pub italic: bool,
     pub color: Option<String>,
+    pub underline: bool,
+    pub strike: bool,
+    pub revision_type: Option<RevisionType>,
+    pub revision_author: Option<String>,
 }
 
 /// A single rendered line of text within a column.
@@ -70,6 +75,7 @@ pub struct LayoutLine {
     pub paragraph_index: usize,
     pub runs: Vec<LayoutRun>,
     pub is_last_line_of_para: bool,
+    pub has_change_bar: bool,
 }
 
 /// A vertical content column on a layout page.
@@ -326,6 +332,10 @@ pub struct LayoutToken {
     pub descent: u32,
     pub style: ResolvedRunProperties,
     pub can_break_after: bool,
+    pub underline: bool,
+    pub strike: bool,
+    pub revision_type: Option<RevisionType>,
+    pub revision_author: Option<String>,
 }
 
 // =========================================================================
@@ -341,52 +351,168 @@ impl<'a> LineBreaker<'a> {
         Self { metrics }
     }
 
-    /// Tokenizes paragraph runs into measurable layout tokens.
-    pub fn tokenize_paragraph(
+    #[allow(clippy::too_many_arguments)]
+    fn make_token(
+        &self,
+        text: String,
+        kind: TokenKind,
+        width: u32,
+        ascent: u32,
+        descent: u32,
+        style: &ResolvedRunProperties,
+        can_break_after: bool,
+        rev_type: Option<RevisionType>,
+        rev_author: Option<&str>,
+    ) -> LayoutToken {
+        let underline = style.underline.is_some() || rev_type == Some(RevisionType::Insertion);
+        let strike = style.strike || rev_type == Some(RevisionType::Deletion);
+        let mut final_style = style.clone();
+        if let Some(author) = rev_author {
+            final_style.color = Some(AuthorColorPalette::get_color_for_author(author).to_string());
+        }
+
+        LayoutToken {
+            text,
+            kind,
+            width,
+            ascent,
+            descent,
+            style: final_style,
+            can_break_after,
+            underline,
+            strike,
+            revision_type: rev_type,
+            revision_author: rev_author.map(|s| s.to_string()),
+        }
+    }
+
+    /// Tokenizes paragraph children taking into account active RevisionViewMode.
+    pub fn tokenize_paragraph_with_mode(
         &self,
         p: &Paragraph,
         cascade: &StyleCascadeResolver,
+        mode: RevisionViewMode,
     ) -> Vec<LayoutToken> {
         let mut tokens = Vec::new();
 
         for child in &p.children {
-            if let ParagraphChild::Run(ref r) = child {
-                let resolved_style = cascade.resolve_run(r, p);
-                self.tokenize_run(r, &resolved_style, &mut tokens);
+            match child {
+                ParagraphChild::Run(ref r) => {
+                    let resolved_style = cascade.resolve_run(r, p);
+                    self.tokenize_run(r, &resolved_style, None, None, &mut tokens);
+                }
+                ParagraphChild::Inserted(ref ins) => {
+                    if mode != RevisionViewMode::Original {
+                        let rev_type = if mode == RevisionViewMode::AllMarkup {
+                            Some(RevisionType::Insertion)
+                        } else {
+                            None
+                        };
+                        let rev_author = if mode == RevisionViewMode::AllMarkup {
+                            Some(ins.author.as_str())
+                        } else {
+                            None
+                        };
+                        for ins_child in &ins.children {
+                            if let ParagraphChild::Run(ref r) = ins_child {
+                                let resolved_style = cascade.resolve_run(r, p);
+                                self.tokenize_run(
+                                    r,
+                                    &resolved_style,
+                                    rev_type,
+                                    rev_author,
+                                    &mut tokens,
+                                );
+                            }
+                        }
+                    }
+                }
+                ParagraphChild::Deleted(ref del) => {
+                    if mode == RevisionViewMode::AllMarkup {
+                        for del_child in &del.children {
+                            if let ParagraphChild::Run(ref r) = del_child {
+                                let resolved_style = cascade.resolve_run(r, p);
+                                self.tokenize_run(
+                                    r,
+                                    &resolved_style,
+                                    Some(RevisionType::Deletion),
+                                    Some(del.author.as_str()),
+                                    &mut tokens,
+                                );
+                            }
+                        }
+                    } else if mode == RevisionViewMode::Original {
+                        for del_child in &del.children {
+                            if let ParagraphChild::Run(ref r) = del_child {
+                                let resolved_style = cascade.resolve_run(r, p);
+                                self.tokenize_run(r, &resolved_style, None, None, &mut tokens);
+                            }
+                        }
+                    }
+                }
+                ParagraphChild::Hyperlink(ref hl) => {
+                    for hl_child in &hl.children {
+                        if let ParagraphChild::Run(ref r) = hl_child {
+                            let resolved_style = cascade.resolve_run(r, p);
+                            self.tokenize_run(r, &resolved_style, None, None, &mut tokens);
+                        }
+                    }
+                }
+                _ => {}
             }
         }
 
         tokens
     }
 
-    fn tokenize_run(&self, r: &Run, style: &ResolvedRunProperties, out: &mut Vec<LayoutToken>) {
+    /// Tokenizes paragraph runs into measurable layout tokens.
+    pub fn tokenize_paragraph(
+        &self,
+        p: &Paragraph,
+        cascade: &StyleCascadeResolver,
+    ) -> Vec<LayoutToken> {
+        self.tokenize_paragraph_with_mode(p, cascade, RevisionViewMode::AllMarkup)
+    }
+
+    fn tokenize_run(
+        &self,
+        r: &Run,
+        style: &ResolvedRunProperties,
+        rev_type: Option<RevisionType>,
+        rev_author: Option<&str>,
+        out: &mut Vec<LayoutToken>,
+    ) {
         for content in &r.content {
             match content {
                 RunContent::Text(text, _) => {
-                    self.tokenize_text(text, style, out);
+                    self.tokenize_text(text, style, rev_type, rev_author, out);
                 }
                 RunContent::Tab => {
-                    out.push(LayoutToken {
-                        text: "\t".to_string(),
-                        kind: TokenKind::Tab,
-                        width: 720,
-                        ascent: 0,
-                        descent: 0,
-                        style: style.clone(),
-                        can_break_after: true,
-                    });
+                    out.push(self.make_token(
+                        "\t".to_string(),
+                        TokenKind::Tab,
+                        720,
+                        0,
+                        0,
+                        style,
+                        true,
+                        rev_type,
+                        rev_author,
+                    ));
                 }
                 RunContent::Break(ref br_type) => {
                     let is_page = br_type.as_deref() == Some("page");
-                    out.push(LayoutToken {
-                        text: if is_page { "[PAGE_BREAK]" } else { "\n" }.to_string(),
-                        kind: TokenKind::LineBreak,
-                        width: 0,
-                        ascent: 0,
-                        descent: 0,
-                        style: style.clone(),
-                        can_break_after: true,
-                    });
+                    out.push(self.make_token(
+                        if is_page { "[PAGE_BREAK]" } else { "\n" }.to_string(),
+                        TokenKind::LineBreak,
+                        0,
+                        0,
+                        0,
+                        style,
+                        true,
+                        rev_type,
+                        rev_author,
+                    ));
                 }
                 RunContent::SoftHyphen => {
                     let m = self.metrics.measure_char(
@@ -396,15 +522,17 @@ impl<'a> LineBreaker<'a> {
                         style.bold,
                         style.italic,
                     );
-                    out.push(LayoutToken {
-                        text: "\u{00AD}".to_string(),
-                        kind: TokenKind::SoftHyphen,
-                        width: m.advance_width,
-                        ascent: m.ascent,
-                        descent: m.descent,
-                        style: style.clone(),
-                        can_break_after: true,
-                    });
+                    out.push(self.make_token(
+                        "\u{00AD}".to_string(),
+                        TokenKind::SoftHyphen,
+                        m.advance_width,
+                        m.ascent,
+                        m.descent,
+                        style,
+                        true,
+                        rev_type,
+                        rev_author,
+                    ));
                 }
                 RunContent::NoBreakHyphen => {
                     let m = self.metrics.measure_char(
@@ -414,22 +542,31 @@ impl<'a> LineBreaker<'a> {
                         style.bold,
                         style.italic,
                     );
-                    out.push(LayoutToken {
-                        text: "\u{2011}".to_string(),
-                        kind: TokenKind::Word,
-                        width: m.advance_width,
-                        ascent: m.ascent,
-                        descent: m.descent,
-                        style: style.clone(),
-                        can_break_after: false,
-                    });
+                    out.push(self.make_token(
+                        "\u{2011}".to_string(),
+                        TokenKind::Word,
+                        m.advance_width,
+                        m.ascent,
+                        m.descent,
+                        style,
+                        false,
+                        rev_type,
+                        rev_author,
+                    ));
                 }
                 _ => {}
             }
         }
     }
 
-    fn tokenize_text(&self, text: &str, style: &ResolvedRunProperties, out: &mut Vec<LayoutToken>) {
+    fn tokenize_text(
+        &self,
+        text: &str,
+        style: &ResolvedRunProperties,
+        rev_type: Option<RevisionType>,
+        rev_author: Option<&str>,
+        out: &mut Vec<LayoutToken>,
+    ) {
         let chars: Vec<char> = text.chars().collect();
         let mut i = 0;
 
@@ -443,15 +580,17 @@ impl<'a> LineBreaker<'a> {
                     style.bold,
                     style.italic,
                 );
-                out.push(LayoutToken {
-                    text: " ".to_string(),
-                    kind: TokenKind::Space,
-                    width: m.advance_width,
-                    ascent: m.ascent,
-                    descent: m.descent,
-                    style: style.clone(),
-                    can_break_after: true,
-                });
+                out.push(self.make_token(
+                    " ".to_string(),
+                    TokenKind::Space,
+                    m.advance_width,
+                    m.ascent,
+                    m.descent,
+                    style,
+                    true,
+                    rev_type,
+                    rev_author,
+                ));
                 i += 1;
             } else if c == '\u{00A0}' {
                 // Non-breaking space
@@ -462,15 +601,17 @@ impl<'a> LineBreaker<'a> {
                     style.bold,
                     style.italic,
                 );
-                out.push(LayoutToken {
-                    text: "\u{00A0}".to_string(),
-                    kind: TokenKind::Word,
-                    width: m.advance_width,
-                    ascent: m.ascent,
-                    descent: m.descent,
-                    style: style.clone(),
-                    can_break_after: false,
-                });
+                out.push(self.make_token(
+                    "\u{00A0}".to_string(),
+                    TokenKind::Word,
+                    m.advance_width,
+                    m.ascent,
+                    m.descent,
+                    style,
+                    false,
+                    rev_type,
+                    rev_author,
+                ));
                 i += 1;
             } else if Self::is_cjk(c) {
                 // CJK character: individual ideograph token
@@ -481,15 +622,17 @@ impl<'a> LineBreaker<'a> {
                     style.bold,
                     style.italic,
                 );
-                out.push(LayoutToken {
-                    text: c.to_string(),
-                    kind: TokenKind::Word,
-                    width: m.advance_width,
-                    ascent: m.ascent,
-                    descent: m.descent,
-                    style: style.clone(),
-                    can_break_after: true,
-                });
+                out.push(self.make_token(
+                    c.to_string(),
+                    TokenKind::Word,
+                    m.advance_width,
+                    m.ascent,
+                    m.descent,
+                    style,
+                    true,
+                    rev_type,
+                    rev_author,
+                ));
                 i += 1;
             } else {
                 // Latin / alphanumeric word
@@ -535,15 +678,17 @@ impl<'a> LineBreaker<'a> {
                     i += 1;
                 }
 
-                out.push(LayoutToken {
-                    text: word,
-                    kind: TokenKind::Word,
+                out.push(self.make_token(
+                    word,
+                    TokenKind::Word,
                     width,
-                    ascent: max_ascent,
-                    descent: max_descent,
-                    style: style.clone(),
-                    can_break_after: false,
-                });
+                    max_ascent,
+                    max_descent,
+                    style,
+                    false,
+                    rev_type,
+                    rev_author,
+                ));
             }
         }
     }
@@ -1137,12 +1282,17 @@ impl<'a> PaginationSolver<'a> {
                 bold: token.style.bold,
                 italic: token.style.italic,
                 color: token.style.color.clone(),
+                underline: token.underline,
+                strike: token.strike,
+                revision_type: token.revision_type,
+                revision_author: token.revision_author.clone(),
             });
 
             curr_x = curr_x.saturating_add(w);
         }
 
         let baseline = line_y.saturating_add(max_ascent.max(line_h * 8 / 10));
+        let has_change_bar = runs.iter().any(|r| r.revision_type.is_some());
 
         LayoutLine {
             bounds: BoundingBox::new(start_x, line_y, curr_x.saturating_sub(start_x), line_h),
@@ -1150,6 +1300,7 @@ impl<'a> PaginationSolver<'a> {
             paragraph_index: para_idx,
             runs,
             is_last_line_of_para: is_last,
+            has_change_bar,
         }
     }
 }

@@ -1,4 +1,4 @@
-import { DocumentType } from "../ipc";
+import { DocumentType, RibbonLayoutMode } from "../ipc";
 import { AppRibbonComponent } from "./ribbon/types";
 import { WriterRibbon } from "./ribbon/WriterRibbon";
 import { CalcRibbon } from "./ribbon/CalcRibbon";
@@ -13,6 +13,7 @@ export type RibbonTabId = string;
 export class Ribbon {
   private container: HTMLElement;
   private docType: DocumentType = "Word";
+  private layoutMode: RibbonLayoutMode = "classic";
   private activeRibbonTabs: Record<DocumentType, string> = {
     Word: "Home",
     Excel: "Home",
@@ -111,6 +112,15 @@ export class Ribbon {
     this.render();
   }
 
+  public getLayoutMode(): RibbonLayoutMode {
+    return this.layoutMode;
+  }
+
+  public setLayoutMode(mode: RibbonLayoutMode) {
+    this.layoutMode = mode;
+    this.render();
+  }
+
   public setOnAction(callback: (action: string, payload?: unknown) => void) {
     this.onActionCallback = callback;
   }
@@ -160,6 +170,17 @@ export class Ribbon {
   private render() {
     this.container.innerHTML = "";
     this.container.style.setProperty("--primary-accent", this.getDocAccentColor());
+    this.container.setAttribute("data-ribbon-mode", this.layoutMode);
+
+    if (this.layoutMode === "compact") {
+      this.container.classList.add("ribbon-compact");
+      this.container.classList.remove("ribbon-collapsed");
+    } else if (this.layoutMode === "collapsed") {
+      this.container.classList.add("ribbon-collapsed");
+      this.container.classList.remove("ribbon-compact");
+    } else {
+      this.container.classList.remove("ribbon-compact", "ribbon-collapsed");
+    }
 
     // 1. Ribbon Tabs Header
     const header = document.createElement("div");
@@ -210,22 +231,52 @@ export class Ribbon {
       header.appendChild(tabBtn);
     });
 
+    // 1.3 Ribbon Layout Mode Switcher Toggle Button
+    const layoutToggleBtn = document.createElement("button");
+    layoutToggleBtn.className = "ribbon-layout-toggle-btn";
+    layoutToggleBtn.setAttribute("data-testid", "ribbon-layout-toggle-btn");
+    layoutToggleBtn.setAttribute("aria-label", "Toggle Ribbon Layout Mode");
+    layoutToggleBtn.title = this.layoutMode === "compact"
+      ? "Switch to Classic Ribbon (Multi-row)"
+      : this.layoutMode === "collapsed"
+      ? "Expand Ribbon"
+      : "Switch to Compact Ribbon (Single-row)";
+    layoutToggleBtn.innerHTML = this.layoutMode === "compact"
+      ? `<span aria-hidden="true">⊞</span> Classic`
+      : this.layoutMode === "collapsed"
+      ? `<span aria-hidden="true">▼</span> Expand`
+      : `<span aria-hidden="true">⊟</span> Compact`;
+    layoutToggleBtn.onclick = () => {
+      const nextMode: RibbonLayoutMode = this.layoutMode === "classic"
+        ? "compact"
+        : this.layoutMode === "compact"
+        ? "collapsed"
+        : "classic";
+      this.setLayoutMode(nextMode);
+      if (this.onActionCallback) {
+        this.onActionCallback("RibbonLayoutModeChanged", nextMode);
+      }
+    };
+    header.appendChild(layoutToggleBtn);
+
     this.container.appendChild(header);
 
-    // 2. Ribbon Tools Body
-    const body = document.createElement("div");
-    body.className = "ribbon-tools-body ribbon-content";
-    body.id = "ribbon-tools-body";
+    // 2. Ribbon Tools Body (rendered only if not collapsed)
+    if (this.layoutMode !== "collapsed") {
+      const body = document.createElement("div");
+      body.className = `ribbon-tools-body ribbon-content ${this.layoutMode === "compact" ? "ribbon-compact" : ""}`;
+      body.id = "ribbon-tools-body";
 
-    this.router.renderTab(
-      this.docType,
-      activeTab,
-      body,
-      appRibbon,
-      (action, payload) => this.emit(action, payload)
-    );
+      this.router.renderTab(
+        this.docType,
+        activeTab,
+        body,
+        appRibbon,
+        (action, payload) => this.emit(action, payload)
+      );
 
-    this.container.appendChild(body);
+      this.container.appendChild(body);
+    }
   }
 
   private emit(action: string, payload?: unknown) {

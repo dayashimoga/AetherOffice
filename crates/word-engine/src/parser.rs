@@ -236,6 +236,8 @@ pub fn parse_comments(xml_bytes: &[u8]) -> Result<CommentsDocument> {
                 let mut author = String::new();
                 let mut initials = None;
                 let mut date = None;
+                let mut parent_id = None;
+                let mut is_resolved = false;
 
                 for attr in e.attributes().flatten() {
                     let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
@@ -245,6 +247,10 @@ pub fn parse_comments(xml_bytes: &[u8]) -> Result<CommentsDocument> {
                         "author" => author = val,
                         "initials" => initials = Some(val),
                         "date" => date = Some(val),
+                        "parent" | "paraIdParent" | "parentCommentId" => parent_id = Some(val),
+                        "done" | "resolved" => {
+                            is_resolved = val == "1" || val.eq_ignore_ascii_case("true")
+                        }
                         _ => {}
                     }
                 }
@@ -255,6 +261,8 @@ pub fn parse_comments(xml_bytes: &[u8]) -> Result<CommentsDocument> {
                     author,
                     initials,
                     date,
+                    parent_id,
+                    is_resolved,
                     body: Body {
                         elements: body,
                         sect_pr: None,
@@ -462,6 +470,9 @@ pub(crate) fn parse_paragraph_properties<R: std::io::BufRead>(
                 let name = local_name(e.name().into_inner());
                 match name {
                     "rPr" => p_pr.r_pr = Some(parse_run_properties(reader)?),
+                    "pPrChange" => {
+                        p_pr.p_pr_change = Some(parse_paragraph_properties_change(reader, e)?);
+                    }
                     "numPr" => {
                         let mut num_id = 0;
                         let mut ilvl = 0;
@@ -511,6 +522,21 @@ pub(crate) fn parse_paragraph_properties<R: std::io::BufRead>(
                     "keepLines" => p_pr.keep_lines = parse_boolean_attr(e),
                     "pageBreakBefore" => p_pr.page_break_before = parse_boolean_attr(e),
                     "kinsoku" => p_pr.kinsoku = Some(parse_boolean_attr(e)),
+                    "outlineLvl" => {
+                        p_pr.outline_level =
+                            get_attr_val(e, "val").and_then(|s| s.parse::<u32>().ok());
+                    }
+                    "pPrChange" => {
+                        let id = get_attr_val(e, "id").unwrap_or_default();
+                        let author = get_attr_val(e, "author").unwrap_or_default();
+                        let date = get_attr_val(e, "date").unwrap_or_default();
+                        p_pr.p_pr_change = Some(ParagraphPropertiesChange {
+                            id,
+                            author,
+                            date,
+                            previous_properties: None,
+                        });
+                    }
                     _ => p_pr.raw_elements.push(parse_empty_raw_node(e)?),
                 }
             }
@@ -640,7 +666,13 @@ pub(crate) fn parse_run_properties<R: std::io::BufRead>(
     loop {
         match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
             Event::Start(ref e) => {
-                r_pr.raw_elements.push(parse_raw_xml_node(reader, e)?);
+                let name = local_name(e.name().into_inner());
+                match name {
+                    "rPrChange" => {
+                        r_pr.r_pr_change = Some(parse_run_properties_change(reader, e)?);
+                    }
+                    _ => r_pr.raw_elements.push(parse_raw_xml_node(reader, e)?),
+                }
             }
             Event::Empty(ref e) => {
                 let name = local_name(e.name().into_inner());
@@ -665,6 +697,17 @@ pub(crate) fn parse_run_properties<R: std::io::BufRead>(
                         r_pr.font_east_asia = get_attr_val(e, "eastAsia");
                         r_pr.font_cs = get_attr_val(e, "cs");
                     }
+                    "rPrChange" => {
+                        let id = get_attr_val(e, "id").unwrap_or_default();
+                        let author = get_attr_val(e, "author").unwrap_or_default();
+                        let date = get_attr_val(e, "date").unwrap_or_default();
+                        r_pr.r_pr_change = Some(RunPropertiesChange {
+                            id,
+                            author,
+                            date,
+                            previous_properties: None,
+                        });
+                    }
                     _ => r_pr.raw_elements.push(parse_empty_raw_node(e)?),
                 }
             }
@@ -684,6 +727,74 @@ fn parse_empty_run_properties(e: &BytesStart) -> RunProperties {
         r_pr.bold = true;
     }
     r_pr
+}
+
+fn parse_run_properties_change<R: std::io::BufRead>(
+    reader: &mut Reader<R>,
+    start_tag: &BytesStart,
+) -> Result<RunPropertiesChange> {
+    let id = get_attr_val(start_tag, "id").unwrap_or_default();
+    let author = get_attr_val(start_tag, "author").unwrap_or_default();
+    let date = get_attr_val(start_tag, "date").unwrap_or_default();
+
+    let mut change = RunPropertiesChange {
+        id,
+        author,
+        date,
+        previous_properties: None,
+    };
+
+    let mut buf = Vec::new();
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Start(ref e) if local_name(e.name().into_inner()) == "rPr" => {
+                change.previous_properties = Some(Box::new(parse_run_properties(reader)?));
+            }
+            Event::Empty(ref e) if local_name(e.name().into_inner()) == "rPr" => {
+                change.previous_properties = Some(Box::new(parse_empty_run_properties(e)));
+            }
+            Event::End(ref e) if local_name(e.name().into_inner()) == "rPrChange" => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(change)
+}
+
+fn parse_paragraph_properties_change<R: std::io::BufRead>(
+    reader: &mut Reader<R>,
+    start_tag: &BytesStart,
+) -> Result<ParagraphPropertiesChange> {
+    let id = get_attr_val(start_tag, "id").unwrap_or_default();
+    let author = get_attr_val(start_tag, "author").unwrap_or_default();
+    let date = get_attr_val(start_tag, "date").unwrap_or_default();
+
+    let mut change = ParagraphPropertiesChange {
+        id,
+        author,
+        date,
+        previous_properties: None,
+    };
+
+    let mut buf = Vec::new();
+    loop {
+        match reader.read_event_into(&mut buf).map_err(EngineError::Xml)? {
+            Event::Start(ref e) if local_name(e.name().into_inner()) == "pPr" => {
+                change.previous_properties = Some(Box::new(parse_paragraph_properties(reader)?));
+            }
+            Event::Empty(ref e) if local_name(e.name().into_inner()) == "pPr" => {
+                change.previous_properties = Some(Box::new(parse_empty_paragraph_properties(e)?));
+            }
+            Event::End(ref e) if local_name(e.name().into_inner()) == "pPrChange" => break,
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(change)
 }
 
 // --- Hyperlinks, Bookmarks & Revisions ---

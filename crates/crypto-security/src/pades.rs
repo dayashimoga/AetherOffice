@@ -235,12 +235,19 @@ fn parse_pdf_byte_range(pdf_str: &str) -> Result<PdfByteRange, CryptoSecurityErr
 }
 
 fn parse_pdf_contents_hex(pdf_str: &str) -> Result<String, CryptoSecurityError> {
+    let sig_pos = pdf_str
+        .find("/Type /Sig")
+        .or_else(|| pdf_str.find("/ByteRange"))
+        .unwrap_or(0);
+    let target_slice = &pdf_str[sig_pos..];
     let key = "/Contents";
-    let pos = pdf_str.find(key).ok_or_else(|| {
-        CryptoSecurityError::PadesValidationError("Missing /Contents key in PDF".to_string())
+    let pos = target_slice.find(key).ok_or_else(|| {
+        CryptoSecurityError::PadesValidationError(
+            "Missing /Contents key in signature dictionary".to_string(),
+        )
     })?;
 
-    let after = &pdf_str[pos + key.len()..];
+    let after = &target_slice[pos + key.len()..];
     let open_angle = after.find('<').ok_or_else(|| {
         CryptoSecurityError::PadesValidationError("Missing '<' in /Contents".to_string())
     })?;

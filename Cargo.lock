@@ -612,10 +612,12 @@ name = "data-connectors"
 version = "0.1.0"
 dependencies = [
  "excel-engine",
+ "quick-xml 0.37.5",
  "rayon",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
+ "zip",
 ]
 
 [[package]]
@@ -2346,6 +2348,7 @@ dependencies = [
 name = "pdf-engine"
 version = "0.1.0"
 dependencies = [
+ "crypto-security",
  "flate2",
  "serde",
  "serde_json",
@@ -2509,6 +2512,7 @@ dependencies = [
  "ooxml-opc",
  "quick-xml 0.37.5",
  "rayon",
+ "render-core",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
@@ -2731,6 +2735,7 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 name = "render-core"
 version = "0.1.0"
 dependencies = [
+ "crypto-security",
  "excel-engine",
  "ooxml-opc",
  "pdf-engine",
@@ -3885,10 +3890,15 @@ checksum = "c6f5d3c3b1bf09027a88a6bc961fc00497d651009560b5463668dc81b0fa87a8"
 name = "unified-shell-tauri"
 version = "0.1.0"
 dependencies = [
+ "copilot-core",
  "crdt-collab",
+ "crypto-security",
+ "data-connectors",
  "excel-engine",
  "macro-engine",
  "ooxml-opc",
+ "pdf-engine",
+ "plugin-runtime",
  "ppt-engine",
  "quick-xml 0.37.5",
  "render-core",

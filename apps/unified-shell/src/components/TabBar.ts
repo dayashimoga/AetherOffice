@@ -146,8 +146,40 @@ export class TabBar {
     return this.tabs.find((t) => t.id === this.activeTabId);
   }
 
+  public getActiveDocType(): DocumentType | undefined {
+    return this.getActiveTab()?.docType;
+  }
+
   public getTabs(): TabItem[] {
     return [...this.tabs];
+  }
+
+  public getVisibleTabs(): TabItem[] {
+    return this.filterMode === "current" && this.filterDocType
+      ? this.tabs.filter((t) => t.docType === this.filterDocType)
+      : [...this.tabs];
+  }
+
+  public reorderTabs(fromIndex: number, toIndex: number): void {
+    if (fromIndex < 0 || fromIndex >= this.tabs.length) return;
+    if (toIndex < 0 || toIndex >= this.tabs.length) return;
+    const [moved] = this.tabs.splice(fromIndex, 1);
+    this.tabs.splice(toIndex, 0, moved);
+    this.render();
+  }
+
+  public clearTabs(): void {
+    this.tabs = [];
+    this.activeTabId = null;
+    this.render();
+  }
+
+  public setTabs(tabs: TabItem[]): void {
+    this.tabs = [...tabs];
+    if (this.tabs.length > 0 && (!this.activeTabId || !this.tabs.some((t) => t.id === this.activeTabId))) {
+      this.activeTabId = this.tabs[0].id;
+    }
+    this.render();
   }
 
   public render() {
@@ -171,14 +203,14 @@ export class TabBar {
     this.container.appendChild(filterToggleBtn);
 
     // 2. Visible Tabs
-    const visibleTabs =
-      this.filterMode === "current" && this.filterDocType
-        ? this.tabs.filter((t) => t.docType === this.filterDocType)
-        : this.tabs;
+    const visibleTabs = this.getVisibleTabs();
 
     visibleTabs.forEach((tab) => {
       const tabEl = document.createElement("div");
       tabEl.className = `tab-item ${tab.id === this.activeTabId ? "active" : ""}`;
+      tabEl.dataset.testid = "tab-item";
+      tabEl.dataset.tabId = tab.id;
+      tabEl.dataset.docType = tab.docType;
       tabEl.onclick = () => this.switchTab(tab.id);
 
       const typeClass =
@@ -205,6 +237,7 @@ export class TabBar {
 
       const icon = document.createElement("span");
       icon.className = `tab-type-icon ${typeClass}`;
+      icon.dataset.badge = iconChar;
       icon.textContent = iconChar;
 
       const label = document.createElement("span");

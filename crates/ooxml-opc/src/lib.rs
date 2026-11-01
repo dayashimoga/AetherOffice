@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 //! ooxml-opc - ECMA-376 / Clean-Room Engine Module
 
+pub mod async_pipeline;
 pub mod content_types;
 pub mod error;
 pub mod fixtures;
@@ -8,6 +9,10 @@ pub mod package;
 pub mod relationships;
 pub mod unparsed;
 
+pub use async_pipeline::{
+    AsyncIngestionPipeline, AsyncIngestionResult, CancellationToken, IngestionProgress,
+    IngestionStage,
+};
 pub use content_types::{ContentTypes, CONTENT_TYPES_NS, RELATIONSHIPS_TYPE, XML_DEFAULT_TYPE};
 pub use error::{EngineError, Result};
 pub use fixtures::{

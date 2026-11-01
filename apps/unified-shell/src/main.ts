@@ -1,6 +1,6 @@
 import { TabBar, TabItem } from "./components/TabBar";
 import { AppRail, RailAppMode } from "./components/AppRail";
-import { Ribbon, RibbonTabId } from "./components/Ribbon";
+import { Ribbon } from "./components/Ribbon";
 import { FormulaBar } from "./components/FormulaBar";
 import { WordRuler } from "./components/WordRuler";
 import { NavigationPane } from "./components/NavigationPane";
@@ -25,6 +25,8 @@ import { pdfState } from "./state/pdfState";
 import { HubLauncher } from "./apps/hub/HubLauncher";
 import { BackstageMenu } from "./components/BackstageMenu";
 import { FindReplaceDialog, FindReplaceMatch } from "./components/FindReplaceDialog";
+import { FederatedSearchPanel } from "./components/FederatedSearchPanel";
+import { OmniboxLauncher } from "./components/OmniboxLauncher";
 import { WordCountDialog } from "./components/WordCountDialog";
 import { SheetTabBar } from "./components/SheetTabBar";
 import { WorkbookSheetsPane } from "./components/WorkbookSheetsPane";
@@ -54,8 +56,30 @@ import { themeManager } from "./components/ThemeManager";
 import { OpenDocumentsDrawer } from "./components/OpenDocumentsDrawer";
 import { fileIoService, downloadFile } from "./services/fileIoService";
 import { fileCodec, showSavedToast } from "./services/fileCodec";
-export { downloadFile, fileIoService, fileCodec, showSavedToast };
+import { documentSessionRegistry } from "./state/documentSessionRegistry";
+import {
+  WorkspacePersistenceService,
+  workspacePersistenceService,
+  AetherWorkspaceFile,
+} from "./services/WorkspacePersistenceService";
+export {
+  downloadFile,
+  fileIoService,
+  fileCodec,
+  showSavedToast,
+  documentSessionRegistry,
+  workspacePersistenceService,
+  WorkspacePersistenceService,
+};
+export type { AetherWorkspaceFile };
 import { pluginHost } from "./plugins/pluginHost";
+import {
+  WorkspaceLayoutManager,
+  PaneController,
+  FocusRouter,
+} from "./controllers";
+import { ProjectExplorerSidebar } from "./components/ProjectExplorerSidebar";
+import { SplitPaneGrid, SplitGridLayoutMode } from "./components/SplitPaneGrid";
 
 export class UnifiedShellApp {
   private appRail?: AppRail;
@@ -73,16 +97,16 @@ export class UnifiedShellApp {
   private laserPointer!: LaserPointer;
   private currentDocType: DocumentType = "Word";
 
-  private writerCanvas?: WriterCanvas;
-  private calcGridCanvas?: CalcGridCanvas;
-  private calcChartOverlay?: CalcChartOverlay;
-  private sheetTabBar?: SheetTabBar;
-  private workbookSheetsPane?: WorkbookSheetsPane;
-  private slideStageCanvas?: SlideStageCanvas;
-  private pdfViewerCanvas?: PdfViewerCanvas;
+  // Modular Workspace Controllers
+  private workspaceLayout!: WorkspaceLayoutManager;
+  private paneController!: PaneController;
+  private focusRouter!: FocusRouter;
+
   private hubLauncher?: HubLauncher;
   private backstageMenu!: BackstageMenu;
   private findReplaceDialog!: FindReplaceDialog;
+  private federatedSearchPanel!: FederatedSearchPanel;
+  private omniboxLauncher!: OmniboxLauncher;
   private wordCountDialog!: WordCountDialog;
   private functionWizardDialog!: FunctionWizardDialog;
   private nameManagerDialog!: NameManagerDialog;
@@ -90,13 +114,8 @@ export class UnifiedShellApp {
   private workbookStatisticsDialog!: WorkbookStatisticsDialog;
   private slideLayoutDialog!: SlideLayoutDialog;
   private formatBackgroundDialog!: FormatBackgroundDialog;
-  private speakerNotesPane?: SpeakerNotesPane;
-  private animationPane?: AnimationPane;
-  private presentationPlayer?: PresentationPlayer;
-  private slideMediaOverlay?: SlideMediaOverlay;
+  private workbookSheetsPane?: WorkbookSheetsPane;
   private presenterConsole?: PresenterConsoleWindow;
-  private pdfWorkspace?: PdfWorkspace;
-  private notesWorkspace?: NotesWorkspace;
   private collabBar!: CollabBar;
   private pluginSidebar!: PluginSidebar;
   private pluginManagerModal!: PluginManagerModal;
@@ -105,14 +124,86 @@ export class UnifiedShellApp {
   private copilotSidebar!: CopilotSidebar;
   private diffPreviewModal!: DiffPreviewModal;
   private openDocumentsDrawer!: OpenDocumentsDrawer;
-  private appFilter: DocumentType | null = null;
-  private showNavPane = true;
-  private isSplitViewActive = false;
-  private splitPaneEl: HTMLElement | null = null;
-  private splitRightTabId: string | null = null;
+  private projectExplorer?: ProjectExplorerSidebar;
+  private isProjectExplorerOpen = false;
+  private workspacePersistence: WorkspacePersistenceService = workspacePersistenceService;
+  private activeWorkspaceTitle = "AetherOffice Workspace";
 
-  constructor(autoBoot = true) {
-    this.init(autoBoot);
+  // Viewport Canvas Accessors (backward-compatible proxies to PaneController)
+  public get writerCanvas(): WriterCanvas | undefined {
+    return this.paneController.getWriterCanvas();
+  }
+  public get calcGridCanvas(): CalcGridCanvas | undefined {
+    return this.paneController.getCalcGridCanvas();
+  }
+  public get calcChartOverlay(): CalcChartOverlay | undefined {
+    return this.paneController.getCalcChartOverlay();
+  }
+  public get sheetTabBar(): SheetTabBar | undefined {
+    return this.paneController.getSheetTabBar();
+  }
+  public get slideStageCanvas(): SlideStageCanvas | undefined {
+    return this.paneController.getSlideStageCanvas();
+  }
+  public get slideMediaOverlay(): SlideMediaOverlay | undefined {
+    return this.paneController.getSlideMediaOverlay();
+  }
+  public get speakerNotesPane(): SpeakerNotesPane | undefined {
+    return this.paneController.getSpeakerNotesPane();
+  }
+  public get animationPane(): AnimationPane | undefined {
+    return this.paneController.getAnimationPane();
+  }
+  public get presentationPlayer(): PresentationPlayer | undefined {
+    return this.paneController.getPresentationPlayer();
+  }
+  public get pdfViewerCanvas(): PdfViewerCanvas | undefined {
+    return this.paneController.getPdfViewerCanvas();
+  }
+  public get pdfWorkspace(): PdfWorkspace | undefined {
+    return this.paneController.getPdfWorkspace();
+  }
+  public get notesWorkspace(): NotesWorkspace | undefined {
+    return this.paneController.getNotesWorkspace();
+  }
+
+  // Workspace Layout proxies
+  public get isSplitViewActive(): boolean {
+    return this.workspaceLayout.isSplitView();
+  }
+  public get splitRightTabId(): string | null {
+    return this.workspaceLayout.getSplitRightTabId();
+  }
+  public set splitRightTabId(val: string | null) {
+    this.workspaceLayout.setSplitRightTabId(val);
+  }
+  public get appFilter(): DocumentType | null {
+    return this.workspaceLayout.getAppFilter();
+  }
+  public set appFilter(val: DocumentType | null) {
+    this.workspaceLayout.setAppFilter(val);
+  }
+  public get showNavPane(): boolean {
+    return this.workspaceLayout.getShowNavPane();
+  }
+  public set showNavPane(val: boolean) {
+    this.workspaceLayout.setShowNavPane(val);
+  }
+
+  // Modular Controller Accessors
+  public getWorkspaceLayout(): WorkspaceLayoutManager {
+    return this.workspaceLayout;
+  }
+  public getPaneController(): PaneController {
+    return this.paneController;
+  }
+  public getFocusRouter(): FocusRouter {
+    return this.focusRouter;
+  }
+
+  constructor(autoBoot: boolean | { autoBoot?: boolean } = true) {
+    const shouldBoot = typeof autoBoot === "boolean" ? autoBoot : autoBoot?.autoBoot ?? true;
+    this.init(shouldBoot);
   }
 
   public getOpenDocumentsDrawer(): OpenDocumentsDrawer {
@@ -120,19 +211,55 @@ export class UnifiedShellApp {
   }
 
   public getAppFilter(): DocumentType | null {
-    return this.appFilter;
+    return this.workspaceLayout.getAppFilter();
   }
 
   public setShowNavPane(show: boolean) {
-    this.showNavPane = show;
+    this.workspaceLayout.setShowNavPane(show);
     this.updateSidebarForActiveApp();
   }
 
   public getShowNavPane(): boolean {
-    return this.showNavPane;
+    return this.workspaceLayout.getShowNavPane();
+  }
+
+  public toggleProjectExplorer(): boolean {
+    const sidebar = document.getElementById("sidebar-container");
+    if (!sidebar) return false;
+
+    if (this.isProjectExplorerOpen) {
+      this.isProjectExplorerOpen = false;
+      this.updateSidebarForActiveApp();
+    } else {
+      this.isProjectExplorerOpen = true;
+      sidebar.style.display = "flex";
+      sidebar.innerHTML = "";
+      this.projectExplorer = new ProjectExplorerSidebar("sidebar-container", {
+        onOpenFile: (file) => {
+          void this.handleOpenFile(file.path);
+        },
+      });
+      const active = this.tabBar.getActiveTab();
+      if (active?.file_path) {
+        this.projectExplorer.setActiveFilePath(active.file_path);
+      }
+    }
+    return this.isProjectExplorerOpen;
+  }
+
+  public getProjectExplorer(): ProjectExplorerSidebar | undefined {
+    return this.projectExplorer;
+  }
+
+  public isProjectExplorerActive(): boolean {
+    return this.isProjectExplorerOpen;
   }
 
   public init(autoBoot = true) {
+    documentSessionRegistry.reset();
+    this.workspaceLayout = new WorkspaceLayoutManager();
+    this.paneController = new PaneController("primary-pane");
+    this.focusRouter = new FocusRouter(this.currentDocType);
     // 0. Parse Multi-Window App Query Parameter (?app=word|excel|ppt|pdf|notes)
     const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
     const appQuery = urlParams?.get("app")?.toLowerCase();
@@ -220,6 +347,18 @@ export class UnifiedShellApp {
     const splitScreenStatic = document.getElementById("btn-split-screen");
     if (splitScreenStatic) {
       splitScreenStatic.onclick = () => this.toggleSplitView();
+    }
+    if (titleActions && !document.getElementById("btn-project-explorer")) {
+      const explorerBtn = document.createElement("button");
+      explorerBtn.id = "btn-project-explorer";
+      explorerBtn.className = "project-explorer-btn";
+      explorerBtn.dataset.testid = "btn-project-explorer";
+      explorerBtn.title = "Toggle Workspace Project Explorer (All Formats)";
+      explorerBtn.innerHTML = `<span class="explorer-icon">📁</span> <span class="explorer-label">Project Explorer</span>`;
+      explorerBtn.onclick = () => {
+        this.toggleProjectExplorer();
+      };
+      titleActions.insertBefore(explorerBtn, titleActions.firstChild);
     }
     if (titleActions && !document.getElementById("btn-all-open-files")) {
       const allFilesBtn = document.createElement("button");
@@ -407,6 +546,25 @@ export class UnifiedShellApp {
 
     // 6. Initialize Find & Replace, Word Count, Function Wizard, and Slide Layout Dialogs
     this.findReplaceDialog = new FindReplaceDialog();
+    this.federatedSearchPanel = new FederatedSearchPanel();
+    this.federatedSearchPanel.setCallbacks({
+      onTabSwitchRequested: (sessionId) => {
+        this.tabBar.switchTab(sessionId);
+      },
+    });
+    this.omniboxLauncher = new OmniboxLauncher();
+    this.omniboxLauncher.setCallbacks({
+      onTabSwitch: (sessionId) => {
+        this.tabBar.switchTab(sessionId);
+      },
+      onExecuteItem: (item) => {
+        if (item.category === "Command") {
+          this.handleOmniboxCommand(item.payload);
+        } else if (item.category === "Search") {
+          this.federatedSearchPanel.show(item.payload, "find");
+        }
+      },
+    });
     this.wordCountDialog = new WordCountDialog();
     this.functionWizardDialog = new FunctionWizardDialog();
     this.nameManagerDialog = new NameManagerDialog();
@@ -439,23 +597,7 @@ export class UnifiedShellApp {
       zoomSlider.oninput = (e) => {
         const val = parseInt((e.target as HTMLInputElement).value, 10) || 100;
         if (zoomLevel) zoomLevel.textContent = `${val}%`;
-        const zoom = val / 100;
-        if (this.currentDocType === "Word" && this.writerCanvas) {
-          this.writerCanvas.getState().setZoom(zoom);
-          this.writerCanvas.render();
-        } else if (this.currentDocType === "Excel" && this.calcGridCanvas) {
-          calcState.setZoom(zoom);
-          this.calcGridCanvas.render();
-        } else if (this.currentDocType === "PowerPoint") {
-          slidesState.setZoom(val);
-          this.slideStageCanvas?.render();
-        } else if (this.currentDocType === "PDF") {
-          pdfState.setZoom(zoom);
-          this.pdfWorkspace?.render();
-        } else if (this.currentDocType === "Notes") {
-          notesState.setZoom(val);
-          this.notesWorkspace?.render();
-        }
+        this.paneController.setZoom(val);
       };
     }
 
@@ -970,6 +1112,14 @@ export class UnifiedShellApp {
     return this.findReplaceDialog;
   }
 
+  public getFederatedSearchPanel(): FederatedSearchPanel {
+    return this.federatedSearchPanel;
+  }
+
+  public getOmniboxLauncher(): OmniboxLauncher {
+    return this.omniboxLauncher;
+  }
+
   public getWordCountDialog(): WordCountDialog {
     return this.wordCountDialog;
   }
@@ -1166,6 +1316,9 @@ export class UnifiedShellApp {
   }
 
   public updateSidebarForActiveApp() {
+    if (this.isProjectExplorerOpen) {
+      return;
+    }
     const sidebar = document.getElementById("sidebar-container");
     if (!sidebar) return;
 
@@ -1296,6 +1449,8 @@ export class UnifiedShellApp {
   }
 
   private handleTabChange(tab: TabItem) {
+    documentSessionRegistry.getOrCreateSession(tab.id, tab.docType, tab.title, tab.file_path);
+    documentSessionRegistry.setActiveSession(tab.id);
     const appContainer = document.getElementById("app");
     if (appContainer) {
       appContainer.classList.remove("shell-hub-mode");
@@ -1325,6 +1480,7 @@ export class UnifiedShellApp {
         : "notes";
     this.appRail?.setActiveApp(railMode);
     this.updateAppRailCounts();
+    if (tab.file_path) this.projectExplorer?.setActiveFilePath(tab.file_path);
 
     this.ribbon.setDocumentType(tab.docType);
     if (this.copilotSidebar) {
@@ -1384,161 +1540,55 @@ export class UnifiedShellApp {
     // Update Sidebar
     this.updateSidebarForActiveApp();
 
-    // Update Active Viewport Controller
+    // Update Focus Router
+    this.focusRouter.setFocus("primary-pane", tab.id, tab.docType);
+
+    // Mount Viewport through PaneController
     const viewportContainer = document.getElementById("viewport-container");
     if (viewportContainer) {
-      if (this.writerCanvas) {
-        this.writerCanvas.destroy();
-        this.writerCanvas = undefined;
-      }
-      this.calcGridCanvas = undefined;
-      this.sheetTabBar = undefined;
-      this.slideStageCanvas = undefined;
-      if (this.slideMediaOverlay) {
-        this.slideMediaOverlay.clear();
-        this.slideMediaOverlay = undefined;
-      }
-      this.pdfViewerCanvas = undefined;
-
-      if (tab.docType === "Word") {
-        this.writerCanvas = new WriterCanvas(viewportContainer, writerState);
-        this.writerCanvas.setOnStatusChange(() => {
-          this.updateStatusBar();
-        });
-        this.writerCanvas.setOnDocModified((action, payload) => {
-          this.tabBar.setDirty(tab.id, true);
-          this.updateStatusBar();
+      this.paneController.mountViewport(viewportContainer, tab, {
+        onStatusChange: () => this.updateStatusBar(),
+        onDirty: (tabId) => this.tabBar.setDirty(tabId, true),
+        onDocModified: (tabId, action, payload) => {
           if (action === "InsertText") {
             const text = (payload as { text?: string })?.text || "";
-            IPC.dispatchUiAction(tab.id, { type: "InsertText", payload: { text } }).catch(() => {});
+            IPC.dispatchUiAction(tabId, { type: "InsertText", payload: { text } }).catch(() => {});
           } else if (action === "DeleteText") {
-            IPC.dispatchUiAction(tab.id, {
+            IPC.dispatchUiAction(tabId, {
               type: "DeleteTextRange",
               payload: { offset: 0, length: 1 },
             }).catch(() => {});
           }
-        });
-      } else if (tab.docType === "Excel") {
-        viewportContainer.innerHTML = `
-          <div class="calc-viewport-wrapper" style="position: relative; width: 100%; height: 100%; display: flex; flex-direction: column;">
-            <div style="position: relative; flex: 1; overflow: hidden;">
-              <div class="calc-grid-container" id="calc-grid-container" style="width: 100%; height: 100%;"></div>
-              <div id="calc-chart-overlay-container"></div>
-            </div>
-            <div id="calc-sheet-tab-bar-container"></div>
-          </div>
-        `;
-        const gridContainer = document.getElementById("calc-grid-container")!;
-        const sheetTabContainer = document.getElementById("calc-sheet-tab-bar-container")!;
-
-        this.calcGridCanvas = new CalcGridCanvas(gridContainer, calcState);
-        const chartOverlayEl = document.getElementById("calc-chart-overlay-container");
-        if (chartOverlayEl) {
-          this.calcChartOverlay = new CalcChartOverlay("calc-chart-overlay-container", calcState);
-        }
-
-        this.calcGridCanvas.setOnCellSelected((coord, val) => {
+        },
+        onCellSelected: (coord, val) => {
           this.formulaBar.setActiveCell(coord, val);
-          this.updateStatusBar();
-        });
-        this.calcGridCanvas.setOnCellEditing((coord, val) => {
+        },
+        onCellEditing: (coord, val) => {
           this.formulaBar.setActiveCell(coord, val);
-        });
-        this.calcGridCanvas.setOnCellModified((_coord, _val) => {
-          this.tabBar.setDirty(tab.id, true);
-          this.calcChartOverlay?.refresh();
+        },
+        onCellModified: () => {
           this.workbookSheetsPane?.refresh();
-          this.updateStatusBar();
-        });
-        this.calcGridCanvas.setOnRangeStatsChanged((_stats, rangeText) => {
+        },
+        onRangeStatsChanged: (_stats, rangeText) => {
           this.formulaBar.getNameBox().value = rangeText;
-          this.updateStatusBar();
-        });
-
-        this.sheetTabBar = new SheetTabBar(sheetTabContainer, calcState);
-        this.sheetTabBar.setCallbacks({
-          onSheetSwitched: () => {
-            this.calcGridCanvas?.render();
-            this.workbookSheetsPane?.refresh();
-            this.updateStatusBar();
-            this.formulaBar.setActiveCell(calcState.selectedCell, calcState.formulaBarText);
-          },
-          onSheetAdded: () => {
-            this.calcGridCanvas?.render();
-            this.workbookSheetsPane?.refresh();
-            this.updateStatusBar();
-            this.tabBar.setDirty(tab.id, true);
-          },
-          onSheetRenamed: () => {
-            this.workbookSheetsPane?.refresh();
-            this.tabBar.setDirty(tab.id, true);
-          },
-          onSheetDeleted: () => {
-            this.calcGridCanvas?.render();
-            this.workbookSheetsPane?.refresh();
-            this.updateStatusBar();
-            this.tabBar.setDirty(tab.id, true);
-          },
-        });
-      } else if (tab.docType === "PowerPoint") {
-        this.slideStageCanvas = new SlideStageCanvas(viewportContainer, slidesState);
-        this.slideStageCanvas.setOnDirty(() => {
-          this.tabBar.setDirty(tab.id, true);
-          this.updateStatusBar();
-        });
-        this.slideMediaOverlay = new SlideMediaOverlay(viewportContainer, slidesState);
-        this.speakerNotesPane = new SpeakerNotesPane(viewportContainer, slidesState);
-        this.speakerNotesPane.setOnDirty(() => this.tabBar.setDirty(tab.id, true));
-        this.animationPane = new AnimationPane("animation-pane-container", slidesState);
-        this.animationPane.setOnDirty(() => this.tabBar.setDirty(tab.id, true));
-        this.animationPane.setCallbacks({
-          onPlayAll: () => {
-            this.slideStageCanvas?.playAllAnimationsPreview(slidesState.getSlideAnimations());
-          },
-          onPlaySelected: (anim) => {
-            this.slideStageCanvas?.playAnimationPreview(anim);
-          },
-          onDirty: () => this.tabBar.setDirty(tab.id, true),
-        });
-        if (!this.presentationPlayer) {
-          this.presentationPlayer = new PresentationPlayer(slidesState);
-          this.presentationPlayer.setCallbacks({
-            onExit: () => {
-              this.slideStageCanvas?.render();
-              this.slideMediaOverlay?.refresh();
-              this.updateSlideSorter();
-              this.speakerNotesPane?.refresh();
-              this.animationPane?.refresh();
-              this.updateStatusBar();
-            },
-            onSlideChange: () => {
-              this.slideStageCanvas?.render();
-              this.slideMediaOverlay?.refresh();
-              this.updateSlideSorter();
-              this.speakerNotesPane?.refresh();
-              this.animationPane?.refresh();
-              this.updateStatusBar();
-            },
-          });
-        }
-      } else if (tab.docType === "PDF") {
-        this.pdfViewerCanvas = new PdfViewerCanvas(viewportContainer, pdfState);
-        this.pdfWorkspace = new PdfWorkspace(viewportContainer, pdfState);
-        this.pdfWorkspace.setCallbacks({
-          onDirty: () => this.tabBar.setDirty(tab.id, true),
-          onPageChange: () => {
-            this.updateStatusBar();
-          },
-        });
-      } else if (tab.docType === "Notes") {
-        this.notesWorkspace = new NotesWorkspace(viewportContainer, notesState);
-        this.notesWorkspace.setCallbacks({
-          onDirty: () => this.tabBar.setDirty(tab.id, true),
-          onStatusChange: () => {
-            this.updateStatusBar();
-          },
-        });
-      }
+        },
+        onSheetSwitched: () => {
+          this.workbookSheetsPane?.refresh();
+          this.formulaBar.setActiveCell(calcState.selectedCell, calcState.formulaBarText);
+        },
+        onSheetAdded: () => {
+          this.workbookSheetsPane?.refresh();
+        },
+        onSheetRenamed: () => {
+          this.workbookSheetsPane?.refresh();
+        },
+        onSheetDeleted: () => {
+          this.workbookSheetsPane?.refresh();
+        },
+        onSlideSorterUpdate: () => {
+          this.updateSlideSorter();
+        },
+      });
     }
 
     // Update Status Bar
@@ -1546,6 +1596,7 @@ export class UnifiedShellApp {
   }
 
   private handleTabClose(id: string) {
+    documentSessionRegistry.closeSession(id);
     IPC.closeSession(id, false).catch((err) => console.error("Close error:", err));
     if (this.openDocumentsDrawer) {
       this.openDocumentsDrawer.unregisterDocument(id);
@@ -1643,7 +1694,7 @@ export class UnifiedShellApp {
         : "notes";
     this.appRail?.setActiveApp(railMode);
     this.updateAppRailCounts();
-    this.updateAppRailCounts();
+    if (existing?.file_path) this.projectExplorer?.setActiveFilePath(existing.file_path);
   }
 
   public mapRailModeToDocType(mode: RailAppMode): DocumentType {
@@ -1678,134 +1729,196 @@ export class UnifiedShellApp {
   }
 
   public isSplitView(): boolean {
-    return this.isSplitViewActive;
+    return this.workspaceLayout.isSplitView();
   }
 
   public isSplitViewActiveMode(): boolean {
-    return this.isSplitViewActive;
+    return this.workspaceLayout.isSplitViewActiveMode();
   }
 
   public isSplitViewOpen(): boolean {
-    return this.isSplitViewActive;
+    return this.workspaceLayout.isSplitViewOpen();
   }
 
   public toggleSplitView(): boolean {
-    this.isSplitViewActive = !this.isSplitViewActive;
-    const splitBtn = document.getElementById("btn-split-view");
-    if (splitBtn) {
-      if (this.isSplitViewActive) {
-        splitBtn.classList.add("active");
-      } else {
-        splitBtn.classList.remove("active");
+    return this.workspaceLayout.toggleSplitView(
+      this.tabBar.getTabs(),
+      this.tabBar.getActiveTab(),
+      (tabId) => {
+        this.splitRightTabId = tabId;
       }
-    }
-    const layout = document.querySelector(".workspace-layout");
-    if (!layout) return this.isSplitViewActive;
-
-    if (this.isSplitViewActive) {
-      layout.classList.add("split-view-active");
-      this.renderSplitPane(layout as HTMLElement);
-    } else {
-      layout.classList.remove("split-view-active");
-      if (this.splitPaneEl) {
-        this.splitPaneEl.remove();
-        this.splitPaneEl = null;
-      }
-    }
-    return this.isSplitViewActive;
+    );
   }
 
-  private renderSplitPane(layout: HTMLElement) {
-    if (!this.splitPaneEl) {
-      this.splitPaneEl = document.createElement("div");
-      this.splitPaneEl.id = "workspace-split-pane";
-      this.splitPaneEl.className = "workspace-split-pane";
-      this.splitPaneEl.dataset.testid = "workspace-split-pane";
-      layout.appendChild(this.splitPaneEl);
-    }
-
-    this.splitPaneEl.innerHTML = "";
-    const header = document.createElement("div");
-    header.className = "workspace-split-header";
-    header.innerHTML = `<span>◫ Split View (Right Pane)</span>`;
-
-    const select = document.createElement("select");
-    select.className = "split-pane-select";
-    select.dataset.testid = "split-pane-select";
-
-    const allTabs = this.tabBar.getTabs();
-    const activeTab = this.tabBar.getActiveTab();
-    const otherTabs = allTabs.filter((t) => t.id !== activeTab?.id);
-
-    if (otherTabs.length === 0) {
-      const opt = document.createElement("option");
-      opt.textContent = "No secondary tab (Open another file)";
-      select.appendChild(opt);
-    } else {
-      otherTabs.forEach((t) => {
-        const opt = document.createElement("option");
-        opt.value = t.id;
-        opt.textContent = `[${t.docType}] ${t.title}`;
-        if (t.id === this.splitRightTabId) opt.selected = true;
-        select.appendChild(opt);
-      });
-      if (!this.splitRightTabId && otherTabs[0]) {
-        this.splitRightTabId = otherTabs[0].id;
+  public renderSplitPane(layout: HTMLElement): HTMLElement {
+    return this.workspaceLayout.renderSplitPane(
+      layout,
+      this.tabBar.getTabs(),
+      this.tabBar.getActiveTab(),
+      (tabId) => {
+        this.splitRightTabId = tabId;
       }
-    }
-
-    select.onchange = () => {
-      this.splitRightTabId = select.value;
-      this.renderSplitContent();
-    };
-
-    const closeBtn = document.createElement("button");
-    closeBtn.className = "split-pane-close";
-    closeBtn.textContent = "✕";
-    closeBtn.title = "Close Split View";
-    closeBtn.onclick = () => this.toggleSplitView();
-
-    header.appendChild(select);
-    header.appendChild(closeBtn);
-    this.splitPaneEl.appendChild(header);
-
-    const content = document.createElement("div");
-    content.className = "workspace-split-content";
-    content.id = "workspace-split-content";
-    this.splitPaneEl.appendChild(content);
-
-    this.renderSplitContent();
+    );
   }
 
-  private renderSplitContent() {
-    const content = document.getElementById("workspace-split-content");
-    if (!content) return;
-    content.innerHTML = "";
-
+  public renderSplitContent(): void {
     const targetTab = this.tabBar.getTabs().find((t) => t.id === this.splitRightTabId);
-    if (!targetTab) {
-      content.innerHTML = `<div style="padding: 24px; color: var(--text-muted); text-align: center;">Open or create another document to view side-by-side.</div>`;
-      return;
+    this.workspaceLayout.renderSplitContent(targetTab);
+  }
+
+  public getSplitGrid(): SplitPaneGrid | undefined {
+    return this.workspaceLayout.getSplitGrid();
+  }
+
+  public getSplitGridLayoutMode(): SplitGridLayoutMode {
+    return this.workspaceLayout.getSplitGridLayoutMode();
+  }
+
+  public setSplitGridLayoutMode(mode: SplitGridLayoutMode): void {
+    this.workspaceLayout.setSplitGridLayoutMode(mode, this.tabBar.getTabs());
+  }
+
+  public getWorkspacePersistence(): WorkspacePersistenceService {
+    return this.workspacePersistence;
+  }
+
+  public serializeCurrentWorkspace(title?: string): AetherWorkspaceFile {
+    if (title) {
+      this.activeWorkspaceTitle = title;
+    }
+    const tabs = this.tabBar.getTabs();
+    const activeTab = this.tabBar.getActiveTab();
+    const layoutMode = this.getSplitGridLayoutMode();
+    const grid = this.getSplitGrid();
+
+    const slots = grid?.getActiveSlots().map((s) => ({
+      slotId: s.slotId,
+      tabId: s.tabId,
+      docType: s.docType,
+      title: s.title,
+    }));
+
+    const focusedSlotId = grid?.getFocusedSlotId() || "pane-0";
+    const isExplorerOpen = this.isProjectExplorerActive();
+    const explorerActiveFilePath = this.projectExplorer?.getActiveFilePath() || undefined;
+
+    return this.workspacePersistence.serialize({
+      title: title || this.activeWorkspaceTitle,
+      tabs,
+      activeTabId: activeTab?.id,
+      activeDocType: this.currentDocType,
+      layoutMode,
+      focusedSlotId,
+      slots,
+      isExplorerOpen,
+      explorerActiveFilePath,
+    });
+  }
+
+  public async saveWorkspace(filePath?: string, title?: string): Promise<AetherWorkspaceFile | null> {
+    const workspace = this.serializeCurrentWorkspace(title);
+    const res = await this.workspacePersistence.saveToFile(workspace, filePath);
+    if (res.success) {
+      const docInfo = document.getElementById("status-doc-info");
+      if (docInfo) {
+        docInfo.textContent = `Workspace Saved: ${workspace.title}`;
+      }
+      return workspace;
+    }
+    return null;
+  }
+
+  public async loadWorkspace(workspaceData: AetherWorkspaceFile | string): Promise<boolean> {
+    const parseResult =
+      typeof workspaceData === "string"
+        ? this.workspacePersistence.deserialize(workspaceData)
+        : { success: true, data: workspaceData };
+
+    if (!parseResult.success || !parseResult.data) {
+      console.error("Failed to load workspace:", parseResult.error);
+      return false;
     }
 
-    const previewCard = document.createElement("div");
-    previewCard.className = "split-doc-preview";
-    previewCard.style.padding = "24px";
-    previewCard.style.backgroundColor = "var(--bg-surface)";
-    previewCard.style.borderRadius = "8px";
-    previewCard.style.border = "1px solid var(--border-color)";
-    previewCard.style.width = "90%";
-    previewCard.style.boxShadow = "var(--shadow-md)";
+    const data = parseResult.data;
+    this.activeWorkspaceTitle = data.title;
 
-    previewCard.innerHTML = `
-      <h3 style="margin-top:0; color: var(--text-primary); font-size: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
-        📄 [${targetTab.docType}] ${targetTab.title}
-      </h3>
-      <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.6;">
-        Side-by-Side Split View Active. Editing enabled across synchronized tabs.
-      </p>
-    `;
-    content.appendChild(previewCard);
+    // 1. Rehydrate Tabs
+    if (data.tabs && data.tabs.length > 0) {
+      this.tabBar.clearTabs();
+      documentSessionRegistry.clearAll();
+      for (const tab of data.tabs) {
+        this.tabBar.addTab({
+          id: tab.id,
+          title: tab.title,
+          docType: tab.docType,
+          isDirty: Boolean(tab.isDirty),
+          file_path: tab.filePath,
+        });
+
+        // Register in DocumentSessionRegistry
+        documentSessionRegistry.createSession(
+          tab.id,
+          tab.docType,
+          tab.title,
+          tab.filePath
+        );
+      }
+    }
+
+    // 2. Rehydrate Layout Mode & Split Pane Grid
+    if (data.layout) {
+      this.setSplitGridLayoutMode(data.layout.mode);
+      const grid = this.getSplitGrid();
+      if (grid && data.layout.slots) {
+        grid.updateTabs(this.tabBar.getTabs());
+        for (const slot of data.layout.slots) {
+          if (slot.tabId) {
+            grid.setSlotTab(slot.slotId, slot.tabId);
+          }
+        }
+        if (data.layout.focusedSlotId) {
+          grid.setFocusedSlot(data.layout.focusedSlotId);
+        }
+      }
+    }
+
+    // 3. Switch to Active Tab & Active Document Type
+    const targetTab =
+      this.tabBar.getTabs().find((t) => t.id === data.activeTabId) ||
+      this.tabBar.getTabs()[0];
+
+    if (targetTab) {
+      this.tabBar.switchTab(targetTab.id);
+      this.handleTabChange(targetTab);
+    }
+
+    // 4. Rehydrate Project Explorer Sidebar
+    if (data.explorer) {
+      if (data.explorer.isOpen && !this.isProjectExplorerActive()) {
+        this.toggleProjectExplorer();
+      } else if (!data.explorer.isOpen && this.isProjectExplorerActive()) {
+        this.toggleProjectExplorer();
+      }
+      if (data.explorer.activeFilePath && this.projectExplorer) {
+        this.projectExplorer.setActiveFilePath(data.explorer.activeFilePath);
+      }
+    }
+
+    // 5. Update Status Info
+    const docInfo = document.getElementById("status-doc-info");
+    if (docInfo) {
+      docInfo.textContent = `Workspace: ${data.title}`;
+    }
+
+    return true;
+  }
+
+  public async loadWorkspaceFromFile(): Promise<boolean> {
+    const res = await this.workspacePersistence.loadFromFile();
+    if (res.success && res.data) {
+      return this.loadWorkspace(res.data);
+    }
+    return false;
   }
 
   public handleRailAppSelect(mode: RailAppMode) {
@@ -2053,28 +2166,22 @@ export class UnifiedShellApp {
       this.tabBar.setDirty(active.id, true);
     } else if (this.currentDocType === "PowerPoint") {
       if (action === "StartShowBeginning") {
-        if (!this.presentationPlayer) {
-          this.presentationPlayer = new PresentationPlayer(slidesState);
-        }
-        this.presentationPlayer.startShow(true, false);
+        const player = this.paneController.getOrCreatePresentationPlayer();
+        player.startShow(true, false);
         if (!document.fullscreenElement && typeof document.documentElement.requestFullscreen === "function") {
           document.documentElement.requestFullscreen().catch(() => {});
         }
         this.updateSlideSorter();
       } else if (action === "StartShowCurrent") {
-        if (!this.presentationPlayer) {
-          this.presentationPlayer = new PresentationPlayer(slidesState);
-        }
-        this.presentationPlayer.startShow(false, false);
+        const player = this.paneController.getOrCreatePresentationPlayer();
+        player.startShow(false, false);
         if (!document.fullscreenElement && typeof document.documentElement.requestFullscreen === "function") {
           document.documentElement.requestFullscreen().catch(() => {});
         }
         this.updateSlideSorter();
       } else if (action === "StartPresenterView" || action === "StartDualScreenPresenter") {
-        if (!this.presentationPlayer) {
-          this.presentationPlayer = new PresentationPlayer(slidesState);
-        }
-        this.presentationPlayer.startShow(false, true);
+        const player = this.paneController.getOrCreatePresentationPlayer();
+        player.startShow(false, true);
         this.presenterConsole?.open();
         if (!document.fullscreenElement && typeof document.documentElement.requestFullscreen === "function") {
           document.documentElement.requestFullscreen().catch(() => {});
@@ -2738,100 +2845,102 @@ export class UnifiedShellApp {
 
   private handleShortcutAction(action: string) {
     console.log("Shortcut Action:", action);
-    const active = this.tabBar.getActiveTab();
-    if (!active) return;
+    if (action === "Omnibox") {
+      this.omniboxLauncher.toggle();
+      return;
+    }
+    if (action === "FederatedFind") {
+      this.federatedSearchPanel.show("", "find");
+      return;
+    }
+    if (action === "FederatedReplace") {
+      this.federatedSearchPanel.show("", "replace");
+      return;
+    }
+    this.focusRouter.handleShortcutAction(action, {
+      getActiveTabId: () => this.tabBar.getActiveTab()?.id || null,
+      getCurrentDocType: () => this.currentDocType,
+      onNextTab: () => this.tabBar.nextTab(),
+      onPrevTab: () => this.tabBar.prevTab(),
+      onSave: () => void this.saveActiveDocument(),
+      onSaveAs: () => this.openBackstageSaveAs(),
+      onOpen: () => this.openFilePickerOrBackstage(),
+      onPrint: () => this.handlePrint(),
+      onNew: () => this.handleNewTab(),
+      onClose: (tabId) => this.tabBar.closeTab(tabId),
+      onFind: () => this.showFindReplace("find"),
+      onReplace: () => this.showFindReplace("replace"),
+      onFocusFormulaBar: () => {
+        if (this.currentDocType === "Excel") {
+          this.formulaBar.focus();
+        }
+      },
+      onCalcCopy: () => this.calcGridCanvas?.copy(),
+      onCalcCut: () => this.calcGridCanvas?.cut(),
+      onCalcPaste: () => this.calcGridCanvas?.paste(),
+      onRenderCurrent: () => {
+        this.paneController.renderCurrent();
+        if (this.currentDocType === "PowerPoint") {
+          this.updateSlideSorter();
+        }
+      },
+      onSaveWorkspace: () => {
+        void this.saveWorkspace();
+      },
+      onOpenWorkspace: () => {
+        void this.loadWorkspaceFromFile();
+      },
+    });
+  }
 
-    switch (action) {
-      case "NextTab":
-        this.tabBar.nextTab();
+  public handleOmniboxCommand(cmd: string): void {
+    switch (cmd) {
+      case "NewTab":
+        this.handleNewTab();
         break;
-      case "PrevTab":
-        this.tabBar.prevTab();
+      case "OpenFile":
+        this.openFilePickerOrBackstage();
         break;
-      case "Undo":
-        if (this.currentDocType === "PowerPoint") {
-          slidesState.undo();
-          this.slideStageCanvas?.render();
-          this.slideMediaOverlay?.refresh();
-        } else if (this.currentDocType === "PDF") {
-          pdfState.undo();
-          this.pdfWorkspace?.render();
-        } else if (this.currentDocType === "Notes") {
-          notesState.undo();
-          this.notesWorkspace?.render();
-        } else if (this.currentDocType === "Excel") {
-          calcState.undo();
-          this.calcGridCanvas?.render();
-        } else {
-          writerState.undo();
-          this.writerCanvas?.render();
-          IPC.executeUndo(active.id);
-        }
-        break;
-      case "Redo":
-        if (this.currentDocType === "PowerPoint") {
-          slidesState.redo();
-          this.slideStageCanvas?.render();
-          this.slideMediaOverlay?.refresh();
-        } else if (this.currentDocType === "PDF") {
-          pdfState.redo();
-          this.pdfWorkspace?.render();
-        } else if (this.currentDocType === "Notes") {
-          notesState.redo();
-          this.notesWorkspace?.render();
-        } else if (this.currentDocType === "Excel") {
-          calcState.redo();
-          this.calcGridCanvas?.render();
-        } else {
-          writerState.redo();
-          this.writerCanvas?.render();
-          IPC.executeRedo(active.id);
-        }
-        break;
-      case "Save":
+      case "SaveDocument":
         void this.saveActiveDocument();
         break;
       case "SaveAs":
         this.openBackstageSaveAs();
         break;
-      case "Open":
-        this.openFilePickerOrBackstage();
+      case "FederatedSearch":
+        this.federatedSearchPanel.show("", "find");
         break;
-      case "Print":
-        this.handlePrint();
+      case "CloseActiveTab": {
+        const active = this.tabBar.getActiveTab();
+        if (active) this.tabBar.closeTab(active.id);
         break;
-      case "New":
-        this.handleNewTab();
+      }
+      case "ToggleTheme":
+        themeManager.toggleTheme();
         break;
-      case "Close":
-        this.tabBar.closeTab(active.id);
+      case "SplitHorizontal":
+        this.workspaceLayout.setSplitGridLayoutMode("split-horizontal", this.tabBar.getTabs());
         break;
-      case "Find":
-        this.showFindReplace("find");
+      case "SplitVertical":
+        this.workspaceLayout.setSplitGridLayoutMode("split-vertical", this.tabBar.getTabs());
         break;
-      case "Replace":
-        this.showFindReplace("replace");
+      case "SplitSingle":
+        this.workspaceLayout.setSplitGridLayoutMode("single", this.tabBar.getTabs());
         break;
-      case "CellEdit":
-        if (this.currentDocType === "Excel") {
-          this.formulaBar.focus();
-        }
+      case "WordCount":
+        this.showWordCount();
         break;
-      case "Copy":
-        if (this.currentDocType === "Excel") {
-          this.calcGridCanvas?.copy();
-        }
+      case "ToggleCopilot":
+        this.copilotSidebar.toggle();
         break;
-      case "Cut":
-        if (this.currentDocType === "Excel") {
-          this.calcGridCanvas?.cut();
-        }
+      case "Undo":
+        this.handleShortcutAction("Undo");
         break;
-      case "Paste":
-        if (this.currentDocType === "Excel") {
-          this.calcGridCanvas?.paste();
-        }
+      case "Redo":
+        this.handleShortcutAction("Redo");
         break;
+      default:
+        console.log("Omnibox command executed:", cmd);
     }
   }
 
@@ -2901,6 +3010,19 @@ export class UnifiedShellApp {
   }
 
   public async handleOpenFile(filePath: string, fileContent?: string | ArrayBuffer | Uint8Array): Promise<void> {
+    if (filePath.endsWith(".aether-workspace")) {
+      let jsonText = "";
+      if (typeof fileContent === "string") {
+        jsonText = fileContent;
+      } else if (fileContent instanceof ArrayBuffer || fileContent instanceof Uint8Array) {
+        jsonText = new TextDecoder().decode(fileContent);
+      }
+      if (jsonText) {
+        await this.loadWorkspace(jsonText);
+        return;
+      }
+    }
+
     const docType: DocumentType = fileIoService.detectDocType(filePath);
 
     let sessionId = `tab-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -2935,6 +3057,7 @@ export class UnifiedShellApp {
     });
     this.tabBar.switchTab(sessionId);
     this.updateAppRailCounts();
+    this.projectExplorer?.setActiveFilePath(filePath);
 
     // Re-render active viewport components to ensure newly loaded data is immediately visible
     if (docType === "Excel") {
@@ -2987,38 +3110,12 @@ export class UnifiedShellApp {
   }
 
   private handleAltKeytip(code: string) {
-    if (code === "F") {
+    const res = this.focusRouter.resolveAltKeytip(code, this.currentDocType);
+    if (!res) return;
+    if (res.type === "backstage") {
       this.toggleBackstage();
-      return;
-    }
-    const keyMap: Record<string, RibbonTabId> = {
-      H: "Home",
-      N: "Insert",
-      P:
-        this.currentDocType === "Excel"
-          ? "Page Layout"
-          : this.currentDocType === "PDF"
-          ? "Page Tools"
-          : "Layout",
-      G: "Design",
-      M: "Formulas",
-      A: "Data",
-      T: "Transitions",
-      K: "Animations",
-      S:
-        this.currentDocType === "PowerPoint"
-          ? "Slide Show"
-          : this.currentDocType === "Word"
-          ? "References"
-          : "Sign & Protect",
-      E: "Edit PDF",
-      C: "Comment & Annotate",
-      R: "Review",
-      W: "View",
-    };
-    const target = keyMap[code];
-    if (target) {
-      this.ribbon.setActiveTab(target);
+    } else if (res.type === "tab") {
+      this.ribbon.setActiveTab(res.tabId);
     }
   }
 }

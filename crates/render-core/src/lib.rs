@@ -9,26 +9,55 @@
 //! - Headless SVG exporter, software pixel rasterizer, and PDF vector fallback
 //! - 120Hz frame pacing compositor and latency profiler
 
+pub mod accessibility;
 pub mod adaptive;
+pub mod benchmarks;
 pub mod commands;
 pub mod compiler;
 pub mod compositor;
+pub mod conversion;
+pub mod cross_doc;
 pub mod document_io;
+pub mod entitlement;
+pub mod federated_search;
+pub mod gesture;
 pub mod interaction;
+pub mod omnibox;
 pub mod primitive;
 pub mod rasterizer;
 pub mod release_matrix;
+pub mod rtree;
+pub mod sbom;
+pub mod session_suspension;
 pub mod shell;
+pub mod smart_guides;
 pub mod spatial;
 pub mod text;
+pub mod theme;
+pub mod timeline_scrubber;
 pub mod ui_dispatcher;
+pub mod wasm_bridge;
+pub mod wikilinks;
 pub mod window;
 
+pub use accessibility::*;
+pub use benchmarks::*;
 pub use document_io::*;
+pub use entitlement::*;
+pub use federated_search::*;
+pub use gesture::*;
+pub use omnibox::*;
 pub use release_matrix::{
     PackagingBundle, PlatformReleaseTarget, ReleaseMatrix, TargetArch, TargetOs,
 };
+pub use rtree::*;
+pub use sbom::*;
+pub use session_suspension::*;
+pub use smart_guides::*;
+pub use theme::{DesignTokenEngine, RibbonLayoutConfig, RibbonLayoutMode, ThemeMode, ThemeTokens};
+pub use timeline_scrubber::*;
 pub use ui_dispatcher::{UiActionEvent, UiCommandDispatcher, UiDispatchResult};
+pub use wasm_bridge::*;
 
 pub use adaptive::{
     AdaptiveShellController, AddInkStrokeTransaction, BottomSheetState, BottomSheetStateMachine,
@@ -38,6 +67,9 @@ pub use adaptive::{
     WordReflowReaderEngine,
 };
 pub use commands::*;
+pub use conversion::*;
+pub use cross_doc::*;
+pub use wikilinks::*;
 pub use window::{
     DetachTabTransaction, DockTabTransaction, DockTarget, MultiWindowManager, ProcessIpcEnvelope,
     ProcessIpcPayload, ProcessLaunchConfig, TabDetachmentEngine, TabDockingEngine, TabDragSession,
@@ -99,7 +131,10 @@ pub use shell::{
     WordRibbonController, WordRulerConfig,
 };
 pub use spatial::SpatialGrid;
-pub use text::ShapedTextEngine;
+pub use text::{
+    snap_to_device_pixel, HighDpiTextCompositor, ShapedTextEngine, SubpixelKerning, TextDirection,
+    VisualTextRun,
+};
 
 pub fn health_check() -> bool {
     true

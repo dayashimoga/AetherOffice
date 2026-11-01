@@ -195,6 +195,7 @@ fn test_07_paragraph_and_run_properties_dom() {
         font_cs: None,
         highlight: Some("yellow".to_string()),
         raw_elements: Vec::new(),
+        ..Default::default()
     });
 
     p.children.push(ParagraphChild::Run(run));
@@ -704,6 +705,7 @@ fn test_20_comments_document_roundtrip() {
         initials: Some("CA".to_string()),
         date: Some("2026-10-28T14:30:00Z".to_string()),
         body: Body::default(),
+        ..Default::default()
     };
     let mut p = Paragraph::default();
     let mut r = Run::default();

@@ -227,6 +227,24 @@ pub enum ShapeElement {
     GraphicFrame(GraphicFrame),
 }
 
+impl ShapeElement {
+    pub fn id(&self) -> u32 {
+        match self {
+            ShapeElement::Shape(sh) => sh.id,
+            ShapeElement::Group(grp) => grp.id,
+            ShapeElement::GraphicFrame(gf) => gf.id,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        match self {
+            ShapeElement::Shape(sh) => &sh.name,
+            ShapeElement::Group(grp) => &grp.name,
+            ShapeElement::GraphicFrame(gf) => &gf.name,
+        }
+    }
+}
+
 /// DrawingML shape: `<p:sp>`.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Shape {

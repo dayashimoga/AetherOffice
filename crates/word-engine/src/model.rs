@@ -121,6 +121,15 @@ pub struct NumberingProperty {
     pub ilvl: u32,
 }
 
+/// Tracked paragraph formatting revision: `<w:pPrChange>`.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct ParagraphPropertiesChange {
+    pub id: String,
+    pub author: String,
+    pub date: String,
+    pub previous_properties: Option<Box<ParagraphProperties>>,
+}
+
 /// Paragraph formatting properties: `<w:pPr>`.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct ParagraphProperties {
@@ -135,6 +144,8 @@ pub struct ParagraphProperties {
     pub keep_lines: bool,
     pub page_break_before: bool,
     pub kinsoku: Option<bool>,
+    pub p_pr_change: Option<ParagraphPropertiesChange>,
+    pub outline_level: Option<u32>,
     pub raw_elements: Vec<RawXmlNode>,
 }
 
@@ -157,6 +168,7 @@ pub struct Indentation {
 }
 
 /// In-line child element within a paragraph: `<w:p>`.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ParagraphChild {
     Run(Run),
@@ -193,6 +205,12 @@ impl ParagraphChild {
             _ => {}
         }
     }
+
+    pub fn get_text(&self) -> String {
+        let mut s = String::new();
+        self.write_text(&mut s);
+        s
+    }
 }
 
 /// Text run element: `<w:r>`.
@@ -226,6 +244,15 @@ impl Run {
     }
 }
 
+/// Tracked run formatting revision: `<w:rPrChange>`.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct RunPropertiesChange {
+    pub id: String,
+    pub author: String,
+    pub date: String,
+    pub previous_properties: Option<Box<RunProperties>>,
+}
+
 /// Formatting properties for a text run: `<w:rPr>`.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct RunProperties {
@@ -241,6 +268,7 @@ pub struct RunProperties {
     pub font_east_asia: Option<String>,
     pub font_cs: Option<String>,
     pub highlight: Option<String>,
+    pub r_pr_change: Option<RunPropertiesChange>,
     pub raw_elements: Vec<RawXmlNode>,
 }
 

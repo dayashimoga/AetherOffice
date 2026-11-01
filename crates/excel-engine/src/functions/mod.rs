@@ -3,12 +3,14 @@
 //! Dispatches over 40+ Excel functions across Math, Statistical, Financial, Date/Time,
 //! Lookup & Reference, Logical, and Modern Dynamic Lambda/Let.
 
+pub mod array;
 pub mod datetime;
 pub mod financial;
 pub mod lambda;
 pub mod lookup;
 pub mod math_stat;
 
+pub use array::*;
 pub use datetime::*;
 pub use financial::*;
 pub use lambda::*;
@@ -63,6 +65,10 @@ where
         "MAP" => eval_map(args, ctx, eval_fn),
         "REDUCE" => eval_reduce(args, ctx, eval_fn),
         "SCAN" => eval_scan(args, ctx, eval_fn),
+        "MAKEARRAY" => eval_makearray(args, ctx, eval_fn),
+        "BYROW" => eval_byrow(args, ctx, eval_fn),
+        "BYCOL" => eval_bycol(args, ctx, eval_fn),
+        "ISOMITTED" => eval_isomitted(args, ctx, eval_fn),
         "LAMBDA" => {
             // Return unevaluated lambda definition
             Ok(CellValue::InlineString(format!("LAMBDA:{}", args.len())))
@@ -127,6 +133,15 @@ where
 
             let eager_res = dispatch_eager_function(&clean_name, &eval_args, ctx.date1904)?;
             if let CellValue::Error(CellError::Name) = eager_res {
+                if let Some((params, body)) = ctx.lambdas.get(&clean_name) {
+                    let mut call_env = std::collections::HashMap::new();
+                    for (i, p) in params.iter().enumerate() {
+                        let val = eval_args.get(i).cloned().unwrap_or(CellValue::Empty);
+                        call_env.insert(p.clone(), val);
+                    }
+                    let call_ctx = ctx.with_env(call_env);
+                    return eval_fn(body, &call_ctx);
+                }
                 if let Some(ref handler) = ctx.udf_handler {
                     match handler(&clean_name, &eval_args) {
                         Ok(val) => Ok(val),
@@ -273,6 +288,18 @@ fn dispatch_eager_function(name: &str, args: &[CellValue], date1904: bool) -> Re
         "FILTER" => Ok(fn_filter(args)),
         "UNIQUE" => Ok(fn_unique(args)),
         "SORT" => Ok(fn_sort(args)),
+
+        // --- Modern Dynamic Array Primitives ---
+        "SEQUENCE" => Ok(fn_sequence(args)),
+        "RANDARRAY" => Ok(fn_randarray(args)),
+        "CHOOSEROWS" => Ok(fn_chooserows(args)),
+        "CHOOSECOLS" => Ok(fn_choosecols(args)),
+        "TOCOL" => Ok(fn_tocol(args)),
+        "TOROW" => Ok(fn_torow(args)),
+        "TAKE" => Ok(fn_take(args)),
+        "DROP" => Ok(fn_drop(args)),
+        "EXPAND" => Ok(fn_expand(args)),
+        "SORTBY" => Ok(fn_sortby(args)),
 
         // --- Logical ---
         "AND" => {

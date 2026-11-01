@@ -59,7 +59,17 @@ impl AnimatedSceneState {
     }
 }
 
-/// A scheduled animation step within the click sequence.
+#[derive(Debug, Clone)]
+/// Information about an animation track scheduled in the timeline.
+#[derive(Serialize, Deserialize, PartialEq)]
+pub struct AnimationTrackInfo {
+    pub shape_id: u32,
+    pub effect_type: String,
+    pub click_step: usize,
+    pub start_time_ms: f64,
+    pub duration_ms: f64,
+}
+
 #[derive(Debug, Clone)]
 struct ScheduledAnimation {
     click_step: usize,
@@ -170,6 +180,31 @@ impl AnimationTimeline {
     }
 
     /// Total overall duration of all scheduled animations combined.
+    /// Extract track metadata for all scheduled animation nodes.
+    pub fn extract_tracks(&self) -> Vec<AnimationTrackInfo> {
+        let mut tracks = Vec::with_capacity(self.scheduled.len());
+        for s in &self.scheduled {
+            let (shape_id, effect_type) = match &s.node.kind {
+                TimeNodeKind::Motion(m) => (m.target.shape_id, "Motion".to_string()),
+                TimeNodeKind::Rotation(r) => (r.target.shape_id, "Rotation".to_string()),
+                TimeNodeKind::Scale(sc) => (sc.target.shape_id, "Scale".to_string()),
+                TimeNodeKind::Color(c) => (c.target.shape_id, "Color".to_string()),
+                TimeNodeKind::Effect(e) => (e.target.shape_id, format!("{:?}", e.transition)),
+                TimeNodeKind::Generic(g) => (g.target.shape_id, g.attribute_name.clone()),
+                TimeNodeKind::Set(set) => (set.target.shape_id, "Set".to_string()),
+                _ => (0, "Unknown".to_string()),
+            };
+            tracks.push(AnimationTrackInfo {
+                shape_id,
+                effect_type,
+                click_step: s.click_step,
+                start_time_ms: s.start_time_ms,
+                duration_ms: s.duration_ms,
+            });
+        }
+        tracks
+    }
+
     pub fn total_duration_ms(&self) -> f64 {
         let mut total = 0.0;
         for step in 0..self.total_clicks {
@@ -309,7 +344,7 @@ impl AnimationTimeline {
     fn compile_timing_tree(&mut self, root: &TimeNode) {
         let mut click_step = 0;
         self.compile_node(root, &mut click_step, 0.0);
-        self.total_clicks = click_step.max(1);
+        self.total_clicks = click_step + 1;
     }
 
     fn compile_node(&mut self, node: &TimeNode, click_step: &mut usize, current_time: f64) {

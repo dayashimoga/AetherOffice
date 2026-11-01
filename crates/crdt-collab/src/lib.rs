@@ -2,12 +2,14 @@
 //! crdt-collab - Conflict-Free Replicated Data Types for Real-Time Office Collaboration
 //!
 //! Provides deterministic convergence, causal tree ordering (Fugue Tree-RGA),
-//! Peritext rich-text formatting intervals, and multi-user awareness.
+//! Peritext rich-text formatting intervals, local-first operation logging,
+//! version time-travel, and multi-user awareness.
 
 pub mod error;
 pub mod fugue;
 pub mod grid_crdt;
 pub mod id;
+pub mod op_log;
 pub mod peritext;
 pub mod transport;
 
@@ -17,6 +19,9 @@ pub use grid_crdt::{
     CellCoord, CellRegister, CoordinateShifter, GridCellValue, GridDelta, GridMatrixCrdt,
 };
 pub use id::OpId;
+pub use op_log::{
+    CheckpointMeta, LocalOpLog, MaterializedDocumentState, OpLogEntry, OpPayload, SyncReport,
+};
 pub use peritext::{FormatAttribute, PeritextSpan, RichTextRun};
 pub use transport::{
     CollabPacket, CollabTransportBus, CursorCoord, EncryptedEnvelope, EncryptionKey, PeerPresence,

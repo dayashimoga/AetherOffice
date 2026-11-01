@@ -1,8 +1,10 @@
 //! Personally Identifiable Information (PII) pattern scanner and redaction engine.
 
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum PiiKind {
     Email,
     PhoneNumber,
@@ -25,7 +27,7 @@ impl PiiKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PiiMatch {
     pub kind: PiiKind,
     pub matched_text: String,
@@ -184,7 +186,7 @@ impl PiiScanner {
     }
 }
 
-/// Luhn algorithm (mod 10) for credit card validation.
+/// Helper building Regex with fallback.
 fn build_re(pattern: &str) -> Regex {
     if let Ok(r) = Regex::new(pattern) {
         r
